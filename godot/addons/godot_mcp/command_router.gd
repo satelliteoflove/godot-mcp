@@ -14,6 +14,7 @@ func setup(_plugin: EditorPlugin) -> void:
 	_register_handler(MCPProjectCommands.new())
 	_register_handler(MCPFileCommands.new())
 	_register_handler(MCPDebugCommands.new())
+	_register_handler(MCPScreenshotCommands.new())
 
 
 func _register_handler(handler: MCPBaseCommand) -> void:

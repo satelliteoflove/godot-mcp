@@ -67,6 +67,7 @@ func _accept_connection() -> void:
 		return
 
 	_ws_peer = WebSocketPeer.new()
+	_ws_peer.outbound_buffer_size = 16 * 1024 * 1024  # 16MB for screenshot data
 	var err := _ws_peer.accept_stream(_peer)
 	if err != OK:
 		push_error("[godot-mcp] Failed to accept WebSocket stream: %s" % error_string(err))

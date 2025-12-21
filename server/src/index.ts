@@ -40,8 +40,13 @@ async function main() {
 
     try {
       const result = await registry.executeTool(name, args ?? {}, { godot });
+      if (typeof result === 'string') {
+        return {
+          content: [{ type: 'text', text: result }],
+        };
+      }
       return {
-        content: [{ type: 'text', text: result }],
+        content: [result],
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -1,4 +1,4 @@
-import type { AnyToolDefinition, ResourceDefinition, ToolContext } from './types.js';
+import type { AnyToolDefinition, ResourceDefinition, ToolContext, ToolResult } from './types.js';
 import { toInputSchema } from './schema.js';
 import { formatError } from '../utils/errors.js';
 
@@ -56,7 +56,7 @@ class ToolRegistry {
     name: string,
     args: Record<string, unknown>,
     ctx: ToolContext
-  ): Promise<string> {
+  ): Promise<string | ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);

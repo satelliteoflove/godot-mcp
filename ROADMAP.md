@@ -42,7 +42,7 @@ Core implementation complete, published to npm as [@satelliteoflove/godot-mcp](h
 ### P2 - Nice to Have
 - [ ] Resource assignment (scripts, materials, PackedScenes) - fix the bug from upstream
 - [ ] Animation support (AnimationPlayer read/write)
-- [ ] Screenshot capture for visual AI context
+- [x] Screenshot capture for visual AI context
 - [ ] TileMap/GridMap editing
 
 ### Quality
