@@ -12,6 +12,7 @@ A robust Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI 
 - Project file listing and search
 - Editor state access
 - Debug output capture
+- Screenshot capture (editor viewports and running game)
 
 ## Architecture
 
@@ -25,17 +26,28 @@ A robust Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI 
 
 Copy the `godot/addons/godot_mcp` folder to your Godot project's `addons` directory, then enable it in Project Settings > Plugins.
 
-### 2. Set Up the MCP Server
+### 2. Configure Your AI Assistant
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "godot-mcp": {
+      "command": "npx",
+      "args": ["@satelliteoflove/godot-mcp"]
+    }
+  }
+}
+```
+
+Or if running from source:
 
 ```bash
 cd server
 npm install
 npm run build
 ```
-
-### 3. Configure Your AI Assistant
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -48,7 +60,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 }
 ```
 
-### 4. Start Using
+### 3. Start Using
 
 1. Open your Godot project (with the addon enabled)
 2. Restart Claude Desktop
@@ -79,6 +91,10 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `run_project` - Run the project
 - `stop_project` - Stop the running project
 - `get_debug_output` - Get debug/print output
+
+### Screenshot Tools
+- `capture_game_screenshot` - Capture the running game viewport
+- `capture_editor_screenshot` - Capture the editor 2D or 3D viewport
 
 ## Development
 
