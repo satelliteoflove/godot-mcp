@@ -151,8 +151,20 @@ func _get_node(path: String) -> Node:
 	if not root:
 		return null
 
-	if path == "/root" or path == str(root.get_path()):
+	if path == "/root" or path == "/" or path == str(root.get_path()):
 		return root
+
+	if path.begins_with("/root/"):
+		var parts := path.split("/")
+		if parts.size() >= 3:
+			if parts[2] == root.name:
+				var relative_path := "/".join(parts.slice(3))
+				if relative_path.is_empty():
+					return root
+				return root.get_node_or_null(relative_path)
+
+	if path.begins_with("/"):
+		path = path.substr(1)
 
 	return root.get_node_or_null(path)
 
