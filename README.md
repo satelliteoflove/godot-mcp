@@ -1,6 +1,6 @@
 # godot-mcp
 
-A robust Model Context Protocol (MCP) server for Godot Engine 4.3+, enabling AI assistants to interact with your Godot projects in real-time.
+A robust Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI assistants to interact with your Godot projects in real-time.
 
 ## Features
 
