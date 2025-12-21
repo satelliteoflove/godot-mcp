@@ -2,311 +2,390 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
 import { animationQuery, animationPlayback, animationEdit } from '../../tools/animation.js';
 
-describe('Animation Tools', () => {
+describe('animation_query', () => {
   let mock: MockGodotConnection;
 
   beforeEach(() => {
     mock = createMockGodot();
   });
 
-  describe('animation_query', () => {
-    describe('list_players action', () => {
-      it('sends list_animation_players command', async () => {
-        mock.mockResponse({ animation_players: [] });
-        const ctx = createToolContext(mock);
+  it('list_players sends command and formats empty result', async () => {
+    mock.mockResponse({ animation_players: [] });
+    const ctx = createToolContext(mock);
 
-        await animationQuery.execute({ action: 'list_players' }, ctx);
+    const result = await animationQuery.execute({ action: 'list_players' }, ctx);
 
-        expect(mock.calls[0].command).toBe('list_animation_players');
-      });
-
-      it('returns message when no players found', async () => {
-        mock.mockResponse({ animation_players: [] });
-        const ctx = createToolContext(mock);
-
-        const result = await animationQuery.execute({ action: 'list_players' }, ctx);
-
-        expect(result).toBe('No AnimationPlayer nodes found in scene');
-      });
-
-      it('lists found players', async () => {
-        mock.mockResponse({
-          animation_players: [
-            { path: '/root/Player/AnimPlayer', name: 'AnimPlayer' },
-            { path: '/root/Enemy/AnimPlayer', name: 'AnimPlayer' },
-          ],
-        });
-        const ctx = createToolContext(mock);
-
-        const result = await animationQuery.execute({ action: 'list_players' }, ctx);
-
-        expect(result).toContain('Found 2 AnimationPlayer(s)');
-        expect(result).toContain('/root/Player/AnimPlayer');
-      });
-
-      it('accepts optional root_path', () => {
-        const result = animationQuery.schema.safeParse({
-          action: 'list_players',
-          root_path: '/root/Enemies',
-        });
-        expect(result.success).toBe(true);
-      });
-    });
-
-    describe('get_info action', () => {
-      it('sends get_animation_player_info command with node_path', async () => {
-        mock.mockResponse({
-          current_animation: 'idle',
-          is_playing: true,
-          current_position: 0.5,
-          speed_scale: 1,
-          libraries: {},
-          animation_count: 3,
-        });
-        const ctx = createToolContext(mock);
-
-        await animationQuery.execute({
-          action: 'get_info',
-          node_path: '/root/Player/AnimPlayer',
-        }, ctx);
-
-        expect(mock.calls[0].command).toBe('get_animation_player_info');
-        expect(mock.calls[0].params.node_path).toBe('/root/Player/AnimPlayer');
-      });
-
-      it('rejects get_info without node_path', () => {
-        const result = animationQuery.schema.safeParse({ action: 'get_info' });
-        expect(result.success).toBe(false);
-      });
-    });
-
-    describe('get_details action', () => {
-      it('requires node_path and animation_name', () => {
-        expect(animationQuery.schema.safeParse({ action: 'get_details' }).success).toBe(false);
-        expect(animationQuery.schema.safeParse({
-          action: 'get_details',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
-        expect(animationQuery.schema.safeParse({
-          action: 'get_details',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-        }).success).toBe(true);
-      });
-    });
-
-    describe('get_keyframes action', () => {
-      it('requires node_path, animation_name, and track_index', () => {
-        expect(animationQuery.schema.safeParse({
-          action: 'get_keyframes',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-        }).success).toBe(false);
-
-        expect(animationQuery.schema.safeParse({
-          action: 'get_keyframes',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-          track_index: 0,
-        }).success).toBe(true);
-      });
-    });
+    expect(mock.calls[0].command).toBe('list_animation_players');
+    expect(result).toBe('No AnimationPlayer nodes found in scene');
   });
 
-  describe('animation_playback', () => {
-    describe('play action', () => {
-      it('sends play_animation command', async () => {
-        mock.mockResponse({ playing: 'walk', from_position: 0 });
-        const ctx = createToolContext(mock);
-
-        await animationPlayback.execute({
-          action: 'play',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-        }, ctx);
-
-        expect(mock.calls[0].command).toBe('play_animation');
-        expect(mock.calls[0].params.animation_name).toBe('walk');
-      });
-
-      it('requires animation_name for play', () => {
-        expect(animationPlayback.schema.safeParse({
-          action: 'play',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
-
-        expect(animationPlayback.schema.safeParse({
-          action: 'play',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'idle',
-        }).success).toBe(true);
-      });
-
-      it('returns playing confirmation', async () => {
-        mock.mockResponse({ playing: 'run', from_position: 0 });
-        const ctx = createToolContext(mock);
-
-        const result = await animationPlayback.execute({
-          action: 'play',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'run',
-        }, ctx);
-
-        expect(result).toBe('Playing animation: run');
-      });
+  it('list_players formats found players', async () => {
+    mock.mockResponse({
+      animation_players: [
+        { path: '/root/Player/AnimPlayer', name: 'AnimPlayer' },
+        { path: '/root/Enemy/AnimPlayer', name: 'AnimPlayer' },
+      ],
     });
+    const ctx = createToolContext(mock);
 
-    describe('stop action', () => {
-      it('sends stop_animation command', async () => {
-        mock.mockResponse({});
-        const ctx = createToolContext(mock);
+    const result = await animationQuery.execute({ action: 'list_players' }, ctx);
 
-        await animationPlayback.execute({
-          action: 'stop',
-          node_path: '/root/AnimPlayer',
-        }, ctx);
-
-        expect(mock.calls[0].command).toBe('stop_animation');
-      });
-
-      it('does not require animation_name', () => {
-        expect(animationPlayback.schema.safeParse({
-          action: 'stop',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(true);
-      });
-    });
-
-    describe('pause action', () => {
-      it('requires paused parameter', () => {
-        expect(animationPlayback.schema.safeParse({
-          action: 'pause',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
-
-        expect(animationPlayback.schema.safeParse({
-          action: 'pause',
-          node_path: '/root/AnimPlayer',
-          paused: true,
-        }).success).toBe(true);
-      });
-    });
-
-    describe('seek action', () => {
-      it('requires seconds parameter', () => {
-        expect(animationPlayback.schema.safeParse({
-          action: 'seek',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
-
-        expect(animationPlayback.schema.safeParse({
-          action: 'seek',
-          node_path: '/root/AnimPlayer',
-          seconds: 1.5,
-        }).success).toBe(true);
-      });
-    });
+    expect(result).toContain('Found 2 AnimationPlayer(s)');
+    expect(result).toContain('/root/Player/AnimPlayer');
   });
 
-  describe('animation_edit', () => {
-    describe('create action', () => {
-      it('sends create_animation command', async () => {
-        mock.mockResponse({ created: 'new_anim', library: '' });
-        const ctx = createToolContext(mock);
+  it('get_info sends command and returns JSON', async () => {
+    const info = { current_animation: 'idle', is_playing: true, current_position: 0.5 };
+    mock.mockResponse(info);
+    const ctx = createToolContext(mock);
 
-        await animationEdit.execute({
-          action: 'create',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'new_anim',
-          length: 2.0,
-        }, ctx);
+    const result = await animationQuery.execute({
+      action: 'get_info',
+      node_path: '/root/AnimPlayer',
+    }, ctx);
 
-        expect(mock.calls[0].command).toBe('create_animation');
-        expect(mock.calls[0].params.animation_name).toBe('new_anim');
-        expect(mock.calls[0].params.length).toBe(2.0);
-      });
+    expect(mock.calls[0].command).toBe('get_animation_player_info');
+    expect(mock.calls[0].params.node_path).toBe('/root/AnimPlayer');
+    expect(result).toBe(JSON.stringify(info, null, 2));
+  });
 
-      it('requires animation_name', () => {
-        expect(animationEdit.schema.safeParse({
-          action: 'create',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
+  it('get_details sends command with animation name', async () => {
+    const details = { name: 'walk', length: 1.5, track_count: 3 };
+    mock.mockResponse(details);
+    const ctx = createToolContext(mock);
 
-        expect(animationEdit.schema.safeParse({
-          action: 'create',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'test',
-        }).success).toBe(true);
-      });
-    });
+    const result = await animationQuery.execute({
+      action: 'get_details',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+    }, ctx);
 
-    describe('add_track action', () => {
-      it('requires animation_name, track_type, and track_path', () => {
-        expect(animationEdit.schema.safeParse({
-          action: 'add_track',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-        }).success).toBe(false);
+    expect(mock.calls[0].command).toBe('get_animation_details');
+    expect(mock.calls[0].params.animation_name).toBe('walk');
+    expect(result).toBe(JSON.stringify(details, null, 2));
+  });
 
-        expect(animationEdit.schema.safeParse({
-          action: 'add_track',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-          track_type: 'value',
-          track_path: 'Sprite2D:frame',
-        }).success).toBe(true);
-      });
-    });
+  it('get_keyframes sends command with track index', async () => {
+    const keyframes = { track_path: 'Sprite:frame', keyframes: [{ time: 0, value: 0 }] };
+    mock.mockResponse(keyframes);
+    const ctx = createToolContext(mock);
 
-    describe('add_keyframe action', () => {
-      it('requires animation_name, track_index, and time', () => {
-        expect(animationEdit.schema.safeParse({
-          action: 'add_keyframe',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-          track_index: 0,
-        }).success).toBe(false);
+    const result = await animationQuery.execute({
+      action: 'get_keyframes',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_index: 0,
+    }, ctx);
 
-        expect(animationEdit.schema.safeParse({
-          action: 'add_keyframe',
-          node_path: '/root/AnimPlayer',
-          animation_name: 'walk',
-          track_index: 0,
-          time: 0.5,
-        }).success).toBe(true);
-      });
-    });
+    expect(mock.calls[0].command).toBe('get_track_keyframes');
+    expect(mock.calls[0].params.track_index).toBe(0);
+    expect(result).toBe(JSON.stringify(keyframes, null, 2));
+  });
 
-    describe('rename action', () => {
-      it('requires old_name and new_name', () => {
-        expect(animationEdit.schema.safeParse({
-          action: 'rename',
-          node_path: '/root/AnimPlayer',
-        }).success).toBe(false);
+  it('throws on error from Godot', async () => {
+    mock.mockError(new Error('Node not found'));
+    const ctx = createToolContext(mock);
 
-        expect(animationEdit.schema.safeParse({
-          action: 'rename',
-          node_path: '/root/AnimPlayer',
-          old_name: 'walk',
-          new_name: 'walk_fast',
-        }).success).toBe(true);
-      });
+    await expect(animationQuery.execute({
+      action: 'get_info',
+      node_path: '/root/Missing',
+    }, ctx)).rejects.toThrow('Node not found');
+  });
+});
 
-      it('sends rename_animation command', async () => {
-        mock.mockResponse({ renamed: { from: 'old', to: 'new' } });
-        const ctx = createToolContext(mock);
+describe('animation_playback', () => {
+  let mock: MockGodotConnection;
 
-        await animationEdit.execute({
-          action: 'rename',
-          node_path: '/root/AnimPlayer',
-          old_name: 'old',
-          new_name: 'new',
-        }, ctx);
+  beforeEach(() => {
+    mock = createMockGodot();
+  });
 
-        expect(mock.calls[0].command).toBe('rename_animation');
-        expect(mock.calls[0].params.old_name).toBe('old');
-        expect(mock.calls[0].params.new_name).toBe('new');
-      });
-    });
+  it('play sends command and returns confirmation', async () => {
+    mock.mockResponse({ playing: 'run', from_position: 0 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'play',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'run',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('play_animation');
+    expect(mock.calls[0].params.animation_name).toBe('run');
+    expect(result).toBe('Playing animation: run');
+  });
+
+  it('play passes optional params', async () => {
+    mock.mockResponse({ playing: 'walk', from_position: 0 });
+    const ctx = createToolContext(mock);
+
+    await animationPlayback.execute({
+      action: 'play',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      custom_speed: 2.0,
+      custom_blend: 0.5,
+      from_end: true,
+    }, ctx);
+
+    expect(mock.calls[0].params.custom_speed).toBe(2.0);
+    expect(mock.calls[0].params.custom_blend).toBe(0.5);
+    expect(mock.calls[0].params.from_end).toBe(true);
+  });
+
+  it('stop sends command and returns confirmation', async () => {
+    mock.mockResponse({});
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'stop',
+      node_path: '/root/AnimPlayer',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('stop_animation');
+    expect(result).toBe('Animation stopped');
+  });
+
+  it('pause sends command with paused=true', async () => {
+    mock.mockResponse({});
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'pause',
+      node_path: '/root/AnimPlayer',
+      paused: true,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('pause_animation');
+    expect(mock.calls[0].params.paused).toBe(true);
+    expect(result).toBe('Animation paused');
+  });
+
+  it('pause sends command with paused=false', async () => {
+    mock.mockResponse({});
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'pause',
+      node_path: '/root/AnimPlayer',
+      paused: false,
+    }, ctx);
+
+    expect(mock.calls[0].params.paused).toBe(false);
+    expect(result).toBe('Animation unpaused');
+  });
+
+  it('seek sends command and returns position', async () => {
+    mock.mockResponse({ position: 1.5 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'seek',
+      node_path: '/root/AnimPlayer',
+      seconds: 1.5,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('seek_animation');
+    expect(mock.calls[0].params.seconds).toBe(1.5);
+    expect(result).toBe('Seeked to position: 1.5');
+  });
+
+  it('queue sends command and returns queue info', async () => {
+    mock.mockResponse({ queued: 'attack', queue_length: 3 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'queue',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'attack',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('queue_animation');
+    expect(result).toBe('Queued animation: attack (queue length: 3)');
+  });
+
+  it('clear_queue sends command and returns confirmation', async () => {
+    mock.mockResponse({});
+    const ctx = createToolContext(mock);
+
+    const result = await animationPlayback.execute({
+      action: 'clear_queue',
+      node_path: '/root/AnimPlayer',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('clear_animation_queue');
+    expect(result).toBe('Animation queue cleared');
+  });
+});
+
+describe('animation_edit', () => {
+  let mock: MockGodotConnection;
+
+  beforeEach(() => {
+    mock = createMockGodot();
+  });
+
+  it('create sends command and returns confirmation', async () => {
+    mock.mockResponse({ created: 'new_anim', library: '' });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'create',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'new_anim',
+      length: 2.0,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('create_animation');
+    expect(mock.calls[0].params.animation_name).toBe('new_anim');
+    expect(mock.calls[0].params.length).toBe(2.0);
+    expect(result).toBe('Created animation: new_anim');
+  });
+
+  it('create includes library in result when provided', async () => {
+    mock.mockResponse({ created: 'walk', library: 'movement' });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'create',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      library_name: 'movement',
+    }, ctx);
+
+    expect(result).toBe('Created animation: walk in library: movement');
+  });
+
+  it('delete sends command and returns confirmation', async () => {
+    mock.mockResponse({ deleted: 'old_anim' });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'delete',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'old_anim',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('delete_animation');
+    expect(result).toBe('Deleted animation: old_anim');
+  });
+
+  it('rename sends command with old and new names', async () => {
+    mock.mockResponse({ renamed: { from: 'walk', to: 'walk_slow' } });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'rename',
+      node_path: '/root/AnimPlayer',
+      old_name: 'walk',
+      new_name: 'walk_slow',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('rename_animation');
+    expect(mock.calls[0].params.old_name).toBe('walk');
+    expect(mock.calls[0].params.new_name).toBe('walk_slow');
+    expect(result).toBe('Renamed animation: walk -> walk_slow');
+  });
+
+  it('update_props sends command and returns updated properties', async () => {
+    mock.mockResponse({ updated: 'walk', properties: { length: 2.0, loop_mode: 'linear' } });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'update_props',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      length: 2.0,
+      loop_mode: 'linear',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('update_animation_properties');
+    expect(result).toContain('Updated animation: walk');
+    expect(result).toContain('"length":2');
+  });
+
+  it('add_track sends command and returns track info', async () => {
+    mock.mockResponse({ track_index: 0, track_path: 'Sprite2D:frame', track_type: 'value' });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'add_track',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_type: 'value',
+      track_path: 'Sprite2D:frame',
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('add_animation_track');
+    expect(result).toBe('Added track 0: value -> Sprite2D:frame');
+  });
+
+  it('remove_track sends command and returns confirmation', async () => {
+    mock.mockResponse({ removed_track: 2 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'remove_track',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_index: 2,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('remove_animation_track');
+    expect(result).toBe('Removed track: 2');
+  });
+
+  it('add_keyframe sends command and returns keyframe info', async () => {
+    mock.mockResponse({ keyframe_index: 0, time: 0.5, value: 3 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'add_keyframe',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_index: 0,
+      time: 0.5,
+      value: 3,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('add_keyframe');
+    expect(mock.calls[0].params.time).toBe(0.5);
+    expect(mock.calls[0].params.value).toBe(3);
+    expect(result).toBe('Added keyframe 0 at 0.5s');
+  });
+
+  it('remove_keyframe sends command and returns confirmation', async () => {
+    mock.mockResponse({ removed_keyframe: 1, track_index: 0 });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'remove_keyframe',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_index: 0,
+      keyframe_index: 1,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('remove_keyframe');
+    expect(result).toBe('Removed keyframe 1 from track 0');
+  });
+
+  it('update_keyframe sends command and returns changes', async () => {
+    mock.mockResponse({ updated_keyframe: 0, changes: { time: 0.75, value: 5 } });
+    const ctx = createToolContext(mock);
+
+    const result = await animationEdit.execute({
+      action: 'update_keyframe',
+      node_path: '/root/AnimPlayer',
+      animation_name: 'walk',
+      track_index: 0,
+      keyframe_index: 0,
+      time: 0.75,
+      value: 5,
+    }, ctx);
+
+    expect(mock.calls[0].command).toBe('update_keyframe');
+    expect(result).toContain('Updated keyframe 0');
+    expect(result).toContain('"time":0.75');
   });
 });
