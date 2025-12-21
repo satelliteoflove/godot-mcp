@@ -1,24 +1,11 @@
-import { getGodotConnection } from '../connection/websocket.js';
+import { defineResource } from '../core/define-resource.js';
 
-export const sceneResources = [
-  {
-    uri: 'godot://scene/current',
-    name: 'Current Scene',
-    description: 'The currently open scene in the Godot editor',
-    mimeType: 'application/json',
-  },
-  {
-    uri: 'godot://scene/tree',
-    name: 'Scene Tree',
-    description: 'Full hierarchy of the current scene',
-    mimeType: 'application/json',
-  },
-];
-
-export async function handleSceneResource(uri: string): Promise<string> {
-  const godot = getGodotConnection();
-
-  if (uri === 'godot://scene/current') {
+export const currentSceneResource = defineResource({
+  uri: 'godot://scene/current',
+  name: 'Current Scene',
+  description: 'The currently open scene in the Godot editor',
+  mimeType: 'application/json',
+  async handler({ godot }) {
     const result = await godot.sendCommand<{
       path: string | null;
       root_name: string | null;
@@ -36,12 +23,18 @@ export async function handleSceneResource(uri: string): Promise<string> {
         type: result.root_type,
       },
     });
-  }
+  },
+});
 
-  if (uri === 'godot://scene/tree') {
+export const sceneTreeResource = defineResource({
+  uri: 'godot://scene/tree',
+  name: 'Scene Tree',
+  description: 'Full hierarchy of the current scene',
+  mimeType: 'application/json',
+  async handler({ godot }) {
     const result = await godot.sendCommand<{ tree: unknown }>('get_scene_tree');
     return JSON.stringify(result.tree, null, 2);
-  }
+  },
+});
 
-  throw new Error(`Unknown scene resource: ${uri}`);
-}
+export const sceneResources = [currentSceneResource, sceneTreeResource];

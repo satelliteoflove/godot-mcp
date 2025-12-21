@@ -1,5 +1,20 @@
-export { sceneTools, handleSceneTool } from './scene.js';
-export { nodeTools, handleNodeTool } from './node.js';
-export { scriptTools, handleScriptTool } from './script.js';
-export { editorTools, handleEditorTool } from './editor.js';
-export { projectTools, handleProjectTool } from './project.js';
+import { registry } from '../core/registry.js';
+import { sceneTools } from './scene.js';
+import { nodeTools } from './node.js';
+import { scriptTools } from './script.js';
+import { editorTools } from './editor.js';
+import { projectTools } from './project.js';
+
+export function registerAllTools(): void {
+  registry.registerTools(sceneTools);
+  registry.registerTools(nodeTools);
+  registry.registerTools(scriptTools);
+  registry.registerTools(editorTools);
+  registry.registerTools(projectTools);
+}
+
+export { sceneTools } from './scene.js';
+export { nodeTools } from './node.js';
+export { scriptTools } from './script.js';
+export { editorTools } from './editor.js';
+export { projectTools } from './project.js';

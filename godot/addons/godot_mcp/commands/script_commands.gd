@@ -1,6 +1,17 @@
 @tool
-extends RefCounted
+extends MCPBaseCommand
 class_name MCPScriptCommands
+
+
+func get_commands() -> Dictionary:
+	return {
+		"read_script": read_script,
+		"get_current_script": get_current_script,
+		"create_script": create_script,
+		"edit_script": edit_script,
+		"attach_script": attach_script,
+		"detach_script": detach_script
+	}
 
 
 func read_script(params: Dictionary) -> Dictionary:
@@ -137,41 +148,3 @@ func detach_script(params: Dictionary) -> Dictionary:
 	return _success({})
 
 
-func _get_node(path: String) -> Node:
-	var root := EditorInterface.get_edited_scene_root()
-	if not root:
-		return null
-
-	if path == "/root" or path == "/" or path == str(root.get_path()):
-		return root
-
-	if path.begins_with("/root/"):
-		var parts := path.split("/")
-		if parts.size() >= 3:
-			if parts[2] == root.name:
-				var relative_path := "/".join(parts.slice(3))
-				if relative_path.is_empty():
-					return root
-				return root.get_node_or_null(relative_path)
-
-	if path.begins_with("/"):
-		path = path.substr(1)
-
-	return root.get_node_or_null(path)
-
-
-func _success(result: Dictionary) -> Dictionary:
-	return {
-		"status": "success",
-		"result": result
-	}
-
-
-func _error(code: String, message: String) -> Dictionary:
-	return {
-		"status": "error",
-		"error": {
-			"code": code,
-			"message": message
-		}
-	}

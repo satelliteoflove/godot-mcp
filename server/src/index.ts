@@ -7,27 +7,13 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { initializeConnection } from './connection/websocket.js';
-import { sceneTools, handleSceneTool } from './tools/scene.js';
-import { nodeTools, handleNodeTool } from './tools/node.js';
-import { scriptTools, handleScriptTool } from './tools/script.js';
-import { editorTools, handleEditorTool } from './tools/editor.js';
-import { projectTools, handleProjectTool } from './tools/project.js';
-import { sceneResources, handleSceneResource } from './resources/scene.js';
-import { scriptResources, handleScriptResource } from './resources/script.js';
+import { initializeConnection, getGodotConnection } from './connection/websocket.js';
+import { registry } from './core/registry.js';
+import { registerAllTools } from './tools/index.js';
+import { registerAllResources } from './resources/index.js';
 
-const allTools = [
-  ...sceneTools,
-  ...nodeTools,
-  ...scriptTools,
-  ...editorTools,
-  ...projectTools,
-];
-
-const allResources = [
-  ...sceneResources,
-  ...scriptResources,
-];
+registerAllTools();
+registerAllResources();
 
 async function main() {
   const server = new Server(
@@ -44,29 +30,15 @@ async function main() {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: allTools };
+    return { tools: registry.getToolList() };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    const godot = getGodotConnection();
 
     try {
-      let result: string;
-
-      if (sceneTools.some(t => t.name === name)) {
-        result = await handleSceneTool(name, args ?? {});
-      } else if (nodeTools.some(t => t.name === name)) {
-        result = await handleNodeTool(name, args ?? {});
-      } else if (scriptTools.some(t => t.name === name)) {
-        result = await handleScriptTool(name, args ?? {});
-      } else if (editorTools.some(t => t.name === name)) {
-        result = await handleEditorTool(name, args ?? {});
-      } else if (projectTools.some(t => t.name === name)) {
-        result = await handleProjectTool(name, args ?? {});
-      } else {
-        throw new Error(`Unknown tool: ${name}`);
-      }
-
+      const result = await registry.executeTool(name, args ?? {}, { godot });
       return {
         content: [{ type: 'text', text: result }],
       };
@@ -80,25 +52,18 @@ async function main() {
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return { resources: allResources };
+    return { resources: registry.getResourceList() };
   });
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
+    const godot = getGodotConnection();
+    const resource = registry.getResourceByUri(uri);
 
     try {
-      let content: string;
-
-      if (uri.startsWith('godot://scene/')) {
-        content = await handleSceneResource(uri);
-      } else if (uri.startsWith('godot://script/')) {
-        content = await handleScriptResource(uri);
-      } else {
-        throw new Error(`Unknown resource: ${uri}`);
-      }
-
+      const content = await registry.readResource(uri, { godot });
       return {
-        contents: [{ uri, mimeType: 'application/json', text: content }],
+        contents: [{ uri, mimeType: resource?.mimeType ?? 'application/json', text: content }],
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
