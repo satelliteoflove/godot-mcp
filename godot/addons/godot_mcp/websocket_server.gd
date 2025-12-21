@@ -67,6 +67,13 @@ func _accept_connection() -> void:
 		return
 
 	_ws_peer = WebSocketPeer.new()
+	var err := _ws_peer.accept_stream(_peer)
+	if err != OK:
+		push_error("[godot-mcp] Failed to accept WebSocket stream: %s" % error_string(err))
+		_ws_peer = null
+		_peer = null
+		return
+
 	print("[godot-mcp] TCP connection received, awaiting WebSocket handshake...")
 
 
@@ -78,13 +85,13 @@ func _process_websocket() -> void:
 
 	match state:
 		WebSocketPeer.STATE_CONNECTING:
-			if _peer and _peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-				_perform_handshake()
+			pass
 
 		WebSocketPeer.STATE_OPEN:
 			if not _is_connected:
 				_is_connected = true
 				client_connected.emit()
+				print("[godot-mcp] WebSocket handshake complete")
 
 			while _ws_peer.get_available_packet_count() > 0:
 				var packet := _ws_peer.get_packet()
@@ -99,51 +106,6 @@ func _process_websocket() -> void:
 				client_disconnected.emit()
 			_ws_peer = null
 			_peer = null
-
-
-func _perform_handshake() -> void:
-	var available := _peer.get_available_bytes()
-	if available == 0:
-		return
-
-	var data := _peer.get_data(available)
-	if data[0] != OK:
-		return
-
-	var request := (data[1] as PackedByteArray).get_string_from_utf8()
-	if not request.begins_with("GET"):
-		return
-
-	var key := _extract_websocket_key(request)
-	if key.is_empty():
-		push_error("[godot-mcp] Invalid WebSocket handshake request")
-		return
-
-	var accept := _compute_accept_key(key)
-	var response := "HTTP/1.1 101 Switching Protocols\r\n"
-	response += "Upgrade: websocket\r\n"
-	response += "Connection: Upgrade\r\n"
-	response += "Sec-WebSocket-Accept: %s\r\n\r\n" % accept
-
-	_peer.put_data(response.to_utf8_buffer())
-
-	var err := _ws_peer.accept_stream(_peer)
-	if err != OK:
-		push_error("[godot-mcp] Failed to accept WebSocket stream: %s" % error_string(err))
-
-
-func _extract_websocket_key(request: String) -> String:
-	for line in request.split("\r\n"):
-		if line.to_lower().begins_with("sec-websocket-key:"):
-			return line.split(":")[1].strip_edges()
-	return ""
-
-
-func _compute_accept_key(key: String) -> String:
-	var magic := "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-	var combined := key + magic
-	var sha1 := combined.sha1_buffer()
-	return Marshalls.raw_to_base64(sha1)
 
 
 func _handle_packet(packet: PackedByteArray) -> void:
