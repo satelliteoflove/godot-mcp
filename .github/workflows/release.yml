@@ -12,7 +12,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
+      release_created: ${{ steps.release.outputs['server--release_created'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -22,7 +22,7 @@ jobs:
 
   publish:
     needs: release-please
-    if: ${{ needs.release-please.outputs['server--release_created'] }}
+    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
