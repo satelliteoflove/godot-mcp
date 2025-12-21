@@ -61,6 +61,21 @@ static func serialize_value(value: Variant) -> Variant:
 			return value
 
 
+static func deserialize_value(value: Variant) -> Variant:
+	if value is String and value.begins_with("res://"):
+		var resource := load(value)
+		if resource:
+			return resource
+	if value is Dictionary:
+		if value.has("x") and value.has("y"):
+			if value.has("z"):
+				return Vector3(value.x, value.y, value.z)
+			return Vector2(value.x, value.y)
+		if value.has("r") and value.has("g") and value.has("b"):
+			return Color(value.r, value.g, value.b, value.get("a", 1.0))
+	return value
+
+
 static func is_resource_path(path: String) -> bool:
 	return path.begins_with("res://")
 

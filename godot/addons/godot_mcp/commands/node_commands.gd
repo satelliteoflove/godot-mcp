@@ -63,7 +63,8 @@ func create_node(params: Dictionary) -> Dictionary:
 
 	for key in properties:
 		if node.has_method("set") and key in node:
-			node.set(key, properties[key])
+			var deserialized := MCPUtils.deserialize_value(properties[key])
+			node.set(key, deserialized)
 
 	parent.add_child(node)
 	node.owner = EditorInterface.get_edited_scene_root()
@@ -86,7 +87,8 @@ func update_node(params: Dictionary) -> Dictionary:
 
 	for key in properties:
 		if key in node:
-			node.set(key, properties[key])
+			var deserialized := MCPUtils.deserialize_value(properties[key])
+			node.set(key, deserialized)
 
 	return _success({})
 
