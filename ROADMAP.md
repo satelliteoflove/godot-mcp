@@ -43,7 +43,7 @@ Core implementation complete, published to npm as [@satelliteoflove/godot-mcp](h
 - [x] Resource assignment (scripts, materials, PackedScenes)
 - [x] Animation support (AnimationPlayer read/write)
 - [x] Screenshot capture for visual AI context
-- [ ] TileMap/GridMap editing
+- [x] TileMap/GridMap editing (TileMapLayer and GridMap read/write)
 
 ### Quality
 - [ ] Comprehensive unit tests (see [#1](https://github.com/satelliteoflove/godot-mcp/issues/1))
