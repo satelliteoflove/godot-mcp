@@ -1,6 +1,16 @@
 @tool
-extends RefCounted
+extends MCPBaseCommand
 class_name MCPSceneCommands
+
+
+func get_commands() -> Dictionary:
+	return {
+		"get_scene_tree": get_scene_tree,
+		"get_current_scene": get_current_scene,
+		"open_scene": open_scene,
+		"save_scene": save_scene,
+		"create_scene": create_scene
+	}
 
 
 func get_scene_tree(_params: Dictionary) -> Dictionary:
@@ -110,18 +120,3 @@ func _walk_tree(node: Node) -> Dictionary:
 	}
 
 
-func _success(result: Dictionary) -> Dictionary:
-	return {
-		"status": "success",
-		"result": result
-	}
-
-
-func _error(code: String, message: String) -> Dictionary:
-	return {
-		"status": "error",
-		"error": {
-			"code": code,
-			"message": message
-		}
-	}
