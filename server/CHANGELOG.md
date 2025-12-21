@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v1.0.0...godot-mcp-v2.0.0) (2025-12-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* First stable release
+
+### Features
+
+* add AnimationPlayer support with full read/write capability ([#6](https://github.com/satelliteoflove/godot-mcp/issues/6)) ([b99006b](https://github.com/satelliteoflove/godot-mcp/commit/b99006b6f537c7808de838ec9feb4475b9d2bb50))
+* add automatic API documentation generation ([#17](https://github.com/satelliteoflove/godot-mcp/issues/17)) ([ba25315](https://github.com/satelliteoflove/godot-mcp/commit/ba253151513199cfdc2fecc1072602a9b8d0b02a))
+* add CI/CD with GitHub Actions and release-please ([060487a](https://github.com/satelliteoflove/godot-mcp/commit/060487a5a8db11d364c567fd4f04b95bfae2e7d9))
+* add screenshot capture tools ([221482a](https://github.com/satelliteoflove/godot-mcp/commit/221482a4c65938ae81d2e3d1a04ce64b2e9d4795))
+* add TileMapLayer and GridMap editing support ([#8](https://github.com/satelliteoflove/godot-mcp/issues/8)) ([3fa5180](https://github.com/satelliteoflove/godot-mcp/commit/3fa518048c9a17a1f849b7b225148c4defe93733))
+* initial implementation of godot-mcp ([6730180](https://github.com/satelliteoflove/godot-mcp/commit/6730180745404cdf3fec2bc879a9012d5a90acec))
+
+
+### Bug Fixes
+
+* improve edge case error handling ([#10](https://github.com/satelliteoflove/godot-mcp/issues/10)) ([8f4ae6a](https://github.com/satelliteoflove/godot-mcp/commit/8f4ae6abe46b1b294a324d9181b78d39721930bd))
+* rename get_script to read_script to avoid Godot builtin conflict ([4b9372f](https://github.com/satelliteoflove/godot-mcp/commit/4b9372f8954ee8e361ea6acf71285f0a2a0aec48))
+
+
+### Miscellaneous Chores
+
+* release v1.0.0 ([#19](https://github.com/satelliteoflove/godot-mcp/issues/19)) ([dac7dcf](https://github.com/satelliteoflove/godot-mcp/commit/dac7dcf8d0852ae2b615d05b84f68306e10b0e69))
+
 ## [0.1.6](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v0.1.5...godot-mcp-v0.1.6) (2025-12-21)
 
 
