@@ -2,6 +2,12 @@
 class_name MCPBaseCommand
 extends RefCounted
 
+var _plugin: EditorPlugin
+
+
+func setup(plugin: EditorPlugin) -> void:
+	_plugin = plugin
+
 
 func get_commands() -> Dictionary:
 	return {}

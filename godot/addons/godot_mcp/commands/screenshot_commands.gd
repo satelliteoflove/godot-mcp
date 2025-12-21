@@ -3,6 +3,10 @@ extends MCPBaseCommand
 class_name MCPScreenshotCommands
 
 const DEFAULT_MAX_WIDTH := 1920
+const SCREENSHOT_TIMEOUT := 5.0
+
+var _screenshot_result: Dictionary = {}
+var _screenshot_pending: bool = false
 
 
 func get_commands() -> Dictionary:
@@ -17,9 +21,42 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 		return _error("NOT_RUNNING", "No game is currently running. Use run_project first.")
 
 	var max_width: int = params.get("max_width", DEFAULT_MAX_WIDTH)
-	var main_window := EditorInterface.get_base_control().get_window()
-	var image := main_window.get_viewport().get_texture().get_image()
-	return _process_and_encode_image(image, max_width)
+
+	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
+	if debugger_plugin == null:
+		return _error("NO_DEBUGGER", "Debugger plugin not available")
+
+	if not debugger_plugin.has_active_session():
+		return _error("NO_SESSION", "No active debug session. Game may not have MCPGameBridge autoload.")
+
+	_screenshot_pending = true
+	_screenshot_result = {}
+
+	debugger_plugin.screenshot_received.connect(_on_screenshot_received, CONNECT_ONE_SHOT)
+	debugger_plugin.request_screenshot(max_width)
+
+	var start_time := Time.get_ticks_msec()
+	while _screenshot_pending:
+		await Engine.get_main_loop().process_frame
+		if (Time.get_ticks_msec() - start_time) / 1000.0 > SCREENSHOT_TIMEOUT:
+			_screenshot_pending = false
+			if debugger_plugin.screenshot_received.is_connected(_on_screenshot_received):
+				debugger_plugin.screenshot_received.disconnect(_on_screenshot_received)
+			return _error("TIMEOUT", "Screenshot request timed out")
+
+	return _screenshot_result
+
+
+func _on_screenshot_received(success: bool, image_base64: String, width: int, height: int, error: String) -> void:
+	_screenshot_pending = false
+	if success:
+		_screenshot_result = _success({
+			"image_base64": image_base64,
+			"width": width,
+			"height": height
+		})
+	else:
+		_screenshot_result = _error("CAPTURE_FAILED", error)
 
 
 func capture_editor_screenshot(params: Dictionary) -> Dictionary:
