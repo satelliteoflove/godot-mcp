@@ -4,6 +4,20 @@
   "description": "MCP server for Godot Engine integration",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "godot-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/satelliteoflove/godot-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/satelliteoflove/godot-mcp/issues"
+  },
+  "homepage": "https://github.com/satelliteoflove/godot-mcp#readme",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
