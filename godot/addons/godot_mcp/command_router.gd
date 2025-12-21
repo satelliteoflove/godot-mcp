@@ -46,8 +46,8 @@ func handle_command(command: String, params: Dictionary) -> Dictionary:
 		"reparent_node":
 			return _node_commands.reparent_node(params)
 
-		"get_script":
-			return _script_commands.get_script(params)
+		"read_script":
+			return _script_commands.read_script(params)
 		"get_current_script":
 			return _script_commands.get_current_script(params)
 		"create_script":

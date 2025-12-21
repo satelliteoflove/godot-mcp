@@ -3,7 +3,7 @@ extends RefCounted
 class_name MCPScriptCommands
 
 
-func get_script(params: Dictionary) -> Dictionary:
+func read_script(params: Dictionary) -> Dictionary:
 	var script_path: String = params.get("script_path", "")
 	if script_path.is_empty():
 		return _error("INVALID_PARAMS", "script_path is required")

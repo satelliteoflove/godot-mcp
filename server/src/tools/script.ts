@@ -122,7 +122,7 @@ export async function handleScriptTool(name: string, args: Record<string, unknow
     switch (name) {
       case 'get_script': {
         const { script_path } = GetScriptSchema.parse(args);
-        const result = await godot.sendCommand<{ content: string }>('get_script', { script_path });
+        const result = await godot.sendCommand<{ content: string }>('read_script', { script_path });
         return `# ${script_path}\n\n\`\`\`gdscript\n${result.content}\n\`\`\``;
       }
 
