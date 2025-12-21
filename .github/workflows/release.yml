@@ -24,6 +24,9 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs['server--release_created'] }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,7 +37,5 @@ jobs:
         working-directory: server
       - run: npm run build
         working-directory: server
-      - run: npm publish
+      - run: npm publish --provenance --access public
         working-directory: server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
