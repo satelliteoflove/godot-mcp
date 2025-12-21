@@ -1,5 +1,5 @@
 {
-  "name": "godot-mcp",
+  "name": "@satelliteoflove/godot-mcp",
   "version": "0.1.0",
   "description": "MCP server for Godot Engine integration",
   "type": "module",
