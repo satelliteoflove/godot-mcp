@@ -14,10 +14,6 @@ var _ws_peer: WebSocketPeer
 var _is_connected := false
 
 
-func _ready() -> void:
-	_server = TCPServer.new()
-
-
 func _process(_delta: float) -> void:
 	if not _server:
 		return
@@ -31,6 +27,7 @@ func _process(_delta: float) -> void:
 
 
 func start_server(port: int = DEFAULT_PORT) -> Error:
+	_server = TCPServer.new()
 	var err := _server.listen(port)
 	if err != OK:
 		push_error("[godot-mcp] Failed to start server on port %d: %s" % [port, error_string(err)])

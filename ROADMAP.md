@@ -1,0 +1,77 @@
+# godot-mcp Roadmap
+
+## Current Status: Alpha (v0.1.0)
+
+Core implementation complete, needs real-world testing.
+
+## Completed
+
+### P0 - Core Features
+- [x] WebSocket connection with auto-reconnect
+- [x] Scene tools: get_scene_tree, open/save/create_scene
+- [x] Node tools: get_node_properties, create/update/delete/reparent_node
+- [x] Script tools: get_script, create/edit_script, attach/detach_script
+- [x] Basic error handling with structured responses
+
+### P1 - Extended Features
+- [x] Project tools: get_project_info, list_project_files, search_files, get_project_settings
+- [x] Editor tools: get_editor_state, get_selected_nodes, select_node
+- [x] Run/stop project
+- [x] Debug output capture (basic)
+
+### Infrastructure
+- [x] TypeScript MCP server with official SDK
+- [x] GDScript EditorPlugin with WebSocket server
+- [x] Status panel in Godot bottom dock
+- [x] Project-scoped MCP config support
+
+## In Progress
+
+### Testing
+- [ ] Verify MCP server <-> Godot WebSocket connection
+- [ ] Test all tools with real Godot project
+- [ ] Edge cases: no scene open, invalid paths, etc.
+
+## TODO
+
+### P2 - Nice to Have
+- [ ] Resource assignment (scripts, materials, PackedScenes) - fix the bug from upstream
+- [ ] Animation support (AnimationPlayer read/write)
+- [ ] Screenshot capture for visual AI context
+- [ ] TileMap/GridMap editing
+
+### Quality
+- [ ] Unit tests for TypeScript server (Vitest)
+- [ ] Integration tests with mock Godot
+- [ ] GitHub Actions CI/CD
+- [ ] npm package publishing
+
+### Documentation
+- [ ] Getting started guide
+- [ ] API reference for all tools
+- [ ] Troubleshooting guide
+- [ ] Contributing guide
+
+## Known Issues
+
+1. **Debug output capture** - Currently just stores in array, not connected to actual Godot output
+2. **Script attachment** - May have same issue as upstream (reports success but doesn't actually attach)
+3. **Resource paths** - Need to verify res:// paths work correctly across all tools
+
+## Architecture Notes
+
+```
+[Claude/IDE] <--stdio--> [MCP Server (TS)] <--WebSocket:6550--> [Godot Addon (GDScript)]
+```
+
+- MCP Server is a WebSocket **client** that connects to Godot
+- Godot addon runs a WebSocket **server** on port 6550
+- JSON-RPC style messages with id/command/params pattern
+- Responses include status (success/error) and result/error object
+
+## References
+
+- [MCP SDK Docs](https://modelcontextprotocol.io/docs/sdk)
+- [Godot EditorPlugin](https://docs.godotengine.org/en/stable/classes/class_editorplugin.html)
+- [Godot EditorInterface](https://docs.godotengine.org/en/stable/classes/class_editorinterface.html)
+- Original plan: see `.claude/plans/ethereal-shimmying-brooks.md`
