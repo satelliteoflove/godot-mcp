@@ -59,3 +59,27 @@ static func serialize_value(value: Variant) -> Variant:
 			return str(value)
 		_:
 			return value
+
+
+static func is_resource_path(path: String) -> bool:
+	return path.begins_with("res://")
+
+
+static func dir_exists(path: String) -> bool:
+	if path.is_empty():
+		return false
+	if is_resource_path(path):
+		var dir := DirAccess.open("res://")
+		return dir != null and dir.dir_exists(path.trim_prefix("res://"))
+	return DirAccess.dir_exists_absolute(path)
+
+
+static func ensure_dir_exists(path: String) -> Error:
+	if dir_exists(path):
+		return OK
+	if is_resource_path(path):
+		var dir := DirAccess.open("res://")
+		if not dir:
+			return ERR_CANT_OPEN
+		return dir.make_dir_recursive(path.trim_prefix("res://"))
+	return DirAccess.make_dir_recursive_absolute(path)

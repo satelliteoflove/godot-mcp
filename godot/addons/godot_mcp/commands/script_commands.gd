@@ -58,8 +58,8 @@ func create_script(params: Dictionary) -> Dictionary:
 		return _error("INVALID_PARAMS", "content is required")
 
 	var dir_path := script_path.get_base_dir()
-	if not DirAccess.dir_exists_absolute(dir_path):
-		var err := DirAccess.make_dir_recursive_absolute(dir_path)
+	if not MCPUtils.dir_exists(dir_path):
+		var err := MCPUtils.ensure_dir_exists(dir_path)
 		if err != OK:
 			return _error("DIR_CREATE_FAILED", "Failed to create directory: %s" % dir_path)
 
@@ -130,7 +130,13 @@ func attach_script(params: Dictionary) -> Dictionary:
 
 	node.set_script(script)
 
-	return _success({})
+	EditorInterface.get_resource_filesystem().scan()
+	script.reload()
+
+	if node.get_script() != script:
+		return _error("ATTACH_FAILED", "Script attachment did not persist")
+
+	return _success({"node_path": str(node.get_path()), "script_path": script_path})
 
 
 func detach_script(params: Dictionary) -> Dictionary:

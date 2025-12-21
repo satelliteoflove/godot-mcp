@@ -2,8 +2,6 @@
 extends MCPBaseCommand
 class_name MCPDebugCommands
 
-var _debug_output: PackedStringArray = []
-
 
 func get_commands() -> Dictionary:
 	return {
@@ -15,6 +13,8 @@ func get_commands() -> Dictionary:
 
 func run_project(params: Dictionary) -> Dictionary:
 	var scene_path: String = params.get("scene_path", "")
+
+	MCPLogger.clear()
 
 	if scene_path.is_empty():
 		EditorInterface.play_main_scene()
@@ -31,9 +31,9 @@ func stop_project(_params: Dictionary) -> Dictionary:
 
 func get_debug_output(params: Dictionary) -> Dictionary:
 	var clear: bool = params.get("clear", false)
-	var output := "\n".join(_debug_output)
+	var output := "\n".join(MCPLogger.get_output())
 
 	if clear:
-		_debug_output.clear()
+		MCPLogger.clear()
 
 	return _success({"output": output})

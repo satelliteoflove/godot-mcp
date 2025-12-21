@@ -4,6 +4,8 @@
 
 Core implementation complete, needs real-world testing.
 
+**Minimum Godot Version: 4.5** (required for Logger class)
+
 ## Completed
 
 ### P0 - Core Features
@@ -17,7 +19,7 @@ Core implementation complete, needs real-world testing.
 - [x] Project tools: get_project_info, list_project_files, search_files, get_project_settings
 - [x] Editor tools: get_editor_state, get_selected_nodes, select_node
 - [x] Run/stop project
-- [x] Debug output capture (basic)
+- [x] Debug output capture (via Godot 4.5 Logger class)
 
 ### Infrastructure
 - [x] TypeScript MCP server with official SDK
@@ -28,8 +30,8 @@ Core implementation complete, needs real-world testing.
 ## In Progress
 
 ### Testing
-- [ ] Verify MCP server <-> Godot WebSocket connection
-- [ ] Test all tools with real Godot project
+- [x] Verify MCP server <-> Godot WebSocket connection
+- [x] Test all tools with real Godot project
 - [ ] Edge cases: no scene open, invalid paths, etc.
 
 ## TODO
@@ -54,9 +56,10 @@ Core implementation complete, needs real-world testing.
 
 ## Known Issues
 
-1. **Debug output capture** - Currently just stores in array, not connected to actual Godot output
-2. **Script attachment** - May have same issue as upstream (reports success but doesn't actually attach)
-3. **Resource paths** - Need to verify res:// paths work correctly across all tools
+None currently - all previously tracked issues have been resolved:
+- Debug output capture now uses Godot 4.5 Logger class
+- Script attachment now includes filesystem scan, reload, and verification
+- Resource paths now handled correctly via MCPUtils path utilities
 
 ## Architecture Notes
 
