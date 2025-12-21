@@ -17,23 +17,9 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 		return _error("NOT_RUNNING", "No game is currently running. Use run_project first.")
 
 	var max_width: int = params.get("max_width", DEFAULT_MAX_WIDTH)
-
 	var main_window := EditorInterface.get_base_control().get_window()
 	var image := main_window.get_viewport().get_texture().get_image()
-
-	if max_width > 0 and image.get_width() > max_width:
-		var scale_factor := float(max_width) / float(image.get_width())
-		var new_height := int(image.get_height() * scale_factor)
-		image.resize(max_width, new_height, Image.INTERPOLATE_LANCZOS)
-
-	var png_buffer := image.save_png_to_buffer()
-	var base64 := Marshalls.raw_to_base64(png_buffer)
-
-	return _success({
-		"image_base64": base64,
-		"width": image.get_width(),
-		"height": image.get_height()
-	})
+	return _process_and_encode_image(image, max_width)
 
 
 func capture_editor_screenshot(params: Dictionary) -> Dictionary:
@@ -53,6 +39,12 @@ func capture_editor_screenshot(params: Dictionary) -> Dictionary:
 		return _error("NO_VIEWPORT", "Could not find editor viewport")
 
 	var image := viewport.get_texture().get_image()
+	return _process_and_encode_image(image, max_width)
+
+
+func _process_and_encode_image(image: Image, max_width: int) -> Dictionary:
+	if image == null:
+		return _error("CAPTURE_FAILED", "Failed to capture image from viewport")
 
 	if max_width > 0 and image.get_width() > max_width:
 		var scale_factor := float(max_width) / float(image.get_width())

@@ -2,6 +2,20 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition, ImageContent } from '../core/types.js';
 
+interface ScreenshotResponse {
+  image_base64: string;
+  width: number;
+  height: number;
+}
+
+function toImageContent(base64: string): ImageContent {
+  return {
+    type: 'image',
+    data: base64,
+    mimeType: 'image/png',
+  };
+}
+
 export const captureGameScreenshot = defineTool({
   name: 'capture_game_screenshot',
   description:
@@ -13,17 +27,11 @@ export const captureGameScreenshot = defineTool({
       .describe('Maximum width in pixels (image will be scaled down if larger)'),
   }),
   async execute({ max_width }, { godot }) {
-    const result = await godot.sendCommand<{
-      image_base64: string;
-      width: number;
-      height: number;
-    }>('capture_game_screenshot', { max_width });
-
-    return {
-      type: 'image',
-      data: result.image_base64,
-      mimeType: 'image/png',
-    } as ImageContent;
+    const result = await godot.sendCommand<ScreenshotResponse>(
+      'capture_game_screenshot',
+      { max_width }
+    );
+    return toImageContent(result.image_base64);
   },
 });
 
@@ -41,17 +49,11 @@ export const captureEditorScreenshot = defineTool({
       .describe('Maximum width in pixels (image will be scaled down if larger)'),
   }),
   async execute({ viewport, max_width }, { godot }) {
-    const result = await godot.sendCommand<{
-      image_base64: string;
-      width: number;
-      height: number;
-    }>('capture_editor_screenshot', { viewport, max_width });
-
-    return {
-      type: 'image',
-      data: result.image_base64,
-      mimeType: 'image/png',
-    } as ImageContent;
+    const result = await godot.sendCommand<ScreenshotResponse>(
+      'capture_editor_screenshot',
+      { viewport, max_width }
+    );
+    return toImageContent(result.image_base64);
   },
 });
 
