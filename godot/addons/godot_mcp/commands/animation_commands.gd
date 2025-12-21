@@ -295,7 +295,11 @@ func pause_animation(params: Dictionary) -> Dictionary:
 			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
 		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
 
-	player.set_paused(paused)
+	if paused:
+		player.pause()
+	else:
+		if not player.current_animation.is_empty():
+			player.play()
 
 	return _success({"paused": paused})
 

@@ -13,44 +13,50 @@ const Vector3iSchema = z.object({
   z: z.number().int(),
 });
 
-const TilemapQuerySchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('list_layers'),
-    root_path: z.string().optional().describe('Starting node path, defaults to scene root'),
-  }),
-  z.object({
-    action: z.literal('get_info'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-  }),
-  z.object({
-    action: z.literal('get_tileset_info'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-  }),
-  z.object({
-    action: z.literal('get_used_cells'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-  }),
-  z.object({
-    action: z.literal('get_cell'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-    coords: Vector2iSchema.describe('Cell coordinates'),
-  }),
-  z.object({
-    action: z.literal('get_cells_in_region'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-    min_coords: Vector2iSchema.describe('Minimum corner of region'),
-    max_coords: Vector2iSchema.describe('Maximum corner of region'),
-  }),
-  z.object({
-    action: z.literal('convert_coords'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
+const TilemapQuerySchema = z
+  .object({
+    action: z
+      .enum([
+        'list_layers',
+        'get_info',
+        'get_tileset_info',
+        'get_used_cells',
+        'get_cell',
+        'get_cells_in_region',
+        'convert_coords',
+      ])
+      .describe(
+        'Action: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords'
+      ),
+    root_path: z.string().optional().describe('Starting node path (list_layers only)'),
+    node_path: z.string().optional().describe('Path to TileMapLayer (required except list_layers)'),
+    coords: Vector2iSchema.optional().describe('Cell coordinates (get_cell)'),
+    min_coords: Vector2iSchema.optional().describe('Minimum corner of region (get_cells_in_region)'),
+    max_coords: Vector2iSchema.optional().describe('Maximum corner of region (get_cells_in_region)'),
     local_position: z
       .object({ x: z.number(), y: z.number() })
       .optional()
-      .describe('Local position to convert to map coords'),
-    map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position'),
-  }),
-]);
+      .describe('Local position to convert to map coords (convert_coords)'),
+    map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position (convert_coords)'),
+  })
+  .refine(
+    (data) => {
+      switch (data.action) {
+        case 'list_layers':
+          return true;
+        case 'get_info':
+        case 'get_tileset_info':
+        case 'get_used_cells':
+        case 'convert_coords':
+          return !!data.node_path;
+        case 'get_cell':
+          return !!data.node_path && !!data.coords;
+        case 'get_cells_in_region':
+          return !!data.node_path && !!data.min_coords && !!data.max_coords;
+      }
+    },
+    { message: 'Missing required fields for action' }
+  );
 
 export const tilemapQuery = defineTool({
   name: 'tilemap_query',
@@ -144,27 +150,16 @@ export const tilemapQuery = defineTool({
   },
 });
 
-const TilemapEditSchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('set_cell'),
+const TilemapEditSchema = z
+  .object({
+    action: z
+      .enum(['set_cell', 'erase_cell', 'clear_layer', 'set_cells_batch'])
+      .describe('Action: set_cell, erase_cell, clear_layer, set_cells_batch'),
     node_path: z.string().describe('Path to TileMapLayer node'),
-    coords: Vector2iSchema.describe('Cell coordinates'),
-    source_id: z.number().int().optional().describe('TileSet source ID (default 0)'),
-    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates (default 0,0)'),
-    alternative_tile: z.number().int().optional().describe('Alternative tile ID (default 0)'),
-  }),
-  z.object({
-    action: z.literal('erase_cell'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-    coords: Vector2iSchema.describe('Cell coordinates to erase'),
-  }),
-  z.object({
-    action: z.literal('clear_layer'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-  }),
-  z.object({
-    action: z.literal('set_cells_batch'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
+    coords: Vector2iSchema.optional().describe('Cell coordinates (set_cell, erase_cell)'),
+    source_id: z.number().int().optional().describe('TileSet source ID, default 0 (set_cell)'),
+    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0 (set_cell)'),
+    alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0 (set_cell)'),
     cells: z
       .array(
         z.object({
@@ -174,9 +169,23 @@ const TilemapEditSchema = z.discriminatedUnion('action', [
           alternative_tile: z.number().int().optional(),
         })
       )
-      .describe('Array of cells to set'),
-  }),
-]);
+      .optional()
+      .describe('Array of cells to set (set_cells_batch)'),
+  })
+  .refine(
+    (data) => {
+      switch (data.action) {
+        case 'set_cell':
+        case 'erase_cell':
+          return !!data.coords;
+        case 'clear_layer':
+          return true;
+        case 'set_cells_batch':
+          return !!data.cells && data.cells.length > 0;
+      }
+    },
+    { message: 'Missing required fields for action' }
+  );
 
 export const tilemapEdit = defineTool({
   name: 'tilemap_edit',
@@ -207,10 +216,9 @@ export const tilemapEdit = defineTool({
         return `Erased cell at (${result.erased.x}, ${result.erased.y})`;
       }
       case 'clear_layer': {
-        const result = await godot.sendCommand<{ cleared: boolean; cells_removed: number }>(
-          'clear_layer',
-          { node_path: args.node_path }
-        );
+        const result = await godot.sendCommand<{ cleared: boolean; cells_removed: number }>('clear_layer', {
+          node_path: args.node_path,
+        });
         return `Cleared layer: ${result.cells_removed} cells removed`;
       }
       case 'set_cells_batch': {
@@ -224,34 +232,33 @@ export const tilemapEdit = defineTool({
   },
 });
 
-const GridmapQuerySchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('list'),
-    root_path: z.string().optional().describe('Starting node path, defaults to scene root'),
-  }),
-  z.object({
-    action: z.literal('get_info'),
-    node_path: z.string().describe('Path to GridMap node'),
-  }),
-  z.object({
-    action: z.literal('get_meshlib_info'),
-    node_path: z.string().describe('Path to GridMap node'),
-  }),
-  z.object({
-    action: z.literal('get_used_cells'),
-    node_path: z.string().describe('Path to GridMap node'),
-  }),
-  z.object({
-    action: z.literal('get_cell'),
-    node_path: z.string().describe('Path to GridMap node'),
-    coords: Vector3iSchema.describe('Cell coordinates'),
-  }),
-  z.object({
-    action: z.literal('get_cells_by_item'),
-    node_path: z.string().describe('Path to GridMap node'),
-    item: z.number().int().describe('MeshLibrary item index to search for'),
-  }),
-]);
+const GridmapQuerySchema = z
+  .object({
+    action: z
+      .enum(['list', 'get_info', 'get_meshlib_info', 'get_used_cells', 'get_cell', 'get_cells_by_item'])
+      .describe('Action: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item'),
+    root_path: z.string().optional().describe('Starting node path (list only)'),
+    node_path: z.string().optional().describe('Path to GridMap (required except list)'),
+    coords: Vector3iSchema.optional().describe('Cell coordinates (get_cell)'),
+    item: z.number().int().optional().describe('MeshLibrary item index (get_cells_by_item)'),
+  })
+  .refine(
+    (data) => {
+      switch (data.action) {
+        case 'list':
+          return true;
+        case 'get_info':
+        case 'get_meshlib_info':
+        case 'get_used_cells':
+          return !!data.node_path;
+        case 'get_cell':
+          return !!data.node_path && !!data.coords;
+        case 'get_cells_by_item':
+          return !!data.node_path && data.item !== undefined;
+      }
+    },
+    { message: 'Missing required fields for action' }
+  );
 
 export const gridmapQuery = defineTool({
   name: 'gridmap_query',
@@ -318,26 +325,15 @@ export const gridmapQuery = defineTool({
   },
 });
 
-const GridmapEditSchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('set_cell'),
+const GridmapEditSchema = z
+  .object({
+    action: z
+      .enum(['set_cell', 'clear_cell', 'clear', 'set_cells_batch'])
+      .describe('Action: set_cell, clear_cell, clear, set_cells_batch'),
     node_path: z.string().describe('Path to GridMap node'),
-    coords: Vector3iSchema.describe('Cell coordinates'),
-    item: z.number().int().describe('MeshLibrary item index'),
-    orientation: z.number().int().optional().describe('Orientation (0-23, default 0)'),
-  }),
-  z.object({
-    action: z.literal('clear_cell'),
-    node_path: z.string().describe('Path to GridMap node'),
-    coords: Vector3iSchema.describe('Cell coordinates to clear'),
-  }),
-  z.object({
-    action: z.literal('clear'),
-    node_path: z.string().describe('Path to GridMap node'),
-  }),
-  z.object({
-    action: z.literal('set_cells_batch'),
-    node_path: z.string().describe('Path to GridMap node'),
+    coords: Vector3iSchema.optional().describe('Cell coordinates (set_cell, clear_cell)'),
+    item: z.number().int().optional().describe('MeshLibrary item index (set_cell)'),
+    orientation: z.number().int().optional().describe('Orientation 0-23, default 0 (set_cell)'),
     cells: z
       .array(
         z.object({
@@ -346,9 +342,24 @@ const GridmapEditSchema = z.discriminatedUnion('action', [
           orientation: z.number().int().optional(),
         })
       )
-      .describe('Array of cells to set'),
-  }),
-]);
+      .optional()
+      .describe('Array of cells to set (set_cells_batch)'),
+  })
+  .refine(
+    (data) => {
+      switch (data.action) {
+        case 'set_cell':
+          return !!data.coords && data.item !== undefined;
+        case 'clear_cell':
+          return !!data.coords;
+        case 'clear':
+          return true;
+        case 'set_cells_batch':
+          return !!data.cells && data.cells.length > 0;
+      }
+    },
+    { message: 'Missing required fields for action' }
+  );
 
 export const gridmapEdit = defineTool({
   name: 'gridmap_edit',
@@ -376,10 +387,9 @@ export const gridmapEdit = defineTool({
         return `Cleared cell at (${result.cleared.x}, ${result.cleared.y}, ${result.cleared.z})`;
       }
       case 'clear': {
-        const result = await godot.sendCommand<{ cleared: boolean; cells_removed: number }>(
-          'clear_gridmap',
-          { node_path: args.node_path }
-        );
+        const result = await godot.sendCommand<{ cleared: boolean; cells_removed: number }>('clear_gridmap', {
+          node_path: args.node_path,
+        });
         return `Cleared GridMap: ${result.cells_removed} cells removed`;
       }
       case 'set_cells_batch': {
@@ -393,9 +403,4 @@ export const gridmapEdit = defineTool({
   },
 });
 
-export const tilemapTools = [
-  tilemapQuery,
-  tilemapEdit,
-  gridmapQuery,
-  gridmapEdit,
-] as AnyToolDefinition[];
+export const tilemapTools = [tilemapQuery, tilemapEdit, gridmapQuery, gridmapEdit] as AnyToolDefinition[];
