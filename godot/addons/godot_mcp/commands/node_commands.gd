@@ -13,6 +13,13 @@ func get_commands() -> Dictionary:
 	}
 
 
+func _require_scene_open() -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if not root:
+		return _error("NO_SCENE", "No scene is currently open")
+	return {}
+
+
 func get_node_properties(params: Dictionary) -> Dictionary:
 	var node_path: String = params.get("node_path", "")
 	if node_path.is_empty():
@@ -36,6 +43,10 @@ func get_node_properties(params: Dictionary) -> Dictionary:
 
 
 func create_node(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
 	var parent_path: String = params.get("parent_path", "")
 	var node_type: String = params.get("node_type", "")
 	var node_name: String = params.get("node_name", "")
@@ -94,6 +105,10 @@ func update_node(params: Dictionary) -> Dictionary:
 
 
 func delete_node(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
 	var node_path: String = params.get("node_path", "")
 	if node_path.is_empty():
 		return _error("INVALID_PARAMS", "node_path is required")
@@ -113,6 +128,10 @@ func delete_node(params: Dictionary) -> Dictionary:
 
 
 func reparent_node(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
 	var node_path: String = params.get("node_path", "")
 	var new_parent_path: String = params.get("new_parent_path", "")
 

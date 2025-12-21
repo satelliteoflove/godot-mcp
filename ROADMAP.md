@@ -35,7 +35,7 @@ Core implementation complete, published to npm as [@satelliteoflove/godot-mcp](h
 ### Testing
 - [x] Verify MCP server <-> Godot WebSocket connection
 - [x] Test all tools with real Godot project
-- [ ] Edge cases: no scene open, invalid paths, etc.
+- [x] Edge cases: no scene open, invalid paths, etc.
 
 ## TODO
 

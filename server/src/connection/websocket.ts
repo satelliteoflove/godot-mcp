@@ -135,16 +135,33 @@ export class GodotConnection extends EventEmitter {
   }
 
   private handleMessage(data: string): void {
-    let response: Response;
+    let parsed: unknown;
+    let responseId: string | undefined;
 
     try {
-      const parsed = JSON.parse(data);
-      response = ResponseSchema.parse(parsed);
-    } catch (error) {
-      this.emit('error', new Error(`Invalid response from Godot: ${data}`));
+      parsed = JSON.parse(data);
+      if (typeof parsed === 'object' && parsed !== null && 'id' in parsed) {
+        responseId = String((parsed as Record<string, unknown>).id);
+      }
+    } catch {
+      this.emit('error', new Error(`Invalid JSON from Godot: ${data}`));
       return;
     }
 
+    const validationResult = ResponseSchema.safeParse(parsed);
+    if (!validationResult.success) {
+      const pending = responseId ? this.pendingRequests.get(responseId) : undefined;
+      if (pending) {
+        this.pendingRequests.delete(responseId!);
+        clearTimeout(pending.timeoutId);
+        pending.reject(new GodotConnectionError(`Malformed response: ${validationResult.error.message}`));
+      } else {
+        this.emit('error', new Error(`Invalid response (no matching request): ${data}`));
+      }
+      return;
+    }
+
+    const response = validationResult.data;
     const pending = this.pendingRequests.get(response.id);
     if (!pending) {
       return;
@@ -226,11 +243,26 @@ export class GodotConnection extends EventEmitter {
 
 let globalConnection: GodotConnection | null = null;
 
+function parsePortEnv(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const port = parseInt(value, 10);
+  if (Number.isNaN(port) || port < 1 || port > 65535) {
+    console.error(`[godot-mcp] Invalid GODOT_PORT "${value}", using default`);
+    return undefined;
+  }
+  return port;
+}
+
+function parseHostEnv(value: string | undefined): string | undefined {
+  if (!value || value.trim() === '') return undefined;
+  return value.trim();
+}
+
 export function getGodotConnection(): GodotConnection {
   if (!globalConnection) {
     globalConnection = new GodotConnection({
-      host: process.env.GODOT_HOST,
-      port: process.env.GODOT_PORT ? parseInt(process.env.GODOT_PORT, 10) : undefined,
+      host: parseHostEnv(process.env.GODOT_HOST),
+      port: parsePortEnv(process.env.GODOT_PORT),
     });
   }
   return globalConnection;
