@@ -1,8 +1,8 @@
 # godot-mcp Roadmap
 
-## Current Status: Alpha (v0.1.0)
+## Current Status: Alpha (v0.1.x)
 
-Core implementation complete, needs real-world testing.
+Core implementation complete, published to npm as [@satelliteoflove/godot-mcp](https://www.npmjs.com/package/@satelliteoflove/godot-mcp).
 
 **Minimum Godot Version: 4.5** (required for Logger class)
 
@@ -26,6 +26,9 @@ Core implementation complete, needs real-world testing.
 - [x] GDScript EditorPlugin with WebSocket server
 - [x] Status panel in Godot bottom dock
 - [x] Project-scoped MCP config support
+- [x] GitHub Actions CI/CD (build, test, release-please)
+- [x] npm package publishing with OIDC trusted publishing
+- [x] Basic test suite (registry, schema) - see [#1](https://github.com/satelliteoflove/godot-mcp/issues/1) for expansion
 
 ## In Progress
 
@@ -43,10 +46,8 @@ Core implementation complete, needs real-world testing.
 - [ ] TileMap/GridMap editing
 
 ### Quality
-- [ ] Unit tests for TypeScript server (Vitest)
+- [ ] Comprehensive unit tests (see [#1](https://github.com/satelliteoflove/godot-mcp/issues/1))
 - [ ] Integration tests with mock Godot
-- [ ] GitHub Actions CI/CD
-- [ ] npm package publishing
 
 ### Documentation
 - [ ] Getting started guide
