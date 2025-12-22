@@ -16,7 +16,7 @@ Scene management tools
 Node manipulation tools
 
 - `get_node_properties` - Get all properties of a node at the specified path
-- `create_node` - Create a new node as a child of an existing node
+- `create_node` - Create a new node as a child of an existing node, or instantiate a packed scene
 - `update_node` - Update properties of an existing node
 - `delete_node` - Delete a node from the scene
 - `reparent_node` - Move a node to a new parent

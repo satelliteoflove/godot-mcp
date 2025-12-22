@@ -26,14 +26,15 @@ Get all properties of a node at the specified path
 
 ## create_node
 
-Create a new node as a child of an existing node
+Create a new node as a child of an existing node, or instantiate a packed scene
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `parent_path` | string | Yes | Path to the parent node |
-| `node_type` | string | Yes | Type of node to create (e.g., "Sprite2D", "CharacterBody2D") |
+| `node_type` | string | No | Type of node to create (e.g., "Sprite2D") - use this OR scene_path |
+| `scene_path` | string | No | Path to scene file to instantiate (e.g., "res://enemies/goblin.tscn") - use this OR node_type |
 | `node_name` | string | Yes | Name for the new node |
 | `properties` | object | No | Optional properties to set on the node |
 

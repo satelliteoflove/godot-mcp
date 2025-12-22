@@ -56,7 +56,8 @@ Get project settings
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `category` | string | No | Optional settings category to filter by |
+| `category` | string | No | Settings category to filter by (use "input" for input action mappings) |
+| `include_builtin` | boolean | No | When category is "input", include built-in ui_* actions (default: false) |
 
 ---
 
