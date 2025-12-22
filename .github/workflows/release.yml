@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs['server--release_created'] }}
-      pr_branch: ${{ steps.release.outputs['server--branch'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -29,22 +28,35 @@ jobs:
 
   update-docs:
     needs: release-please
-    if: ${{ needs.release-please.outputs.pr_branch }}
+    if: ${{ !needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     steps:
+      - name: Check for open release PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_BRANCH=$(gh pr list --repo ${{ github.repository }} --head "release-please--branches--main--components--godot-mcp" --json headRefName --jq '.[0].headRefName // empty')
+          echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
+        if: ${{ steps.check-pr.outputs.branch }}
         with:
-          ref: ${{ needs.release-please.outputs.pr_branch }}
+          ref: ${{ steps.check-pr.outputs.branch }}
       - uses: actions/setup-node@v4
+        if: ${{ steps.check-pr.outputs.branch }}
         with:
           node-version: '22'
       - run: npm ci
+        if: ${{ steps.check-pr.outputs.branch }}
         working-directory: server
       - run: npm run generate-docs
+        if: ${{ steps.check-pr.outputs.branch }}
         working-directory: server
       - name: Commit docs if changed
+        if: ${{ steps.check-pr.outputs.branch }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
