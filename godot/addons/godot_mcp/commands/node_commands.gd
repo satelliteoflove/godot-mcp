@@ -49,26 +49,39 @@ func create_node(params: Dictionary) -> Dictionary:
 
 	var parent_path: String = params.get("parent_path", "")
 	var node_type: String = params.get("node_type", "")
+	var scene_path: String = params.get("scene_path", "")
 	var node_name: String = params.get("node_name", "")
 	var properties: Dictionary = params.get("properties", {})
 
 	if parent_path.is_empty():
 		return _error("INVALID_PARAMS", "parent_path is required")
-	if node_type.is_empty():
-		return _error("INVALID_PARAMS", "node_type is required")
 	if node_name.is_empty():
 		return _error("INVALID_PARAMS", "node_name is required")
+	if node_type.is_empty() and scene_path.is_empty():
+		return _error("INVALID_PARAMS", "Either node_type or scene_path is required")
+	if not node_type.is_empty() and not scene_path.is_empty():
+		return _error("INVALID_PARAMS", "Provide node_type OR scene_path, not both")
 
 	var parent := _get_node(parent_path)
 	if not parent:
 		return _error("NODE_NOT_FOUND", "Parent node not found: %s" % parent_path)
 
-	if not ClassDB.class_exists(node_type):
-		return _error("INVALID_TYPE", "Unknown node type: %s" % node_type)
-
-	var node: Node = ClassDB.instantiate(node_type)
-	if not node:
-		return _error("CREATE_FAILED", "Failed to create node of type: %s" % node_type)
+	var node: Node
+	if not scene_path.is_empty():
+		if not ResourceLoader.exists(scene_path):
+			return _error("SCENE_NOT_FOUND", "Scene not found: %s" % scene_path)
+		var packed_scene: PackedScene = load(scene_path)
+		if not packed_scene:
+			return _error("LOAD_FAILED", "Failed to load scene: %s" % scene_path)
+		node = packed_scene.instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE)
+		if not node:
+			return _error("INSTANTIATE_FAILED", "Failed to instantiate: %s" % scene_path)
+	else:
+		if not ClassDB.class_exists(node_type):
+			return _error("INVALID_TYPE", "Unknown node type: %s" % node_type)
+		node = ClassDB.instantiate(node_type)
+		if not node:
+			return _error("CREATE_FAILED", "Failed to create node of type: %s" % node_type)
 
 	node.name = node_name
 
@@ -78,9 +91,15 @@ func create_node(params: Dictionary) -> Dictionary:
 			node.set(key, deserialized)
 
 	parent.add_child(node)
-	node.owner = EditorInterface.get_edited_scene_root()
+	_set_owner_recursive(node, EditorInterface.get_edited_scene_root())
 
 	return _success({"node_path": str(node.get_path())})
+
+
+func _set_owner_recursive(node: Node, owner: Node) -> void:
+	node.owner = owner
+	for child in node.get_children():
+		_set_owner_recursive(child, owner)
 
 
 func update_node(params: Dictionary) -> Dictionary:

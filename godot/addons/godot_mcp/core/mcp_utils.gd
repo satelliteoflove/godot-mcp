@@ -67,6 +67,8 @@ static func deserialize_value(value: Variant) -> Variant:
 		if resource:
 			return resource
 	if value is Dictionary:
+		if value.has("_resource"):
+			return _create_resource(value)
 		if value.has("x") and value.has("y"):
 			if value.has("z"):
 				return Vector3(value.x, value.y, value.z)
@@ -74,6 +76,29 @@ static func deserialize_value(value: Variant) -> Variant:
 		if value.has("r") and value.has("g") and value.has("b"):
 			return Color(value.r, value.g, value.b, value.get("a", 1.0))
 	return value
+
+
+static func _create_resource(spec: Dictionary) -> Resource:
+	var resource_type: String = spec.get("_resource", "")
+	if not ClassDB.class_exists(resource_type):
+		push_error("MCPUtils: Unknown resource type: %s" % resource_type)
+		return null
+	if not ClassDB.is_parent_class(resource_type, "Resource"):
+		push_error("MCPUtils: Type is not a Resource: %s" % resource_type)
+		return null
+
+	var resource: Resource = ClassDB.instantiate(resource_type)
+	if not resource:
+		push_error("MCPUtils: Failed to create resource: %s" % resource_type)
+		return null
+
+	for key in spec:
+		if key == "_resource":
+			continue
+		if key in resource:
+			resource.set(key, deserialize_value(spec[key]))
+
+	return resource
 
 
 static func is_resource_path(path: String) -> bool:
