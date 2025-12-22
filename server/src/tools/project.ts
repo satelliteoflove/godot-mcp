@@ -79,12 +79,20 @@ export const getProjectSettings = defineTool({
     category: z
       .string()
       .optional()
-      .describe('Optional settings category to filter by'),
+      .describe(
+        'Settings category to filter by (use "input" for input action mappings)'
+      ),
+    include_builtin: z
+      .boolean()
+      .optional()
+      .describe(
+        'When category is "input", include built-in ui_* actions (default: false)'
+      ),
   }),
-  async execute({ category }, { godot }) {
+  async execute({ category, include_builtin }, { godot }) {
     const result = await godot.sendCommand<{
       settings: Record<string, unknown>;
-    }>('get_project_settings', { category });
+    }>('get_project_settings', { category, include_builtin });
     return JSON.stringify(result.settings, null, 2);
   },
 });

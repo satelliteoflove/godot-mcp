@@ -21,6 +21,10 @@ func get_project_info(_params: Dictionary) -> Dictionary:
 
 func get_project_settings(params: Dictionary) -> Dictionary:
 	var category: String = params.get("category", "")
+
+	if category == "input":
+		return _get_input_mappings(params)
+
 	var settings := {}
 	var all_settings := ProjectSettings.get_property_list()
 
@@ -29,6 +33,67 @@ func get_project_settings(params: Dictionary) -> Dictionary:
 		if not category.is_empty() and not name.begins_with(category):
 			continue
 		if prop["usage"] & PROPERTY_USAGE_EDITOR:
-			settings[name] = ProjectSettings.get_setting(name)
+			settings[name] = _serialize_value(ProjectSettings.get_setting(name))
 
 	return _success({"settings": settings})
+
+
+func _get_input_mappings(params: Dictionary) -> Dictionary:
+	var include_builtin: bool = params.get("include_builtin", false)
+	var actions := {}
+
+	for action in InputMap.get_actions():
+		if not include_builtin and str(action).begins_with("ui_"):
+			continue
+
+		var events := []
+		for event in InputMap.action_get_events(action):
+			events.append(_serialize_input_event(event))
+
+		actions[action] = {
+			"deadzone": InputMap.action_get_deadzone(action),
+			"events": events
+		}
+
+	return _success({"settings": actions})
+
+
+func _serialize_input_event(event: InputEvent) -> Dictionary:
+	if event is InputEventKey:
+		var keycode: int = event.keycode if event.keycode else event.physical_keycode
+		return {
+			"type": "key",
+			"keycode": event.keycode,
+			"physical_keycode": event.physical_keycode,
+			"key_label": OS.get_keycode_string(keycode),
+			"modifiers": _get_modifiers(event)
+		}
+	elif event is InputEventMouseButton:
+		return {
+			"type": "mouse_button",
+			"button_index": event.button_index,
+			"modifiers": _get_modifiers(event)
+		}
+	elif event is InputEventJoypadButton:
+		return {
+			"type": "joypad_button",
+			"button_index": event.button_index,
+			"device": event.device
+		}
+	elif event is InputEventJoypadMotion:
+		return {
+			"type": "joypad_motion",
+			"axis": event.axis,
+			"axis_value": event.axis_value,
+			"device": event.device
+		}
+	return {"type": "unknown", "event": str(event)}
+
+
+func _get_modifiers(event: InputEventWithModifiers) -> Dictionary:
+	return {
+		"shift": event.shift_pressed,
+		"ctrl": event.ctrl_pressed,
+		"alt": event.alt_pressed,
+		"meta": event.meta_pressed
+	}
