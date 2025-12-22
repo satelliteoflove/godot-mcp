@@ -109,6 +109,17 @@ Copy the `godot/addons/godot_mcp` folder to your Godot project's `addons` direct
 - `gridmap_query` - Query GridMap data
 - `gridmap_edit` - Edit GridMap cells
 
+## Reducing Context Usage
+
+The full toolset adds over 20,000 tokens of context to your AI assistant. If you're working on a specific type of project, consider disabling tools you won't need:
+
+- **3D games**: Disable `tilemap_query` and `tilemap_edit` (2D TileMapLayer tools)
+- **2D games**: Disable `gridmap_query` and `gridmap_edit` (3D GridMap tools)
+- **No animations**: Disable `animation_query`, `animation_playback`, and `animation_edit`
+- **Static scenes**: Disable screenshot tools if you don't need viewport captures
+
+Check your MCP client's documentation for how to disable specific tools. For Claude Code, you can specify tool filters in your `.claude/settings.local.json` configuration.
+
 ## API Documentation
 
 See the [docs folder](docs/) for complete API reference generated from tool definitions.
