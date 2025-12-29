@@ -10,6 +10,7 @@ import { projectTools } from '../src/tools/project.js';
 import { screenshotTools } from '../src/tools/screenshot.js';
 import { animationTools } from '../src/tools/animation.js';
 import { tilemapTools } from '../src/tools/tilemap.js';
+import { resourceTools } from '../src/tools/resource.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
@@ -34,6 +35,7 @@ const categories: ToolCategory[] = [
   { name: 'Screenshot', filename: 'screenshot', description: 'Screenshot capture tools', tools: screenshotTools },
   { name: 'Animation', filename: 'animation', description: 'Animation query, playback, and editing tools', tools: animationTools },
   { name: 'TileMap/GridMap', filename: 'tilemap', description: 'TileMap and GridMap editing tools', tools: tilemapTools },
+  { name: 'Resource', filename: 'resource', description: 'Resource inspection tools for SpriteFrames, TileSet, Materials, etc.', tools: resourceTools },
 ];
 
 const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];

@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **33 tools** and **3 resources** for AI-assisted Godot development.
+This server provides **34 tools** and **3 resources** for AI-assisted Godot development.
 
 ## Quick Links
 
@@ -23,6 +23,7 @@ This server provides **33 tools** and **3 resources** for AI-assisted Godot deve
 | [Screenshot](tools/screenshot.md) | 2 | Screenshot capture tools |
 | [Animation](tools/animation.md) | 3 | Animation query, playback, and editing tools |
 | [TileMap/GridMap](tools/tilemap.md) | 4 | TileMap and GridMap editing tools |
+| [Resource](tools/resource.md) | 1 | Resource inspection tools for SpriteFrames, TileSet, Materials, etc. |
 
 ## Installation
 
