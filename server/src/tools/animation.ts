@@ -1,42 +1,73 @@
-/**
- * Animation Tools - consolidated tools for animation operations
- *
- * SCHEMA PATTERN FOR CONSOLIDATED TOOLS:
- *
- * Claude Code requires tool schemas to have `type: "object"` at the root.
- * Do NOT use z.discriminatedUnion() - it generates `anyOf` at the root level,
- * which causes Claude Code to reject the entire MCP tool list.
- *
- * Instead, use a flat object schema with .refine() for runtime validation:
- *
- *   const Schema = z.object({
- *     action: z.enum(['foo', 'bar']).describe('Action: foo, bar'),
- *     param1: z.string().optional().describe('Description (foo only)'),
- *     param2: z.number().optional().describe('Description (bar only)'),
- *   }).refine((data) => {
- *     switch (data.action) {
- *       case 'foo': return !!data.param1;
- *       case 'bar': return data.param2 !== undefined;
- *     }
- *   }, { message: 'Missing required fields for action' });
- *
- * The .refine() runs at runtime only - it doesn't affect the JSON schema output.
- * Use field descriptions to indicate which action each field applies to.
- */
-
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
-const AnimationQuerySchema = z
+const LoopModeEnum = z.enum(['none', 'linear', 'pingpong']);
+const TrackTypeEnum = z.enum([
+  'value',
+  'position_3d',
+  'rotation_3d',
+  'scale_3d',
+  'blend_shape',
+  'method',
+  'bezier',
+  'audio',
+  'animation',
+]);
+
+const AnimationSchema = z
   .object({
     action: z
-      .enum(['list_players', 'get_info', 'get_details', 'get_keyframes'])
-      .describe('Action: list_players, get_info, get_details, get_keyframes'),
+      .enum([
+        'list_players',
+        'get_info',
+        'get_details',
+        'get_keyframes',
+        'play',
+        'stop',
+        'pause',
+        'seek',
+        'queue',
+        'clear_queue',
+        'create',
+        'delete',
+        'rename',
+        'update_props',
+        'add_track',
+        'remove_track',
+        'add_keyframe',
+        'remove_keyframe',
+        'update_keyframe',
+      ])
+      .describe(
+        'Action: list_players, get_info, get_details, get_keyframes (query), play, stop, pause, seek, queue, clear_queue (playback), create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit)'
+      ),
     root_path: z.string().optional().describe('Starting node path (list_players only)'),
     node_path: z.string().optional().describe('Path to AnimationPlayer (required except list_players)'),
-    animation_name: z.string().optional().describe('Animation name (get_details, get_keyframes)'),
-    track_index: z.number().optional().describe('Track index (get_keyframes only)'),
+    animation_name: z.string().optional().describe('Animation name'),
+    track_index: z.number().optional().describe('Track index'),
+    custom_blend: z.number().optional().describe('Custom blend time, -1 for default (play)'),
+    custom_speed: z.number().optional().describe('Playback speed, 1.0 default (play)'),
+    from_end: z.boolean().optional().describe('Play from end for reverse (play)'),
+    keep_state: z.boolean().optional().describe('Keep current animation state (stop)'),
+    paused: z.boolean().optional().describe('True to pause, false to unpause (pause)'),
+    seconds: z.number().optional().describe('Position to seek to (seek)'),
+    update: z.boolean().optional().describe('Update node immediately, default true (seek)'),
+    library_name: z.string().optional().describe('Library name (create, delete, rename)'),
+    length: z.number().optional().describe('Animation length in seconds (create, update_props)'),
+    loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong (create, update_props)'),
+    step: z.number().optional().describe('Step value for keyframe snapping (create, update_props)'),
+    old_name: z.string().optional().describe('Current animation name (rename)'),
+    new_name: z.string().optional().describe('New animation name (rename)'),
+    track_type: TrackTypeEnum.optional().describe('Type of track (add_track)'),
+    track_path: z.string().optional().describe('Node path and property, e.g. "Sprite2D:frame" (add_track)'),
+    insert_at: z.number().optional().describe('Track index to insert at, -1 for end (add_track)'),
+    time: z.number().optional().describe('Keyframe time in seconds (add_keyframe, update_keyframe)'),
+    value: z.unknown().optional().describe('Keyframe value (add_keyframe, update_keyframe)'),
+    transition: z.number().optional().describe('Transition curve, 1.0 = linear (add_keyframe, update_keyframe)'),
+    method_name: z.string().optional().describe('Method name for method tracks (add_keyframe)'),
+    args: z.array(z.unknown()).optional().describe('Method arguments (add_keyframe)'),
+    keyframe_index: z.number().optional().describe('Keyframe index (remove_keyframe, update_keyframe)'),
   })
   .refine(
     (data) => {
@@ -44,22 +75,59 @@ const AnimationQuerySchema = z
         case 'list_players':
           return true;
         case 'get_info':
+        case 'stop':
+        case 'clear_queue':
           return !!data.node_path;
         case 'get_details':
+        case 'create':
+        case 'delete':
+        case 'update_props':
           return !!data.node_path && !!data.animation_name;
         case 'get_keyframes':
           return !!data.node_path && !!data.animation_name && data.track_index !== undefined;
+        case 'play':
+        case 'queue':
+          return !!data.node_path && !!data.animation_name;
+        case 'pause':
+          return !!data.node_path && data.paused !== undefined;
+        case 'seek':
+          return !!data.node_path && data.seconds !== undefined;
+        case 'rename':
+          return !!data.node_path && !!data.old_name && !!data.new_name;
+        case 'add_track':
+          return !!data.node_path && !!data.animation_name && !!data.track_type && !!data.track_path;
+        case 'remove_track':
+          return !!data.node_path && !!data.animation_name && data.track_index !== undefined;
+        case 'add_keyframe':
+          return (
+            !!data.node_path &&
+            !!data.animation_name &&
+            data.track_index !== undefined &&
+            data.time !== undefined
+          );
+        case 'remove_keyframe':
+        case 'update_keyframe':
+          return (
+            !!data.node_path &&
+            !!data.animation_name &&
+            data.track_index !== undefined &&
+            data.keyframe_index !== undefined
+          );
+        default:
+          return false;
       }
     },
     { message: 'Missing required fields for action' }
   );
 
-export const animationQuery = defineTool({
-  name: 'animation_query',
+type AnimationArgs = z.infer<typeof AnimationSchema>;
+
+export const animation = defineTool({
+  name: 'animation',
   description:
-    'Query animation data. Actions: list_players (find AnimationPlayers), get_info (player state), get_details (animation tracks/length), get_keyframes (track keyframes)',
-  schema: AnimationQuerySchema,
-  async execute(args, { godot }) {
+    'Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, pause, seek, queue, clear_queue. Edit: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
+  schema: AnimationSchema,
+  async execute(args: AnimationArgs, { godot }) {
     switch (args.action) {
       case 'list_players': {
         const result = await godot.sendCommand<{
@@ -122,49 +190,6 @@ export const animationQuery = defineTool({
         });
         return JSON.stringify(result, null, 2);
       }
-    }
-  },
-});
-
-const AnimationPlaybackSchema = z
-  .object({
-    action: z
-      .enum(['play', 'stop', 'pause', 'seek', 'queue', 'clear_queue'])
-      .describe('Action: play, stop, pause, seek, queue, clear_queue'),
-    node_path: z.string().describe('Path to AnimationPlayer'),
-    animation_name: z.string().optional().describe('Animation name (play, queue)'),
-    custom_blend: z.number().optional().describe('Custom blend time, -1 for default (play)'),
-    custom_speed: z.number().optional().describe('Playback speed, 1.0 default (play)'),
-    from_end: z.boolean().optional().describe('Play from end for reverse (play)'),
-    keep_state: z.boolean().optional().describe('Keep current animation state (stop)'),
-    paused: z.boolean().optional().describe('True to pause, false to unpause (pause)'),
-    seconds: z.number().optional().describe('Position to seek to (seek)'),
-    update: z.boolean().optional().describe('Update node immediately, default true (seek)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'play':
-        case 'queue':
-          return !!data.animation_name;
-        case 'stop':
-        case 'clear_queue':
-          return true;
-        case 'pause':
-          return data.paused !== undefined;
-        case 'seek':
-          return data.seconds !== undefined;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
-
-export const animationPlayback = defineTool({
-  name: 'animation_playback',
-  description: 'Control animation playback. Actions: play, stop, pause, seek, queue, clear_queue',
-  schema: AnimationPlaybackSchema,
-  async execute(args, { godot }) {
-    switch (args.action) {
       case 'play': {
         const result = await godot.sendCommand<{ playing: string; from_position: number }>(
           'play_animation',
@@ -214,96 +239,6 @@ export const animationPlayback = defineTool({
         await godot.sendCommand('clear_animation_queue', { node_path: args.node_path });
         return 'Animation queue cleared';
       }
-    }
-  },
-});
-
-const LoopModeEnum = z.enum(['none', 'linear', 'pingpong']);
-const TrackTypeEnum = z.enum([
-  'value',
-  'position_3d',
-  'rotation_3d',
-  'scale_3d',
-  'blend_shape',
-  'method',
-  'bezier',
-  'audio',
-  'animation',
-]);
-
-const AnimationEditSchema = z
-  .object({
-    action: z
-      .enum([
-        'create',
-        'delete',
-        'rename',
-        'update_props',
-        'add_track',
-        'remove_track',
-        'add_keyframe',
-        'remove_keyframe',
-        'update_keyframe',
-      ])
-      .describe(
-        'Action: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe'
-      ),
-    node_path: z.string().describe('Path to AnimationPlayer'),
-    animation_name: z.string().optional().describe('Animation name (most actions)'),
-    library_name: z.string().optional().describe('Library name (create, delete, rename)'),
-    length: z.number().optional().describe('Animation length in seconds (create, update_props)'),
-    loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong (create, update_props)'),
-    step: z.number().optional().describe('Step value for keyframe snapping (create, update_props)'),
-    old_name: z.string().optional().describe('Current animation name (rename)'),
-    new_name: z.string().optional().describe('New animation name (rename)'),
-    track_type: TrackTypeEnum.optional().describe('Type of track (add_track)'),
-    track_path: z.string().optional().describe('Node path and property, e.g. "Sprite2D:frame" (add_track)'),
-    insert_at: z.number().optional().describe('Track index to insert at, -1 for end (add_track)'),
-    track_index: z.number().optional().describe('Track index (remove_track, add/remove/update_keyframe)'),
-    time: z.number().optional().describe('Keyframe time in seconds (add_keyframe, update_keyframe)'),
-    value: z.unknown().optional().describe('Keyframe value (add_keyframe, update_keyframe)'),
-    transition: z.number().optional().describe('Transition curve, 1.0 = linear (add_keyframe, update_keyframe)'),
-    method_name: z.string().optional().describe('Method name for method tracks (add_keyframe)'),
-    args: z.array(z.unknown()).optional().describe('Method arguments (add_keyframe)'),
-    keyframe_index: z.number().optional().describe('Keyframe index (remove_keyframe, update_keyframe)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'create':
-          return !!data.animation_name;
-        case 'delete':
-          return !!data.animation_name;
-        case 'rename':
-          return !!data.old_name && !!data.new_name;
-        case 'update_props':
-          return !!data.animation_name;
-        case 'add_track':
-          return !!data.animation_name && !!data.track_type && !!data.track_path;
-        case 'remove_track':
-          return !!data.animation_name && data.track_index !== undefined;
-        case 'add_keyframe':
-          return !!data.animation_name && data.track_index !== undefined && data.time !== undefined;
-        case 'remove_keyframe':
-          return (
-            !!data.animation_name && data.track_index !== undefined && data.keyframe_index !== undefined
-          );
-        case 'update_keyframe':
-          return (
-            !!data.animation_name && data.track_index !== undefined && data.keyframe_index !== undefined
-          );
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
-
-export const animationEdit = defineTool({
-  name: 'animation_edit',
-  description:
-    'Edit animations. Actions: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
-  schema: AnimationEditSchema,
-  async execute(args, { godot }) {
-    switch (args.action) {
       case 'create': {
         const result = await godot.sendCommand<{ created: string; library: string }>(
           'create_animation',
@@ -421,4 +356,4 @@ export const animationEdit = defineTool({
   },
 });
 
-export const animationTools = [animationQuery, animationPlayback, animationEdit] as AnyToolDefinition[];
+export const animationTools = [animation] as AnyToolDefinition[];

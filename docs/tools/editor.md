@@ -1,81 +1,27 @@
 # Editor Tools
 
-Editor control and debugging tools
+Editor control, debugging, and screenshot tools
 
 ## Tools
 
-- [get_editor_state](#get_editor_state)
-- [get_selected_nodes](#get_selected_nodes)
-- [select_node](#select_node)
-- [run_project](#run_project)
-- [stop_project](#stop_project)
-- [get_debug_output](#get_debug_output)
+- [editor](#editor)
 
 ---
 
-## get_editor_state
+## editor
 
-Get the current state of the Godot editor
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## get_selected_nodes
-
-Get the currently selected nodes in the editor
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## select_node
-
-Select a node in the editor
+Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node to select |
-
----
-
-## run_project
-
-Run the current Godot project
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `scene_path` | string | No | Optional specific scene to run (defaults to main scene) |
-
----
-
-## stop_project
-
-Stop the running Godot project
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## get_debug_output
-
-Get debug output/print statements from the running project
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `clear` | boolean | No | Whether to clear the output buffer after reading |
+| `action` | enum (8 values) | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, screenshot_game, screenshot_editor |
+| `node_path` | string | No | Path to node (select only) |
+| `scene_path` | string | No | Scene to run (run only, optional) |
+| `clear` | boolean | No | Clear output buffer after reading (get_debug_output only) |
+| `viewport` | `2d`, `3d` | No | Which editor viewport to capture (screenshot_editor only) |
+| `max_width` | number | No | Maximum width in pixels for screenshot (screenshot_game, screenshot_editor) |
 
 ---
 

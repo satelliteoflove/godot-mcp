@@ -4,10 +4,8 @@ import { fileURLToPath } from 'url';
 
 import { sceneTools } from '../src/tools/scene.js';
 import { nodeTools } from '../src/tools/node.js';
-import { scriptTools } from '../src/tools/script.js';
 import { editorTools } from '../src/tools/editor.js';
 import { projectTools } from '../src/tools/project.js';
-import { screenshotTools } from '../src/tools/screenshot.js';
 import { animationTools } from '../src/tools/animation.js';
 import { tilemapTools } from '../src/tools/tilemap.js';
 import { resourceTools } from '../src/tools/resource.js';
@@ -29,11 +27,9 @@ interface ToolCategory {
 
 const categories: ToolCategory[] = [
   { name: 'Scene', filename: 'scene', description: 'Scene management tools', tools: sceneTools },
-  { name: 'Node', filename: 'node', description: 'Node manipulation tools', tools: nodeTools },
-  { name: 'Script', filename: 'script', description: 'GDScript management tools', tools: scriptTools },
-  { name: 'Editor', filename: 'editor', description: 'Editor control and debugging tools', tools: editorTools },
+  { name: 'Node', filename: 'node', description: 'Node manipulation and script attachment tools', tools: nodeTools },
+  { name: 'Editor', filename: 'editor', description: 'Editor control, debugging, and screenshot tools', tools: editorTools },
   { name: 'Project', filename: 'project', description: 'Project information tools', tools: projectTools },
-  { name: 'Screenshot', filename: 'screenshot', description: 'Screenshot capture tools', tools: screenshotTools },
   { name: 'Animation', filename: 'animation', description: 'Animation query, playback, and editing tools', tools: animationTools },
   { name: 'TileMap/GridMap', filename: 'tilemap', description: 'TileMap and GridMap editing tools', tools: tilemapTools },
   { name: 'Resource', filename: 'resource', description: 'Resource inspection tools for SpriteFrames, TileSet, Materials, etc.', tools: resourceTools },
@@ -208,7 +204,7 @@ Or add to your MCP configuration:
 function generateReadmeFeatures(): string {
   const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
   const featureList = [
-    `**${totalTools} MCP tools** for scene, node, script, editor, project, screenshot, animation, tilemap, and resource operations`,
+    `**${totalTools} MCP tools** for scene, node, editor, project, animation, tilemap, and resource operations`,
     `**${allResources.length} MCP resources** for reading scene trees, scripts, and project files`,
     'Real-time bidirectional communication via WebSocket',
     'Debug output capture from running games (via Godot 4.5 Logger)',

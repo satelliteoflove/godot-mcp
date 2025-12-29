@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
-import { getSceneTree, openScene, saveScene, createScene } from '../../tools/scene.js';
+import { scene } from '../../tools/scene.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '../fixtures');
@@ -13,19 +13,19 @@ function loadFixture(name: string): unknown {
   return JSON.parse(readFileSync(filepath, 'utf-8'));
 }
 
-describe('Scene Tools', () => {
+describe('scene tool', () => {
   let mock: MockGodotConnection;
 
   beforeEach(() => {
     mock = createMockGodot();
   });
 
-  describe('get_scene_tree', () => {
+  describe('action: get_tree', () => {
     it('sends get_scene_tree command to Godot', async () => {
       mock.mockResponse({ tree: { name: 'Root', children: [] } });
       const ctx = createToolContext(mock);
 
-      await getSceneTree.execute({}, ctx);
+      await scene.execute({ action: 'get_tree' }, ctx);
 
       expect(mock.calls).toHaveLength(1);
       expect(mock.calls[0].command).toBe('get_scene_tree');
@@ -36,23 +36,23 @@ describe('Scene Tools', () => {
       mock.mockResponse({ tree });
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
 
       expect(result).toBe(JSON.stringify(tree, null, 2));
     });
 
-    it('accepts empty params', () => {
-      const result = getSceneTree.schema.safeParse({});
+    it('accepts empty params for get_tree', () => {
+      const result = scene.schema.safeParse({ action: 'get_tree' });
       expect(result.success).toBe(true);
     });
   });
 
-  describe('open_scene', () => {
+  describe('action: open', () => {
     it('sends open_scene command with scene_path', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
-      await openScene.execute({ scene_path: 'res://scenes/main.tscn' }, ctx);
+      await scene.execute({ action: 'open', scene_path: 'res://scenes/main.tscn' }, ctx);
 
       expect(mock.calls).toHaveLength(1);
       expect(mock.calls[0].command).toBe('open_scene');
@@ -63,28 +63,23 @@ describe('Scene Tools', () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
-      const result = await openScene.execute({ scene_path: 'res://levels/level1.tscn' }, ctx);
+      const result = await scene.execute({ action: 'open', scene_path: 'res://levels/level1.tscn' }, ctx);
 
       expect(result).toBe('Opened scene: res://levels/level1.tscn');
     });
 
-    it('requires scene_path param', () => {
-      const result = openScene.schema.safeParse({});
-      expect(result.success).toBe(false);
-    });
-
-    it('accepts valid scene_path', () => {
-      const result = openScene.schema.safeParse({ scene_path: 'res://test.tscn' });
-      expect(result.success).toBe(true);
+    it('requires scene_path for open', () => {
+      expect(scene.schema.safeParse({ action: 'open' }).success).toBe(false);
+      expect(scene.schema.safeParse({ action: 'open', scene_path: 'res://test.tscn' }).success).toBe(true);
     });
   });
 
-  describe('save_scene', () => {
+  describe('action: save', () => {
     it('sends save_scene command', async () => {
       mock.mockResponse({ path: 'res://scenes/saved.tscn' });
       const ctx = createToolContext(mock);
 
-      await saveScene.execute({}, ctx);
+      await scene.execute({ action: 'save' }, ctx);
 
       expect(mock.calls).toHaveLength(1);
       expect(mock.calls[0].command).toBe('save_scene');
@@ -94,7 +89,7 @@ describe('Scene Tools', () => {
       mock.mockResponse({ path: 'res://new_location.tscn' });
       const ctx = createToolContext(mock);
 
-      await saveScene.execute({ path: 'res://new_location.tscn' }, ctx);
+      await scene.execute({ action: 'save', scene_path: 'res://new_location.tscn' }, ctx);
 
       expect(mock.calls[0].params).toEqual({ path: 'res://new_location.tscn' });
     });
@@ -103,23 +98,24 @@ describe('Scene Tools', () => {
       mock.mockResponse({ path: 'res://scenes/current.tscn' });
       const ctx = createToolContext(mock);
 
-      const result = await saveScene.execute({}, ctx);
+      const result = await scene.execute({ action: 'save' }, ctx);
 
       expect(result).toBe('Saved scene: res://scenes/current.tscn');
     });
 
-    it('accepts empty params', () => {
-      const result = saveScene.schema.safeParse({});
+    it('accepts empty scene_path for save', () => {
+      const result = scene.schema.safeParse({ action: 'save' });
       expect(result.success).toBe(true);
     });
   });
 
-  describe('create_scene', () => {
+  describe('action: create', () => {
     it('sends create_scene command with all params', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
-      await createScene.execute({
+      await scene.execute({
+        action: 'create',
         root_type: 'Node2D',
         root_name: 'GameRoot',
         scene_path: 'res://scenes/game.tscn',
@@ -138,7 +134,8 @@ describe('Scene Tools', () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
-      await createScene.execute({
+      await scene.execute({
+        action: 'create',
         root_type: 'Control',
         scene_path: 'res://ui/menu.tscn',
       }, ctx);
@@ -150,7 +147,8 @@ describe('Scene Tools', () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
-      const result = await createScene.execute({
+      const result = await scene.execute({
+        action: 'create',
         root_type: 'Node3D',
         scene_path: 'res://levels/world.tscn',
       }, ctx);
@@ -158,18 +156,15 @@ describe('Scene Tools', () => {
       expect(result).toBe('Created scene: res://levels/world.tscn with root node type Node3D');
     });
 
-    it('requires root_type and scene_path', () => {
-      expect(createScene.schema.safeParse({}).success).toBe(false);
-      expect(createScene.schema.safeParse({ root_type: 'Node2D' }).success).toBe(false);
-      expect(createScene.schema.safeParse({ scene_path: 'res://test.tscn' }).success).toBe(false);
-    });
-
-    it('accepts valid params', () => {
-      const result = createScene.schema.safeParse({
+    it('requires root_type and scene_path for create', () => {
+      expect(scene.schema.safeParse({ action: 'create' }).success).toBe(false);
+      expect(scene.schema.safeParse({ action: 'create', root_type: 'Node2D' }).success).toBe(false);
+      expect(scene.schema.safeParse({ action: 'create', scene_path: 'res://test.tscn' }).success).toBe(false);
+      expect(scene.schema.safeParse({
+        action: 'create',
         root_type: 'Node2D',
         scene_path: 'res://test.tscn',
-      });
-      expect(result.success).toBe(true);
+      }).success).toBe(true);
     });
   });
 
@@ -179,7 +174,7 @@ describe('Scene Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
       const parsed = JSON.parse(result as string);
 
       expect(parsed.name).toBe('Main');
@@ -193,7 +188,7 @@ describe('Scene Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
       const parsed = JSON.parse(result as string);
 
       const nodeTypes = new Set<string>();
@@ -219,7 +214,7 @@ describe('Scene Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
       const parsed = JSON.parse(result as string);
 
       const player = parsed.children.find((n: { name: string }) => n.name === 'Player');
@@ -239,7 +234,7 @@ describe('Scene Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
       const parsed = JSON.parse(result as string);
 
       const hud = parsed.children.find((n: { name: string }) => n.name === 'HUD');
@@ -262,7 +257,7 @@ describe('Scene Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getSceneTree.execute({}, ctx);
+      const result = await scene.execute({ action: 'get_tree' }, ctx);
       const parsed = JSON.parse(result as string);
 
       const enemy = parsed.children.find((n: { name: string }) => n.name === 'Enemy');

@@ -5,7 +5,7 @@ A Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI assista
 ## Features
 
 <!-- FEATURES_START -->
-- **34 MCP tools** for scene, node, script, editor, project, screenshot, animation, tilemap, and resource operations
+- **8 MCP tools** for scene, node, editor, project, animation, tilemap, and resource operations
 - **3 MCP resources** for reading scene trees, scripts, and project files
 - Real-time bidirectional communication via WebSocket
 - Debug output capture from running games (via Godot 4.5 Logger)
@@ -64,57 +64,27 @@ Copy the `godot/addons/godot_mcp` folder to your Godot project's `addons` direct
 ## Available Tools
 
 <!-- TOOLS_START -->
-### Scene Tools (4)
-- `get_scene_tree` - Get the full hierarchy of nodes in the currently open scene
-- `open_scene` - Open a scene file in the editor
-- `save_scene` - Save the currently open scene
-- `create_scene` - Create a new scene with a root node
+### Scene Tools (1)
+- `scene` - Manage scenes: get tree hierarchy, open, save, or create scenes
 
-### Node Tools (5)
-- `get_node_properties` - Get all properties of a node at the specified path
-- `create_node` - Create a new node as a child of an existing node, or instantiate a packed scene
-- `update_node` - Update properties of an existing node
-- `delete_node` - Delete a node from the scene
-- `reparent_node` - Move a node to a new parent
+### Node Tools (1)
+- `node` - Manage scene nodes: get properties, create, update, delete, reparent, attach/detach scripts
 
-### Script Tools (5)
-- `get_script` - Get the content of a GDScript file
-- `create_script` - Create a new GDScript file
-- `edit_script` - Replace the content of an existing GDScript file
-- `attach_script` - Attach an existing script to a node
-- `detach_script` - Remove the script from a node
+### Editor Tools (1)
+- `editor` - Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
 
-### Editor Tools (6)
-- `get_editor_state` - Get the current state of the Godot editor
-- `get_selected_nodes` - Get the currently selected nodes in the editor
-- `select_node` - Select a node in the editor
-- `run_project` - Run the current Godot project
-- `stop_project` - Stop the running Godot project
-- `get_debug_output` - Get debug output/print statements from the running project
+### Project Tools (1)
+- `project` - Get project information and settings
 
-### Project Tools (4)
-- `get_project_info` - Get information about the current Godot project
-- `list_project_files` - List files in the project by type
-- `search_files` - Search for files by name pattern
-- `get_project_settings` - Get project settings
+### Animation Tools (1)
+- `animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, pause, seek, queue, clear_queue. Edit: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
-### Screenshot Tools (2)
-- `capture_game_screenshot` - Capture a screenshot of the running game viewport. The project must be running.
-- `capture_editor_screenshot` - Capture a screenshot of the editor 2D or 3D viewport
-
-### Animation Tools (3)
-- `animation_query` - Query animation data. Actions: list_players (find AnimationPlayers), get_info (player state), get_details (animation tracks/length), get_keyframes (track keyframes)
-- `animation_playback` - Control animation playback. Actions: play, stop, pause, seek, queue, clear_queue
-- `animation_edit` - Edit animations. Actions: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
-
-### TileMap/GridMap Tools (4)
-- `tilemap_query` - Query TileMapLayer data. Actions: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords
-- `tilemap_edit` - Edit TileMapLayer cells. Actions: set_cell, erase_cell, clear_layer, set_cells_batch
-- `gridmap_query` - Query GridMap data. Actions: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item
-- `gridmap_edit` - Edit GridMap cells. Actions: set_cell, clear_cell, clear, set_cells_batch
+### TileMap/GridMap Tools (2)
+- `tilemap` - Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates
+- `gridmap` - Query and edit GridMap data: list gridmaps, get info, get/set cells
 
 ### Resource Tools (1)
-- `get_resource_info` - Load and inspect any Godot Resource by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc. Falls back to generic property inspection for unknown types.
+- `resource` - Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
 <!-- TOOLS_END -->
 
 ## Reducing Context Usage
