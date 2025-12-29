@@ -4,13 +4,16 @@ A Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI assista
 
 ## Features
 
-- **33 MCP tools** for scene, node, script, editor, project, screenshot, animation, and tilemap operations
+<!-- FEATURES_START -->
+- **34 MCP tools** for scene, node, script, editor, project, screenshot, animation, tilemap, and resource operations
 - **3 MCP resources** for reading scene trees, scripts, and project files
 - Real-time bidirectional communication via WebSocket
 - Debug output capture from running games (via Godot 4.5 Logger)
 - Screenshot capture from both editor viewports and running games
 - Full animation support (query, playback, editing)
 - TileMapLayer and GridMap editing
+- Resource inspection for SpriteFrames, TileSets, Materials, and Textures
+<!-- FEATURES_END -->
 
 ## Architecture
 
@@ -60,63 +63,69 @@ Copy the `godot/addons/godot_mcp` folder to your Godot project's `addons` direct
 
 ## Available Tools
 
+<!-- TOOLS_START -->
 ### Scene Tools (4)
-- `get_scene_tree` - Get the full scene hierarchy
-- `open_scene` - Open a scene file
-- `save_scene` - Save the current scene
-- `create_scene` - Create a new scene
+- `get_scene_tree` - Get the full hierarchy of nodes in the currently open scene
+- `open_scene` - Open a scene file in the editor
+- `save_scene` - Save the currently open scene
+- `create_scene` - Create a new scene with a root node
 
 ### Node Tools (5)
-- `get_node_properties` - Get properties of a node
-- `create_node` - Create a new node
-- `update_node` - Modify node properties
-- `delete_node` - Remove a node
+- `get_node_properties` - Get all properties of a node at the specified path
+- `create_node` - Create a new node as a child of an existing node, or instantiate a packed scene
+- `update_node` - Update properties of an existing node
+- `delete_node` - Delete a node from the scene
 - `reparent_node` - Move a node to a new parent
 
 ### Script Tools (5)
-- `get_script` - Read a script file
-- `create_script` - Create a new script
-- `edit_script` - Modify a script
-- `attach_script` - Attach a script to a node
-- `detach_script` - Remove a script from a node
+- `get_script` - Get the content of a GDScript file
+- `create_script` - Create a new GDScript file
+- `edit_script` - Replace the content of an existing GDScript file
+- `attach_script` - Attach an existing script to a node
+- `detach_script` - Remove the script from a node
 
 ### Editor Tools (6)
-- `get_editor_state` - Get current editor state
-- `get_selected_nodes` - Get selected nodes
-- `select_node` - Select a node
-- `run_project` - Run the project
-- `stop_project` - Stop the running project
-- `get_debug_output` - Get debug/print output
+- `get_editor_state` - Get the current state of the Godot editor
+- `get_selected_nodes` - Get the currently selected nodes in the editor
+- `select_node` - Select a node in the editor
+- `run_project` - Run the current Godot project
+- `stop_project` - Stop the running Godot project
+- `get_debug_output` - Get debug output/print statements from the running project
 
 ### Project Tools (4)
-- `get_project_info` - Get project information
-- `list_project_files` - List scripts, scenes, or assets
-- `search_files` - Search for files by pattern
+- `get_project_info` - Get information about the current Godot project
+- `list_project_files` - List files in the project by type
+- `search_files` - Search for files by name pattern
 - `get_project_settings` - Get project settings
 
 ### Screenshot Tools (2)
-- `capture_game_screenshot` - Capture the running game viewport
-- `capture_editor_screenshot` - Capture the editor 2D or 3D viewport
+- `capture_game_screenshot` - Capture a screenshot of the running game viewport. The project must be running.
+- `capture_editor_screenshot` - Capture a screenshot of the editor 2D or 3D viewport
 
 ### Animation Tools (3)
-- `animation_query` - Query animation data (players, tracks, keyframes)
-- `animation_playback` - Control animation playback (play, stop, pause, seek)
-- `animation_edit` - Edit animations (create, delete, add tracks/keyframes)
+- `animation_query` - Query animation data. Actions: list_players (find AnimationPlayers), get_info (player state), get_details (animation tracks/length), get_keyframes (track keyframes)
+- `animation_playback` - Control animation playback. Actions: play, stop, pause, seek, queue, clear_queue
+- `animation_edit` - Edit animations. Actions: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
 ### TileMap/GridMap Tools (4)
-- `tilemap_query` - Query TileMapLayer data
-- `tilemap_edit` - Edit TileMapLayer cells
-- `gridmap_query` - Query GridMap data
-- `gridmap_edit` - Edit GridMap cells
+- `tilemap_query` - Query TileMapLayer data. Actions: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords
+- `tilemap_edit` - Edit TileMapLayer cells. Actions: set_cell, erase_cell, clear_layer, set_cells_batch
+- `gridmap_query` - Query GridMap data. Actions: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item
+- `gridmap_edit` - Edit GridMap cells. Actions: set_cell, clear_cell, clear, set_cells_batch
+
+### Resource Tools (1)
+- `get_resource_info` - Load and inspect any Godot Resource by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc. Falls back to generic property inspection for unknown types.
+<!-- TOOLS_END -->
 
 ## Reducing Context Usage
 
-The full toolset adds over 20,000 tokens of context to your AI assistant. If you're working on a specific type of project, consider disabling tools you won't need:
+The full toolset adds significant context to your AI assistant. If you're working on a specific type of project, consider disabling tools you won't need:
 
 - **3D games**: Disable `tilemap_query` and `tilemap_edit` (2D TileMapLayer tools)
 - **2D games**: Disable `gridmap_query` and `gridmap_edit` (3D GridMap tools)
 - **No animations**: Disable `animation_query`, `animation_playback`, and `animation_edit`
 - **Static scenes**: Disable screenshot tools if you don't need viewport captures
+- **No asset inspection**: Disable `get_resource_info` if you don't need to inspect SpriteFrames, TileSets, etc.
 
 Check your MCP client's documentation for how to disable specific tools. For Claude Code, you can specify tool filters in your `.claude/settings.local.json` configuration.
 
@@ -132,6 +141,7 @@ npm install
 npm run build
 npm run dev    # Watch mode
 npm test       # Run tests
+npm run generate-docs  # Regenerate docs and README
 ```
 
 ## Requirements
