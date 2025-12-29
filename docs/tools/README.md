@@ -75,3 +75,9 @@ TileMap and GridMap editing tools
 - `gridmap_query` - Query GridMap data. Actions: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item
 - `gridmap_edit` - Edit GridMap cells. Actions: set_cell, clear_cell, clear, set_cells_batch
 
+## [Resource](resource.md)
+
+Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
+
+- `get_resource_info` - Load and inspect any Godot Resource by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc. Falls back to generic property inspection for unknown types.
+
