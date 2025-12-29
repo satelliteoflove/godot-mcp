@@ -117,7 +117,7 @@ describe('Resource Tools', () => {
         { resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result as string);
 
       expect(parsed.resource_type).toBe('SpriteFrames');
       expect(parsed.type_specific).toBeDefined();
@@ -134,7 +134,7 @@ describe('Resource Tools', () => {
         { resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result as string);
 
       const runAnim = parsed.type_specific.animations.find(
         (a: { name: string }) => a.name === 'run'
@@ -160,7 +160,7 @@ describe('Resource Tools', () => {
         { resource_path: 'res://player/player_sprites.tres', max_depth: 0 },
         ctx
       );
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result as string);
 
       const idleAnim = parsed.type_specific.animations.find(
         (a: { name: string }) => a.name === 'idle'
@@ -182,7 +182,7 @@ describe('Resource Tools', () => {
         { resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result as string);
 
       const damageAnim = parsed.type_specific.animations.find(
         (a: { name: string }) => a.name === 'damage'
@@ -201,7 +201,7 @@ describe('Resource Tools', () => {
         { resource_path: 'res://sprites/player/hero.png' },
         ctx
       );
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result as string);
 
       expect(parsed.resource_type).toBe('CompressedTexture2D');
       expect(parsed.type_specific.width).toBe(1026);
