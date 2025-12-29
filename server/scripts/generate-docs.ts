@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -18,6 +18,7 @@ import type { AnyToolDefinition, ResourceDefinition } from '../src/core/types.js
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = join(__dirname, '../../docs');
+const ROOT_README = join(__dirname, '../../README.md');
 
 interface ToolCategory {
   name: string;
@@ -204,6 +205,64 @@ Or add to your MCP configuration:
 `;
 }
 
+function generateReadmeFeatures(): string {
+  const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
+  const featureList = [
+    `**${totalTools} MCP tools** for scene, node, script, editor, project, screenshot, animation, tilemap, and resource operations`,
+    `**${allResources.length} MCP resources** for reading scene trees, scripts, and project files`,
+    'Real-time bidirectional communication via WebSocket',
+    'Debug output capture from running games (via Godot 4.5 Logger)',
+    'Screenshot capture from both editor viewports and running games',
+    'Full animation support (query, playback, editing)',
+    'TileMapLayer and GridMap editing',
+    'Resource inspection for SpriteFrames, TileSets, Materials, and Textures',
+  ];
+
+  return featureList.map(f => `- ${f}`).join('\n');
+}
+
+function generateReadmeTools(): string {
+  let content = '';
+
+  for (const category of categories) {
+    content += `### ${category.name} Tools (${category.tools.length})\n`;
+    for (const tool of category.tools) {
+      content += `- \`${tool.name}\` - ${tool.description}\n`;
+    }
+    content += '\n';
+  }
+
+  return content.trim();
+}
+
+function replaceMarkerContent(readme: string, marker: string, content: string): string {
+  const startMarker = `<!-- ${marker}_START -->`;
+  const endMarker = `<!-- ${marker}_END -->`;
+
+  const startIdx = readme.indexOf(startMarker);
+  const endIdx = readme.indexOf(endMarker);
+
+  if (startIdx === -1 || endIdx === -1) {
+    console.warn(`  Warning: Markers for ${marker} not found in README.md`);
+    return readme;
+  }
+
+  const before = readme.substring(0, startIdx + startMarker.length);
+  const after = readme.substring(endIdx);
+
+  return `${before}\n${content}\n${after}`;
+}
+
+function updateRootReadme(): void {
+  let readme = readFileSync(ROOT_README, 'utf-8');
+
+  readme = replaceMarkerContent(readme, 'FEATURES', generateReadmeFeatures());
+  readme = replaceMarkerContent(readme, 'TOOLS', generateReadmeTools());
+
+  writeFileSync(ROOT_README, readme);
+  console.log('  Updated README.md');
+}
+
 function main(): void {
   console.log('Generating documentation...');
 
@@ -224,6 +283,8 @@ function main(): void {
 
   writeFileSync(join(DOCS_DIR, 'resources.md'), generateResourcesDoc());
   console.log('  Created docs/resources.md');
+
+  updateRootReadme();
 
   console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools and ${allResources.length} resources.`);
 }
