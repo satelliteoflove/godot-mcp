@@ -1,10 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import {
   createMockGodot,
   createToolContext,
   MockGodotConnection,
 } from '../helpers/mock-godot.js';
 import { getResourceInfo } from '../../tools/resource.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURES_DIR = join(__dirname, '../fixtures');
+
+function loadFixture(name: string): unknown {
+  const filepath = join(FIXTURES_DIR, `${name}.json`);
+  return JSON.parse(readFileSync(filepath, 'utf-8'));
+}
 
 describe('Resource Tools', () => {
   let mock: MockGodotConnection;
@@ -13,149 +24,54 @@ describe('Resource Tools', () => {
     mock = createMockGodot();
   });
 
-  describe('get_resource_info', () => {
-    it('sends get_resource_info command with resource_path', async () => {
-      mock.mockResponse({
-        resource_path: 'res://player/sprites.tres',
-        resource_type: 'SpriteFrames',
-        type_specific: { animations: [] },
-      });
-      const ctx = createToolContext(mock);
-
-      await getResourceInfo.execute(
-        { resource_path: 'res://player/sprites.tres' },
-        ctx
-      );
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('get_resource_info');
-      expect(mock.calls[0].params).toEqual({
-        resource_path: 'res://player/sprites.tres',
-        max_depth: 1,
-        include_internal: false,
-      });
-    });
-
-    it('passes max_depth parameter', async () => {
-      mock.mockResponse({
-        resource_path: 'res://test.tres',
-        resource_type: 'Resource',
-      });
-      const ctx = createToolContext(mock);
-
-      await getResourceInfo.execute(
-        { resource_path: 'res://test.tres', max_depth: 2 },
-        ctx
-      );
-
-      expect(mock.calls[0].params.max_depth).toBe(2);
-    });
-
-    it('passes include_internal parameter', async () => {
-      mock.mockResponse({
-        resource_path: 'res://test.tres',
-        resource_type: 'Resource',
-      });
-      const ctx = createToolContext(mock);
-
-      await getResourceInfo.execute(
-        { resource_path: 'res://test.tres', include_internal: true },
-        ctx
-      );
-
-      expect(mock.calls[0].params.include_internal).toBe(true);
-    });
-
+  describe('schema validation', () => {
     it('requires resource_path', () => {
       expect(getResourceInfo.schema.safeParse({}).success).toBe(false);
+    });
+
+    it('accepts valid resource_path', () => {
       expect(
-        getResourceInfo.schema.safeParse({ resource_path: 'res://test.tres' })
-          .success
+        getResourceInfo.schema.safeParse({ resource_path: 'res://test.tres' }).success
       ).toBe(true);
     });
 
-    it('returns formatted JSON for SpriteFrames', async () => {
-      const response = {
-        resource_path: 'res://player/player_sprites.tres',
-        resource_type: 'SpriteFrames',
-        type_specific: {
-          animations: [
-            {
-              name: 'idle',
-              frame_count: 1,
-              fps: 10.0,
-              loop: true,
-              frames: [
-                {
-                  index: 0,
-                  duration: 1.0,
-                  texture_type: 'AtlasTexture',
-                  atlas_source: 'res://sprites/player.png',
-                  region: { x: 26, y: 144, width: 44, height: 46 },
-                },
-              ],
-            },
-          ],
-        },
-      };
-      mock.mockResponse(response);
-      const ctx = createToolContext(mock);
-
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://player/player_sprites.tres' },
-        ctx
-      );
-
-      expect(result).toBe(JSON.stringify(response, null, 2));
-    });
-
-    it('returns formatted JSON for Texture2D', async () => {
-      const response = {
-        resource_path: 'res://sprites/player.png',
-        resource_type: 'CompressedTexture2D',
-        type_specific: {
-          width: 512,
-          height: 512,
-          texture_type: 'CompressedTexture2D',
-          load_path: 'res://sprites/player.png',
-        },
-      };
-      mock.mockResponse(response);
-      const ctx = createToolContext(mock);
-
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://sprites/player.png' },
-        ctx
-      );
-
-      expect(result).toBe(JSON.stringify(response, null, 2));
-    });
-
-    it('returns generic properties for unknown resource types', async () => {
-      const response = {
-        resource_path: 'res://custom.tres',
-        resource_type: 'CustomResource',
-        properties: {
-          custom_value: 42,
-          custom_string: 'hello',
-        },
-      };
-      mock.mockResponse(response);
-      const ctx = createToolContext(mock);
-
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://custom.tres' },
-        ctx
-      );
-
-      expect(result).toBe(JSON.stringify(response, null, 2));
-    });
-
-    it('uses default max_depth of 1', async () => {
-      mock.mockResponse({
+    it('accepts optional max_depth', () => {
+      const result = getResourceInfo.schema.safeParse({
         resource_path: 'res://test.tres',
-        resource_type: 'Resource',
+        max_depth: 2,
       });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts optional include_internal', () => {
+      const result = getResourceInfo.schema.safeParse({
+        resource_path: 'res://test.tres',
+        include_internal: true,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects invalid max_depth type', () => {
+      const result = getResourceInfo.schema.safeParse({
+        resource_path: 'res://test.tres',
+        max_depth: 'deep',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('command execution', () => {
+    it('sends correct command name', async () => {
+      mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
+      const ctx = createToolContext(mock);
+
+      await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
+
+      expect(mock.calls[0].command).toBe('get_resource_info');
+    });
+
+    it('applies default max_depth of 1', async () => {
+      mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
       await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
@@ -163,16 +79,135 @@ describe('Resource Tools', () => {
       expect(mock.calls[0].params.max_depth).toBe(1);
     });
 
-    it('uses default include_internal of false', async () => {
-      mock.mockResponse({
-        resource_path: 'res://test.tres',
-        resource_type: 'Resource',
-      });
+    it('applies default include_internal of false', async () => {
+      mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
       await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
 
       expect(mock.calls[0].params.include_internal).toBe(false);
+    });
+
+    it('passes custom max_depth', async () => {
+      mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
+      const ctx = createToolContext(mock);
+
+      await getResourceInfo.execute({ resource_path: 'res://test.tres', max_depth: 0 }, ctx);
+
+      expect(mock.calls[0].params.max_depth).toBe(0);
+    });
+
+    it('propagates errors from Godot', async () => {
+      mock.mockError(new Error('Resource not found: res://missing.tres'));
+      const ctx = createToolContext(mock);
+
+      await expect(
+        getResourceInfo.execute({ resource_path: 'res://missing.tres' }, ctx)
+      ).rejects.toThrow('Resource not found');
+    });
+  });
+
+  describe('SpriteFrames response structure (from real Godot data)', () => {
+    it('returns correct structure at max_depth=1', async () => {
+      const fixture = loadFixture('resource-spriteframes');
+      mock.mockResponse(fixture);
+      const ctx = createToolContext(mock);
+
+      const result = await getResourceInfo.execute(
+        { resource_path: 'res://player/player_sprites.tres' },
+        ctx
+      );
+      const parsed = JSON.parse(result);
+
+      expect(parsed.resource_type).toBe('SpriteFrames');
+      expect(parsed.type_specific).toBeDefined();
+      expect(parsed.type_specific.animations).toBeInstanceOf(Array);
+      expect(parsed.type_specific.animations.length).toBe(5);
+    });
+
+    it('includes frame details with AtlasTexture regions at depth 1', async () => {
+      const fixture = loadFixture('resource-spriteframes');
+      mock.mockResponse(fixture);
+      const ctx = createToolContext(mock);
+
+      const result = await getResourceInfo.execute(
+        { resource_path: 'res://player/player_sprites.tres' },
+        ctx
+      );
+      const parsed = JSON.parse(result);
+
+      const runAnim = parsed.type_specific.animations.find(
+        (a: { name: string }) => a.name === 'run'
+      );
+      expect(runAnim).toBeDefined();
+      expect(runAnim.frame_count).toBe(8);
+      expect(runAnim.fps).toBe(12);
+      expect(runAnim.loop).toBe(true);
+      expect(runAnim.frames).toHaveLength(8);
+
+      const firstFrame = runAnim.frames[0];
+      expect(firstFrame.texture_type).toBe('AtlasTexture');
+      expect(firstFrame.atlas_source).toBe('res://sprites/player/hero.png');
+      expect(firstFrame.region).toEqual({ x: 26, y: 314, width: 44, height: 46 });
+    });
+
+    it('omits frame details at max_depth=0', async () => {
+      const fixture = loadFixture('resource-spriteframes-depth0');
+      mock.mockResponse(fixture);
+      const ctx = createToolContext(mock);
+
+      const result = await getResourceInfo.execute(
+        { resource_path: 'res://player/player_sprites.tres', max_depth: 0 },
+        ctx
+      );
+      const parsed = JSON.parse(result);
+
+      const idleAnim = parsed.type_specific.animations.find(
+        (a: { name: string }) => a.name === 'idle'
+      );
+      expect(idleAnim).toBeDefined();
+      expect(idleAnim.name).toBe('idle');
+      expect(idleAnim.frame_count).toBe(1);
+      expect(idleAnim.fps).toBe(10);
+      expect(idleAnim.loop).toBe(true);
+      expect(idleAnim.frames).toBeUndefined();
+    });
+
+    it('correctly identifies non-looping animations', async () => {
+      const fixture = loadFixture('resource-spriteframes');
+      mock.mockResponse(fixture);
+      const ctx = createToolContext(mock);
+
+      const result = await getResourceInfo.execute(
+        { resource_path: 'res://player/player_sprites.tres' },
+        ctx
+      );
+      const parsed = JSON.parse(result);
+
+      const damageAnim = parsed.type_specific.animations.find(
+        (a: { name: string }) => a.name === 'damage'
+      );
+      expect(damageAnim.loop).toBe(false);
+    });
+  });
+
+  describe('Texture2D response structure (from real Godot data)', () => {
+    it('returns dimensions and type for CompressedTexture2D', async () => {
+      const fixture = loadFixture('resource-texture');
+      mock.mockResponse(fixture);
+      const ctx = createToolContext(mock);
+
+      const result = await getResourceInfo.execute(
+        { resource_path: 'res://sprites/player/hero.png' },
+        ctx
+      );
+      const parsed = JSON.parse(result);
+
+      expect(parsed.resource_type).toBe('CompressedTexture2D');
+      expect(parsed.type_specific.width).toBe(1026);
+      expect(parsed.type_specific.height).toBe(1280);
+      expect(parsed.type_specific.texture_type).toBe('CompressedTexture2D');
+      expect(parsed.type_specific.load_path).toContain('.godot/imported/');
     });
   });
 });

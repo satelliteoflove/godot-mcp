@@ -1,0 +1,38 @@
+{
+  "resource_path": "res://player/player_sprites.tres",
+  "resource_type": "SpriteFrames",
+  "type_specific": {
+    "animations": [
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "loop": true,
+        "name": "crouch"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "loop": false,
+        "name": "damage"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "loop": true,
+        "name": "idle"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "loop": true,
+        "name": "jump"
+      },
+      {
+        "fps": 12,
+        "frame_count": 8,
+        "loop": true,
+        "name": "run"
+      }
+    ]
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "resource_path": "res://player/player_sprites.tres",
+  "resource_type": "SpriteFrames",
+  "type_specific": {
+    "animations": [
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "frames": [
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 0,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 77,
+              "y": 144
+            },
+            "texture_type": "AtlasTexture"
+          }
+        ],
+        "loop": true,
+        "name": "crouch"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "frames": [
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 0,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 193,
+              "y": 144
+            },
+            "texture_type": "AtlasTexture"
+          }
+        ],
+        "loop": false,
+        "name": "damage"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "frames": [
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 0,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 26,
+              "y": 144
+            },
+            "texture_type": "AtlasTexture"
+          }
+        ],
+        "loop": true,
+        "name": "idle"
+      },
+      {
+        "fps": 10,
+        "frame_count": 1,
+        "frames": [
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 0,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 129,
+              "y": 144
+            },
+            "texture_type": "AtlasTexture"
+          }
+        ],
+        "loop": true,
+        "name": "jump"
+      },
+      {
+        "fps": 12,
+        "frame_count": 8,
+        "frames": [
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 0,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 26,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 1,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 77,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 2,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 128,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 3,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 179,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 4,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 230,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 5,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 281,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 6,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 332,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          },
+          {
+            "atlas_source": "res://sprites/player/hero.png",
+            "duration": 1,
+            "index": 7,
+            "region": {
+              "height": 46,
+              "width": 44,
+              "x": 383,
+              "y": 314
+            },
+            "texture_type": "AtlasTexture"
+          }
+        ],
+        "loop": true,
+        "name": "run"
+      }
+    ]
+  }
+}

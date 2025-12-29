@@ -1,0 +1,10 @@
+{
+  "resource_path": "res://sprites/player/hero.png",
+  "resource_type": "CompressedTexture2D",
+  "type_specific": {
+    "height": 1280,
+    "load_path": "res://.godot/imported/hero.png-5c7d5b7b3cb5cc513be1d091c4347bf4.ctex",
+    "texture_type": "CompressedTexture2D",
+    "width": 1026
+  }
+}
