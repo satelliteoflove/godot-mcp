@@ -94,16 +94,64 @@ describe('Node Tools', () => {
       expect(result).toBe('Created node: /root/Main/NewNode');
     });
 
-    it('requires parent_path, node_type, and node_name', () => {
+    it('requires parent_path and node_name', () => {
       const schema = createNode.schema;
       expect(schema.safeParse({}).success).toBe(false);
       expect(schema.safeParse({ parent_path: '/root' }).success).toBe(false);
       expect(schema.safeParse({ parent_path: '/root', node_type: 'Node2D' }).success).toBe(false);
-      expect(schema.safeParse({
+    });
+
+    it('accepts node_type for creating new nodes', () => {
+      const result = createNode.schema.safeParse({
         parent_path: '/root',
         node_type: 'Node2D',
         node_name: 'Test',
-      }).success).toBe(true);
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts scene_path for instantiating scenes', () => {
+      const result = createNode.schema.safeParse({
+        parent_path: '/root',
+        scene_path: 'res://enemies/goblin.tscn',
+        node_name: 'Goblin',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects when both node_type and scene_path are provided', () => {
+      const result = createNode.schema.safeParse({
+        parent_path: '/root',
+        node_type: 'Node2D',
+        scene_path: 'res://scene.tscn',
+        node_name: 'Test',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.errors[0].message).toContain('either node_type OR scene_path');
+      }
+    });
+
+    it('rejects when neither node_type nor scene_path is provided', () => {
+      const result = createNode.schema.safeParse({
+        parent_path: '/root',
+        node_name: 'Test',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('passes scene_path to Godot when instantiating', async () => {
+      mock.mockResponse({ node_path: '/root/Main/Goblin' });
+      const ctx = createToolContext(mock);
+
+      await createNode.execute({
+        parent_path: '/root/Main',
+        scene_path: 'res://enemies/goblin.tscn',
+        node_name: 'Goblin',
+      }, ctx);
+
+      expect(mock.calls[0].params.scene_path).toBe('res://enemies/goblin.tscn');
+      expect(mock.calls[0].params.node_type).toBeUndefined();
     });
   });
 
