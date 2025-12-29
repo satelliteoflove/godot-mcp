@@ -72,6 +72,10 @@ async function main(): Promise<void> {
 
   console.log('Connected to Godot\n');
 
+  // Scene tree fixtures
+  await captureFixture(ws, 'scene-tree', 'get_scene_tree', {});
+
+  // Resource fixtures
   await captureFixture(ws, 'resource-spriteframes', 'get_resource_info', {
     resource_path: 'res://player/player_sprites.tres',
     max_depth: 1,

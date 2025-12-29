@@ -1,0 +1,112 @@
+{
+  "tree": {
+    "name": "Main",
+    "path": "/root/Main",
+    "type": "Node2D",
+    "children": [
+      {
+        "name": "Ground",
+        "path": "/root/Main/Ground",
+        "type": "StaticBody2D",
+        "children": [
+          {
+            "name": "CollisionShape",
+            "path": "/root/Main/Ground/CollisionShape",
+            "type": "CollisionShape2D",
+            "children": []
+          },
+          {
+            "name": "Visual",
+            "path": "/root/Main/Ground/Visual",
+            "type": "ColorRect",
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "Player",
+        "path": "/root/Main/Player",
+        "type": "CharacterBody2D",
+        "children": [
+          {
+            "name": "CollisionShape",
+            "path": "/root/Main/Player/CollisionShape",
+            "type": "CollisionShape2D",
+            "children": []
+          },
+          {
+            "name": "Sprite",
+            "path": "/root/Main/Player/Sprite",
+            "type": "AnimatedSprite2D",
+            "children": []
+          },
+          {
+            "name": "Camera",
+            "path": "/root/Main/Player/Camera",
+            "type": "Camera2D",
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "Enemy",
+        "path": "/root/Main/Enemy",
+        "type": "CharacterBody2D",
+        "children": [
+          {
+            "name": "CollisionShape",
+            "path": "/root/Main/Enemy/CollisionShape",
+            "type": "CollisionShape2D",
+            "children": []
+          },
+          {
+            "name": "HitBox",
+            "path": "/root/Main/Enemy/HitBox",
+            "type": "Area2D",
+            "children": [
+              {
+                "name": "CollisionShape",
+                "path": "/root/Main/Enemy/HitBox/CollisionShape",
+                "type": "CollisionShape2D",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "HUD",
+        "path": "/root/Main/HUD",
+        "type": "CanvasLayer",
+        "children": [
+          {
+            "name": "MarginContainer",
+            "path": "/root/Main/HUD/MarginContainer",
+            "type": "MarginContainer",
+            "children": [
+              {
+                "name": "VBox",
+                "path": "/root/Main/HUD/MarginContainer/VBox",
+                "type": "VBoxContainer",
+                "children": [
+                  {
+                    "name": "ScoreLabel",
+                    "path": "/root/Main/HUD/MarginContainer/VBox/ScoreLabel",
+                    "type": "Label",
+                    "children": []
+                  },
+                  {
+                    "name": "LivesLabel",
+                    "path": "/root/Main/HUD/MarginContainer/VBox/LivesLabel",
+                    "type": "Label",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
