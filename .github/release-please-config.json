@@ -5,6 +5,7 @@
       "package-name": "@satelliteoflove/godot-mcp",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
+      "include-paths": ["godot"],
       "extra-files": [
         {
           "type": "generic",
