@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.0.0...godot-mcp-v2.0.1) (2025-12-30)
+
+
+### Bug Fixes
+
+* republish to npm (2.0.0 version number was burned due to publish/unpublish)
+
+
+### Documentation
+
+* improve documentation generation with full enum values, action-specific requirements, and examples
+
+
 ## [2.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v1.3.0...godot-mcp-v2.0.0) (2025-12-30)
 
 
