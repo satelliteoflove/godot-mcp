@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v1.3.0...godot-mcp-v2.0.0) (2025-12-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* Tool API has changed significantly. All tools now use action-based schemas instead of separate tool definitions.
+
+### Code Refactoring
+
+* consolidate MCP tools from 34 to 10 for reduced token usage ([#42](https://github.com/satelliteoflove/godot-mcp/issues/42)) ([a6eb815](https://github.com/satelliteoflove/godot-mcp/commit/a6eb815f16b70b13e0d2220019bbeb5e19172b49))
+
 ## [1.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v1.2.0...godot-mcp-v1.3.0) (2025-12-29)
 
 
