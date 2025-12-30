@@ -5,8 +5,8 @@ import type { AnyToolDefinition } from '../core/types.js';
 const SceneSchema = z
   .object({
     action: z
-      .enum(['get_tree', 'open', 'save', 'create'])
-      .describe('Action: get_tree, open, save, create'),
+      .enum(['open', 'save', 'create'])
+      .describe('Action: open, save, create'),
     scene_path: z
       .string()
       .optional()
@@ -23,7 +23,6 @@ const SceneSchema = z
   .refine(
     (data) => {
       switch (data.action) {
-        case 'get_tree':
         case 'save':
           return true;
         case 'open':
@@ -44,16 +43,10 @@ type SceneArgs = z.infer<typeof SceneSchema>;
 
 export const scene = defineTool({
   name: 'scene',
-  description:
-    'Manage scenes: get tree hierarchy, open, save, or create scenes',
+  description: 'Manage scenes: open, save, or create scenes',
   schema: SceneSchema,
   async execute(args: SceneArgs, { godot }) {
     switch (args.action) {
-      case 'get_tree': {
-        const result = await godot.sendCommand<{ tree: unknown }>('get_scene_tree');
-        return JSON.stringify(result.tree, null, 2);
-      }
-
       case 'open': {
         await godot.sendCommand('open_scene', { scene_path: args.scene_path });
         return `Opened scene: ${args.scene_path}`;
