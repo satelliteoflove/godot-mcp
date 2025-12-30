@@ -6,13 +6,13 @@ This documentation is auto-generated from the tool definitions.
 
 Scene management tools
 
-- `scene` - Manage scenes: get tree hierarchy, open, save, or create scenes
+- `scene` - Manage scenes: open, save, or create scenes
 
 ## [Node](node.md)
 
 Node manipulation and script attachment tools
 
-- `node` - Manage scene nodes: get properties, create, update, delete, reparent, attach/detach scripts
+- `node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts
 
 ## [Editor](editor.md)
 

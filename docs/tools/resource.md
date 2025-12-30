@@ -21,5 +21,18 @@ Manage Godot resources: inspect Resource files by path. Returns type-specific st
 | `max_depth` | number | No | Detail level: 0 = summary only, 1 = full detail (default), 2+ = expand sub-resources (get_info) |
 | `include_internal` | boolean | No | Include internal properties starting with underscore (get_info, default: false) |
 
+### Actions
+
+#### `get_info`
+
+### Examples
+
+```json
+// get_info
+{
+  "action": "get_info"
+}
+```
+
 ---
 

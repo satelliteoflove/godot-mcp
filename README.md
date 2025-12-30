@@ -5,14 +5,14 @@ A Model Context Protocol (MCP) server for Godot Engine 4.5+, enabling AI assista
 ## Features
 
 <!-- FEATURES_START -->
-- **8 MCP tools** for scene, node, editor, project, animation, tilemap, and resource operations
+- **8 MCP tools** for scene, node, editor, project, animation, tilemap, resource operations
 - **3 MCP resources** for reading scene trees, scripts, and project files
 - Real-time bidirectional communication via WebSocket
-- Debug output capture from running games (via Godot 4.5 Logger)
-- Screenshot capture from both editor viewports and running games
+- Screenshot capture from editor viewports and running games
 - Full animation support (query, playback, editing)
 - TileMapLayer and GridMap editing
 - Resource inspection for SpriteFrames, TileSets, Materials, and Textures
+- Debug output capture from running games
 <!-- FEATURES_END -->
 
 ## Architecture
@@ -65,10 +65,10 @@ Copy the `godot/addons/godot_mcp` folder to your Godot project's `addons` direct
 
 <!-- TOOLS_START -->
 ### Scene Tools (1)
-- `scene` - Manage scenes: get tree hierarchy, open, save, or create scenes
+- `scene` - Manage scenes: open, save, or create scenes
 
 ### Node Tools (1)
-- `node` - Manage scene nodes: get properties, create, update, delete, reparent, attach/detach scripts
+- `node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts
 
 ### Editor Tools (1)
 - `editor` - Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
