@@ -5,9 +5,9 @@ import type { AnyToolDefinition } from '../core/types.js';
 const NodeSchema = z
   .object({
     action: z
-      .enum(['get_properties', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script'])
+      .enum(['get_properties', 'find', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script'])
       .describe(
-        'Action: get_properties, create, update, delete, reparent, attach_script, detach_script'
+        'Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script'
       ),
     node_path: z
       .string()
@@ -15,6 +15,18 @@ const NodeSchema = z
       .describe(
         'Path to the node (required for: get_properties, update, delete, reparent, attach_script, detach_script)'
       ),
+    name_pattern: z
+      .string()
+      .optional()
+      .describe('Glob pattern to match node names, e.g. "*Spawner*", "Turret?" (find only)'),
+    type: z
+      .string()
+      .optional()
+      .describe('Filter by node type, e.g. "CharacterBody2D", "Area2D" (find only)'),
+    root_path: z
+      .string()
+      .optional()
+      .describe('Path to start search from (find only, defaults to scene root)'),
     parent_path: z
       .string()
       .optional()
@@ -56,6 +68,8 @@ const NodeSchema = z
         case 'delete':
         case 'detach_script':
           return !!data.node_path;
+        case 'find':
+          return !!data.name_pattern || !!data.type;
         case 'create':
           return (
             !!data.parent_path &&
@@ -72,7 +86,7 @@ const NodeSchema = z
     },
     {
       message:
-        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path',
+        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path',
     }
   );
 
@@ -81,7 +95,7 @@ type NodeArgs = z.infer<typeof NodeSchema>;
 export const node = defineTool({
   name: 'node',
   description:
-    'Manage scene nodes: get properties, create, update, delete, reparent, attach/detach scripts',
+    'Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts',
   schema: NodeSchema,
   async execute(args: NodeArgs, { godot }) {
     switch (args.action) {
@@ -90,6 +104,22 @@ export const node = defineTool({
           properties: Record<string, unknown>;
         }>('get_node_properties', { node_path: args.node_path });
         return JSON.stringify(result.properties, null, 2);
+      }
+
+      case 'find': {
+        const result = await godot.sendCommand<{
+          matches: Array<{ path: string; type: string }>;
+          count: number;
+        }>('find_nodes', {
+          name_pattern: args.name_pattern,
+          type: args.type,
+          root_path: args.root_path,
+        });
+        if (result.count === 0) {
+          return 'No matching nodes found';
+        }
+        const lines = result.matches.map((m) => `${m.path} (${m.type})`);
+        return `Found ${result.count} nodes:\n${lines.join('\n')}`;
       }
 
       case 'create': {

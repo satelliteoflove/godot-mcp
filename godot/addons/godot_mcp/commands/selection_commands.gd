@@ -22,9 +22,20 @@ func get_editor_state(_params: Dictionary) -> Dictionary:
 
 func get_selected_nodes(_params: Dictionary) -> Dictionary:
 	var selection := EditorInterface.get_selection()
+	var root := EditorInterface.get_edited_scene_root()
 	var selected: Array[String] = []
+
 	for node in selection.get_selected_nodes():
-		selected.append(str(node.get_path()))
+		if root and root.is_ancestor_of(node):
+			# Build clean path relative to scene root
+			var relative_path := root.get_path_to(node)
+			var usable_path := "/root/" + root.name
+			if relative_path != NodePath("."):
+				usable_path += "/" + str(relative_path)
+			selected.append(usable_path)
+		elif node == root:
+			selected.append("/root/" + root.name)
+
 	return _success({"selected": selected})
 
 
