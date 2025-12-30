@@ -1,81 +1,79 @@
 # Editor Tools
 
-Editor control and debugging tools
+Editor control, debugging, and screenshot tools
 
 ## Tools
 
-- [get_editor_state](#get_editor_state)
-- [get_selected_nodes](#get_selected_nodes)
-- [select_node](#select_node)
-- [run_project](#run_project)
-- [stop_project](#stop_project)
-- [get_debug_output](#get_debug_output)
+- [editor](#editor)
 
 ---
 
-## get_editor_state
+## editor
 
-Get the current state of the Godot editor
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## get_selected_nodes
-
-Get the currently selected nodes in the editor
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## select_node
-
-Select a node in the editor
+Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node to select |
+| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `screenshot_game`, `screenshot_editor` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, screenshot_game, screenshot_editor |
+| `node_path` | string | select | Path to node |
+| `scene_path` | string | No | Scene to run (run only, optional) |
+| `clear` | boolean | get_debug_output | Clear output buffer after reading |
+| `viewport` | `2d`, `3d` | screenshot_editor | Which editor viewport to capture |
+| `max_width` | number | screenshot_game, screenshot_editor | Maximum width in pixels for screenshot |
 
----
+### Actions
 
-## run_project
+#### `get_state`
 
-Run the current Godot project
+#### `get_selection`
 
-### Parameters
+#### `select`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `scene_path` | string | No | Optional specific scene to run (defaults to main scene) |
+Parameters: `node_path`*
 
----
+#### `run`
 
-## stop_project
+#### `stop`
 
-Stop the running Godot project
+#### `get_debug_output`
 
-### Parameters
+Parameters: `clear`*
 
-*No parameters required.*
+#### `screenshot_game`
 
----
+Parameters: `max_width`
 
-## get_debug_output
+#### `screenshot_editor`
 
-Get debug output/print statements from the running project
+Parameters: `viewport`*, `max_width`
 
-### Parameters
+### Examples
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `clear` | boolean | No | Whether to clear the output buffer after reading |
+```json
+// get_state
+{
+  "action": "get_state"
+}
+```
+
+```json
+// get_selection
+{
+  "action": "get_selection"
+}
+```
+
+```json
+// select
+{
+  "action": "select",
+  "node_path": "/root/Main/Player"
+}
+```
+
+*5 more actions available: `run`, `stop`, `get_debug_output`, `screenshot_game`, `screenshot_editor`*
 
 ---
 

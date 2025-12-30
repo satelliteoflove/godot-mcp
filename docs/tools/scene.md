@@ -4,58 +4,64 @@ Scene management tools
 
 ## Tools
 
-- [get_scene_tree](#get_scene_tree)
-- [open_scene](#open_scene)
-- [save_scene](#save_scene)
-- [create_scene](#create_scene)
+- [scene](#scene)
 
 ---
 
-## get_scene_tree
+## scene
 
-Get the full hierarchy of nodes in the currently open scene
-
-### Parameters
-
-*No parameters required.*
-
----
-
-## open_scene
-
-Open a scene file in the editor
+Manage scenes: open, save, or create scenes
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `scene_path` | string | Yes | Path to the scene file (e.g., "res://scenes/main.tscn") |
+| `action` | `open`, `save`, `create` | Yes | Action: open, save, create |
+| `scene_path` | string | open, create; optional for: save | Path to scene file |
+| `root_type` | string | create | Type of root node, e.g. "Node2D" |
+| `root_name` | string | No | Name of root node (create only, defaults to root_type) |
 
----
+### Actions
 
-## save_scene
+#### `open`
 
-Save the currently open scene
+Parameters: `scene_path`*
 
-### Parameters
+#### `save`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | No | Optional path to save as (defaults to current scene path) |
+Parameters: `scene_path`*
 
----
+#### `create`
 
-## create_scene
+Parameters: `root_type`*
 
-Create a new scene with a root node
+### Examples
 
-### Parameters
+```json
+// open
+{
+  "action": "open",
+  "scene_path": "res://scenes/enemy.tscn"
+}
+```
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `root_type` | string | Yes | Type of the root node (e.g., "Node2D", "Node3D", "Control") |
-| `root_name` | string | No | Name of the root node |
-| `scene_path` | string | Yes | Path to save the scene (e.g., "res://scenes/new_scene.tscn") |
+```json
+// save
+{
+  "action": "save",
+  "scene_path": "res://scenes/enemy.tscn"
+}
+```
+
+```json
+// create
+{
+  "action": "create",
+  "scene_path": "res://scenes/enemy.tscn",
+  "root_type": "example",
+  "root_name": "example"
+}
+```
 
 ---
 

@@ -5,20 +5,11 @@ class_name MCPSceneCommands
 
 func get_commands() -> Dictionary:
 	return {
-		"get_scene_tree": get_scene_tree,
 		"get_current_scene": get_current_scene,
 		"open_scene": open_scene,
 		"save_scene": save_scene,
 		"create_scene": create_scene
 	}
-
-
-func get_scene_tree(_params: Dictionary) -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if not root:
-		return _error("NO_SCENE", "No scene is currently open")
-
-	return _success({"tree": _walk_tree(root, root)})
 
 
 func get_current_scene(_params: Dictionary) -> Dictionary:
@@ -105,23 +96,4 @@ func create_scene(params: Dictionary) -> Dictionary:
 
 	EditorInterface.open_scene_from_path(scene_path)
 	return _success({"path": scene_path})
-
-
-func _walk_tree(node: Node, scene_root: Node) -> Dictionary:
-	var children: Array[Dictionary] = []
-	for child in node.get_children():
-		children.append(_walk_tree(child, scene_root))
-
-	var relative_path := scene_root.get_path_to(node)
-	var usable_path := "/root/" + scene_root.name
-	if relative_path != NodePath("."):
-		usable_path += "/" + str(relative_path)
-
-	return {
-		"name": node.name,
-		"type": node.get_class(),
-		"path": usable_path,
-		"children": children
-	}
-
 

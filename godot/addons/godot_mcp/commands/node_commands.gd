@@ -6,6 +6,7 @@ class_name MCPNodeCommands
 func get_commands() -> Dictionary:
 	return {
 		"get_node_properties": get_node_properties,
+		"find_nodes": find_nodes,
 		"create_node": create_node,
 		"update_node": update_node,
 		"delete_node": delete_node,
@@ -40,6 +41,51 @@ func get_node_properties(params: Dictionary) -> Dictionary:
 		properties[name] = _serialize_value(value)
 
 	return _success({"properties": properties})
+
+
+func find_nodes(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
+	var name_pattern: String = params.get("name_pattern", "")
+	var type_filter: String = params.get("type", "")
+	var root_path: String = params.get("root_path", "")
+
+	if name_pattern.is_empty() and type_filter.is_empty():
+		return _error("INVALID_PARAMS", "At least one of name_pattern or type is required")
+
+	var scene_root := EditorInterface.get_edited_scene_root()
+	var search_root: Node = scene_root
+
+	if not root_path.is_empty():
+		search_root = _get_node(root_path)
+		if not search_root:
+			return _error("NODE_NOT_FOUND", "Root node not found: %s" % root_path)
+
+	var matches: Array[Dictionary] = []
+	_find_recursive(search_root, scene_root, name_pattern, type_filter, matches)
+
+	return _success({"matches": matches, "count": matches.size()})
+
+
+func _find_recursive(node: Node, scene_root: Node, name_pattern: String, type_filter: String, results: Array[Dictionary]) -> void:
+	var name_matches := name_pattern.is_empty() or node.name.matchn(name_pattern)
+	var type_matches := type_filter.is_empty() or node.is_class(type_filter)
+
+	if name_matches and type_matches:
+		var relative_path := scene_root.get_path_to(node)
+		var usable_path := "/root/" + scene_root.name
+		if relative_path != NodePath("."):
+			usable_path += "/" + str(relative_path)
+
+		results.append({
+			"path": usable_path,
+			"type": node.get_class()
+		})
+
+	for child in node.get_children():
+		_find_recursive(child, scene_root, name_pattern, type_filter, results)
 
 
 func create_node(params: Dictionary) -> Dictionary:

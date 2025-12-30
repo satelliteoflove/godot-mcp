@@ -13,7 +13,7 @@ const Vector3iSchema = z.object({
   z: z.number().int(),
 });
 
-const TilemapQuerySchema = z
+const TilemapSchema = z
   .object({
     action: z
       .enum([
@@ -24,13 +24,17 @@ const TilemapQuerySchema = z
         'get_cell',
         'get_cells_in_region',
         'convert_coords',
+        'set_cell',
+        'erase_cell',
+        'clear_layer',
+        'set_cells_batch',
       ])
       .describe(
-        'Action: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords'
+        'Action: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords, set_cell, erase_cell, clear_layer, set_cells_batch'
       ),
     root_path: z.string().optional().describe('Starting node path (list_layers only)'),
     node_path: z.string().optional().describe('Path to TileMapLayer (required except list_layers)'),
-    coords: Vector2iSchema.optional().describe('Cell coordinates (get_cell)'),
+    coords: Vector2iSchema.optional().describe('Cell coordinates (get_cell, set_cell, erase_cell)'),
     min_coords: Vector2iSchema.optional().describe('Minimum corner of region (get_cells_in_region)'),
     max_coords: Vector2iSchema.optional().describe('Maximum corner of region (get_cells_in_region)'),
     local_position: z
@@ -38,125 +42,6 @@ const TilemapQuerySchema = z
       .optional()
       .describe('Local position to convert to map coords (convert_coords)'),
     map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position (convert_coords)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'list_layers':
-          return true;
-        case 'get_info':
-        case 'get_tileset_info':
-        case 'get_used_cells':
-        case 'convert_coords':
-          return !!data.node_path;
-        case 'get_cell':
-          return !!data.node_path && !!data.coords;
-        case 'get_cells_in_region':
-          return !!data.node_path && !!data.min_coords && !!data.max_coords;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
-
-export const tilemapQuery = defineTool({
-  name: 'tilemap_query',
-  description:
-    'Query TileMapLayer data. Actions: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords',
-  schema: TilemapQuerySchema,
-  async execute(args, { godot }) {
-    switch (args.action) {
-      case 'list_layers': {
-        const result = await godot.sendCommand<{
-          tilemap_layers: Array<{ path: string; name: string }>;
-        }>('list_tilemap_layers', { root_path: args.root_path });
-        if (result.tilemap_layers.length === 0) {
-          return 'No TileMapLayer nodes found in scene';
-        }
-        return `Found ${result.tilemap_layers.length} TileMapLayer(s):\n${result.tilemap_layers.map((l) => `  - ${l.path}`).join('\n')}`;
-      }
-      case 'get_info': {
-        const result = await godot.sendCommand<{
-          name: string;
-          enabled: boolean;
-          tileset_path: string;
-          cell_quadrant_size: number;
-          collision_enabled: boolean;
-          used_cells_count: number;
-        }>('get_tilemap_layer_info', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_tileset_info': {
-        const result = await godot.sendCommand<{
-          tileset_path: string;
-          tile_size: { x: number; y: number };
-          source_count: number;
-          sources: Array<{
-            source_id: number;
-            source_type: string;
-            texture_path?: string;
-            texture_region_size?: { x: number; y: number };
-            tile_count?: number;
-            scene_count?: number;
-          }>;
-        }>('get_tileset_info', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_used_cells': {
-        const result = await godot.sendCommand<{
-          cells: Array<{ x: number; y: number }>;
-          count: number;
-        }>('get_used_cells', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_cell': {
-        const result = await godot.sendCommand<{
-          coords: { x: number; y: number };
-          empty: boolean;
-          source_id?: number;
-          atlas_coords?: { x: number; y: number };
-          alternative_tile?: number;
-        }>('get_cell', { node_path: args.node_path, coords: args.coords });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_cells_in_region': {
-        const result = await godot.sendCommand<{
-          cells: Array<{
-            coords: { x: number; y: number };
-            source_id: number;
-            atlas_coords: { x: number; y: number };
-            alternative_tile: number;
-          }>;
-          count: number;
-        }>('get_cells_in_region', {
-          node_path: args.node_path,
-          min_coords: args.min_coords,
-          max_coords: args.max_coords,
-        });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'convert_coords': {
-        const result = await godot.sendCommand<{
-          direction: string;
-          local_position?: { x: number; y: number };
-          map_coords?: { x: number; y: number };
-        }>('convert_coords', {
-          node_path: args.node_path,
-          local_position: args.local_position,
-          map_coords: args.map_coords,
-        });
-        return JSON.stringify(result, null, 2);
-      }
-    }
-  },
-});
-
-const TilemapEditSchema = z
-  .object({
-    action: z
-      .enum(['set_cell', 'erase_cell', 'clear_layer', 'set_cells_batch'])
-      .describe('Action: set_cell, erase_cell, clear_layer, set_cells_batch'),
-    node_path: z.string().describe('Path to TileMapLayer node'),
-    coords: Vector2iSchema.optional().describe('Cell coordinates (set_cell, erase_cell)'),
     source_id: z.number().int().optional().describe('TileSet source ID, default 0 (set_cell)'),
     atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0 (set_cell)'),
     alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0 (set_cell)'),
@@ -175,24 +60,79 @@ const TilemapEditSchema = z
   .refine(
     (data) => {
       switch (data.action) {
+        case 'list_layers':
+          return true;
+        case 'get_info':
+        case 'get_tileset_info':
+        case 'get_used_cells':
+        case 'convert_coords':
+        case 'clear_layer':
+          return !!data.node_path;
+        case 'get_cell':
         case 'set_cell':
         case 'erase_cell':
-          return !!data.coords;
-        case 'clear_layer':
-          return true;
+          return !!data.node_path && !!data.coords;
+        case 'get_cells_in_region':
+          return !!data.node_path && !!data.min_coords && !!data.max_coords;
         case 'set_cells_batch':
-          return !!data.cells && data.cells.length > 0;
+          return !!data.node_path && !!data.cells && data.cells.length > 0;
+        default:
+          return false;
       }
     },
     { message: 'Missing required fields for action' }
   );
 
-export const tilemapEdit = defineTool({
-  name: 'tilemap_edit',
-  description: 'Edit TileMapLayer cells. Actions: set_cell, erase_cell, clear_layer, set_cells_batch',
-  schema: TilemapEditSchema,
-  async execute(args, { godot }) {
+type TilemapArgs = z.infer<typeof TilemapSchema>;
+
+export const tilemap = defineTool({
+  name: 'tilemap',
+  description:
+    'Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates',
+  schema: TilemapSchema,
+  async execute(args: TilemapArgs, { godot }) {
     switch (args.action) {
+      case 'list_layers': {
+        const result = await godot.sendCommand<{
+          tilemap_layers: Array<{ path: string; name: string }>;
+        }>('list_tilemap_layers', { root_path: args.root_path });
+        if (result.tilemap_layers.length === 0) {
+          return 'No TileMapLayer nodes found in scene';
+        }
+        return `Found ${result.tilemap_layers.length} TileMapLayer(s):\n${result.tilemap_layers.map((l) => `  - ${l.path}`).join('\n')}`;
+      }
+      case 'get_info': {
+        const result = await godot.sendCommand('get_tilemap_layer_info', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_tileset_info': {
+        const result = await godot.sendCommand('get_tileset_info', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_used_cells': {
+        const result = await godot.sendCommand('get_used_cells', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_cell': {
+        const result = await godot.sendCommand('get_cell', { node_path: args.node_path, coords: args.coords });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_cells_in_region': {
+        const result = await godot.sendCommand('get_cells_in_region', {
+          node_path: args.node_path,
+          min_coords: args.min_coords,
+          max_coords: args.max_coords,
+        });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'convert_coords': {
+        const result = await godot.sendCommand('convert_coords', {
+          node_path: args.node_path,
+          local_position: args.local_position,
+          map_coords: args.map_coords,
+        });
+        return JSON.stringify(result, null, 2);
+      }
       case 'set_cell': {
         const result = await godot.sendCommand<{
           coords: { x: number; y: number };
@@ -232,107 +172,15 @@ export const tilemapEdit = defineTool({
   },
 });
 
-const GridmapQuerySchema = z
+const GridmapSchema = z
   .object({
     action: z
-      .enum(['list', 'get_info', 'get_meshlib_info', 'get_used_cells', 'get_cell', 'get_cells_by_item'])
-      .describe('Action: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item'),
+      .enum(['list', 'get_info', 'get_meshlib_info', 'get_used_cells', 'get_cell', 'get_cells_by_item', 'set_cell', 'clear_cell', 'clear', 'set_cells_batch'])
+      .describe('Action: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item, set_cell, clear_cell, clear, set_cells_batch'),
     root_path: z.string().optional().describe('Starting node path (list only)'),
     node_path: z.string().optional().describe('Path to GridMap (required except list)'),
-    coords: Vector3iSchema.optional().describe('Cell coordinates (get_cell)'),
-    item: z.number().int().optional().describe('MeshLibrary item index (get_cells_by_item)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'list':
-          return true;
-        case 'get_info':
-        case 'get_meshlib_info':
-        case 'get_used_cells':
-          return !!data.node_path;
-        case 'get_cell':
-          return !!data.node_path && !!data.coords;
-        case 'get_cells_by_item':
-          return !!data.node_path && data.item !== undefined;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
-
-export const gridmapQuery = defineTool({
-  name: 'gridmap_query',
-  description:
-    'Query GridMap data. Actions: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item',
-  schema: GridmapQuerySchema,
-  async execute(args, { godot }) {
-    switch (args.action) {
-      case 'list': {
-        const result = await godot.sendCommand<{
-          gridmaps: Array<{ path: string; name: string }>;
-        }>('list_gridmaps', { root_path: args.root_path });
-        if (result.gridmaps.length === 0) {
-          return 'No GridMap nodes found in scene';
-        }
-        return `Found ${result.gridmaps.length} GridMap(s):\n${result.gridmaps.map((g) => `  - ${g.path}`).join('\n')}`;
-      }
-      case 'get_info': {
-        const result = await godot.sendCommand<{
-          name: string;
-          mesh_library_path: string;
-          cell_size: { x: number; y: number; z: number };
-          cell_center_x: boolean;
-          cell_center_y: boolean;
-          cell_center_z: boolean;
-          used_cells_count: number;
-        }>('get_gridmap_info', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_meshlib_info': {
-        const result = await godot.sendCommand<{
-          mesh_library_path: string;
-          item_count: number;
-          items: Array<{ index: number; name: string; mesh_path: string }>;
-        }>('get_meshlib_info', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_used_cells': {
-        const result = await godot.sendCommand<{
-          cells: Array<{ x: number; y: number; z: number }>;
-          count: number;
-        }>('get_gridmap_used_cells', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_cell': {
-        const result = await godot.sendCommand<{
-          coords: { x: number; y: number; z: number };
-          empty: boolean;
-          item?: number;
-          item_name?: string;
-          orientation?: number;
-        }>('get_gridmap_cell', { node_path: args.node_path, coords: args.coords });
-        return JSON.stringify(result, null, 2);
-      }
-      case 'get_cells_by_item': {
-        const result = await godot.sendCommand<{
-          item: number;
-          cells: Array<{ x: number; y: number; z: number }>;
-          count: number;
-        }>('get_cells_by_item', { node_path: args.node_path, item: args.item });
-        return JSON.stringify(result, null, 2);
-      }
-    }
-  },
-});
-
-const GridmapEditSchema = z
-  .object({
-    action: z
-      .enum(['set_cell', 'clear_cell', 'clear', 'set_cells_batch'])
-      .describe('Action: set_cell, clear_cell, clear, set_cells_batch'),
-    node_path: z.string().describe('Path to GridMap node'),
-    coords: Vector3iSchema.optional().describe('Cell coordinates (set_cell, clear_cell)'),
-    item: z.number().int().optional().describe('MeshLibrary item index (set_cell)'),
+    coords: Vector3iSchema.optional().describe('Cell coordinates (get_cell, set_cell, clear_cell)'),
+    item: z.number().int().optional().describe('MeshLibrary item index (get_cells_by_item, set_cell)'),
     orientation: z.number().int().optional().describe('Orientation 0-23, default 0 (set_cell)'),
     cells: z
       .array(
@@ -348,25 +196,67 @@ const GridmapEditSchema = z
   .refine(
     (data) => {
       switch (data.action) {
-        case 'set_cell':
-          return !!data.coords && data.item !== undefined;
-        case 'clear_cell':
-          return !!data.coords;
-        case 'clear':
+        case 'list':
           return true;
+        case 'get_info':
+        case 'get_meshlib_info':
+        case 'get_used_cells':
+        case 'clear':
+          return !!data.node_path;
+        case 'get_cell':
+        case 'clear_cell':
+          return !!data.node_path && !!data.coords;
+        case 'get_cells_by_item':
+          return !!data.node_path && data.item !== undefined;
+        case 'set_cell':
+          return !!data.node_path && !!data.coords && data.item !== undefined;
         case 'set_cells_batch':
-          return !!data.cells && data.cells.length > 0;
+          return !!data.node_path && !!data.cells && data.cells.length > 0;
+        default:
+          return false;
       }
     },
     { message: 'Missing required fields for action' }
   );
 
-export const gridmapEdit = defineTool({
-  name: 'gridmap_edit',
-  description: 'Edit GridMap cells. Actions: set_cell, clear_cell, clear, set_cells_batch',
-  schema: GridmapEditSchema,
-  async execute(args, { godot }) {
+type GridmapArgs = z.infer<typeof GridmapSchema>;
+
+export const gridmap = defineTool({
+  name: 'gridmap',
+  description:
+    'Query and edit GridMap data: list gridmaps, get info, get/set cells',
+  schema: GridmapSchema,
+  async execute(args: GridmapArgs, { godot }) {
     switch (args.action) {
+      case 'list': {
+        const result = await godot.sendCommand<{
+          gridmaps: Array<{ path: string; name: string }>;
+        }>('list_gridmaps', { root_path: args.root_path });
+        if (result.gridmaps.length === 0) {
+          return 'No GridMap nodes found in scene';
+        }
+        return `Found ${result.gridmaps.length} GridMap(s):\n${result.gridmaps.map((g) => `  - ${g.path}`).join('\n')}`;
+      }
+      case 'get_info': {
+        const result = await godot.sendCommand('get_gridmap_info', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_meshlib_info': {
+        const result = await godot.sendCommand('get_meshlib_info', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_used_cells': {
+        const result = await godot.sendCommand('get_gridmap_used_cells', { node_path: args.node_path });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_cell': {
+        const result = await godot.sendCommand('get_gridmap_cell', { node_path: args.node_path, coords: args.coords });
+        return JSON.stringify(result, null, 2);
+      }
+      case 'get_cells_by_item': {
+        const result = await godot.sendCommand('get_cells_by_item', { node_path: args.node_path, item: args.item });
+        return JSON.stringify(result, null, 2);
+      }
       case 'set_cell': {
         const result = await godot.sendCommand<{
           coords: { x: number; y: number; z: number };
@@ -403,4 +293,4 @@ export const gridmapEdit = defineTool({
   },
 });
 
-export const tilemapTools = [tilemapQuery, tilemapEdit, gridmapQuery, gridmapEdit] as AnyToolDefinition[];
+export const tilemapTools = [tilemap, gridmap] as AnyToolDefinition[];

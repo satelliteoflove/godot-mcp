@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **34 tools** and **3 resources** for AI-assisted Godot development.
+This server provides **8 tools** and **3 resources** for AI-assisted Godot development.
 
 ## Quick Links
 
@@ -15,14 +15,12 @@ This server provides **34 tools** and **3 resources** for AI-assisted Godot deve
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| [Scene](tools/scene.md) | 4 | Scene management tools |
-| [Node](tools/node.md) | 5 | Node manipulation tools |
-| [Script](tools/script.md) | 5 | GDScript management tools |
-| [Editor](tools/editor.md) | 6 | Editor control and debugging tools |
-| [Project](tools/project.md) | 4 | Project information tools |
-| [Screenshot](tools/screenshot.md) | 2 | Screenshot capture tools |
-| [Animation](tools/animation.md) | 3 | Animation query, playback, and editing tools |
-| [TileMap/GridMap](tools/tilemap.md) | 4 | TileMap and GridMap editing tools |
+| [Scene](tools/scene.md) | 1 | Scene management tools |
+| [Node](tools/node.md) | 1 | Node manipulation and script attachment tools |
+| [Editor](tools/editor.md) | 1 | Editor control, debugging, and screenshot tools |
+| [Project](tools/project.md) | 1 | Project information tools |
+| [Animation](tools/animation.md) | 1 | Animation query, playback, and editing tools |
+| [TileMap/GridMap](tools/tilemap.md) | 2 | TileMap and GridMap editing tools |
 | [Resource](tools/resource.md) | 1 | Resource inspection tools for SpriteFrames, TileSet, Materials, etc. |
 
 ## Installation

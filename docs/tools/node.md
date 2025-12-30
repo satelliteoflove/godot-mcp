@@ -1,80 +1,99 @@
 # Node Tools
 
-Node manipulation tools
+Node manipulation and script attachment tools
 
 ## Tools
 
-- [get_node_properties](#get_node_properties)
-- [create_node](#create_node)
-- [update_node](#update_node)
-- [delete_node](#delete_node)
-- [reparent_node](#reparent_node)
+- [node](#node)
 
 ---
 
-## get_node_properties
+## node
 
-Get all properties of a node at the specified path
+Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node (e.g., "/root/Main/Player") |
+| `action` | `get_properties`, `find`, `create`, `update`, `delete`, `reparent`, `attach_script`, `detach_script` | Yes | Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script |
+| `node_path` | string | get_properties, update, delete, reparent, attach_script, detach_script | Path to the node |
+| `name_pattern` | string | find | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
+| `type` | string | find | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
+| `root_path` | string | No | Path to start search from (find only, defaults to scene root) |
+| `parent_path` | string | create | Path to the parent node |
+| `node_type` | string | No | Type of node to create, e.g. "Sprite2D" (create only, use this OR scene_path) |
+| `scene_path` | string | No | Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (create only, use this OR node_type) |
+| `node_name` | string | create | Name for the new node |
+| `properties` | Record<string, unknown> | create, update | Properties to set |
+| `new_parent_path` | string | reparent | Path to the new parent node |
+| `script_path` | string | attach_script | Path to the script file |
 
----
+### Actions
 
-## create_node
+#### `get_properties`
 
-Create a new node as a child of an existing node, or instantiate a packed scene
+Parameters: `node_path`*
 
-### Parameters
+#### `find`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `parent_path` | string | Yes | Path to the parent node |
-| `node_type` | string | No | Type of node to create (e.g., "Sprite2D") - use this OR scene_path |
-| `scene_path` | string | No | Path to scene file to instantiate (e.g., "res://enemies/goblin.tscn") - use this OR node_type |
-| `node_name` | string | Yes | Name for the new node |
-| `properties` | object | No | Optional properties to set on the node |
+Parameters: `name_pattern`*, `type`*
 
----
+#### `create`
 
-## update_node
+Parameters: `parent_path`*, `node_name`*, `properties`
 
-Update properties of an existing node
+#### `update`
 
-### Parameters
+Parameters: `node_path`*, `properties`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node to update |
-| `properties` | object | Yes | Properties to update (key-value pairs) |
+#### `delete`
 
----
+Parameters: `node_path`*
 
-## delete_node
+#### `reparent`
 
-Delete a node from the scene
+Parameters: `node_path`*, `new_parent_path`*
 
-### Parameters
+#### `attach_script`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node to delete |
+Parameters: `node_path`*, `script_path`*
 
----
+#### `detach_script`
 
-## reparent_node
+Parameters: `node_path`*
 
-Move a node to a new parent
+### Examples
 
-### Parameters
+```json
+// get_properties
+{
+  "action": "get_properties",
+  "node_path": "/root/Main/Player"
+}
+```
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node to move |
-| `new_parent_path` | string | Yes | Path to the new parent node |
+```json
+// find
+{
+  "action": "find",
+  "name_pattern": "*Enemy*",
+  "type": "CharacterBody2D",
+  "root_path": "/root/Main"
+}
+```
+
+```json
+// create
+{
+  "action": "create",
+  "parent_path": "/root/Main",
+  "node_type": "Sprite2D",
+  "node_name": "NewNode"
+}
+```
+
+*5 more actions available: `update`, `delete`, `reparent`, `attach_script`, `detach_script`*
 
 ---
 

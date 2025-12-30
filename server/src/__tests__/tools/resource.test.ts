@@ -7,7 +7,7 @@ import {
   createToolContext,
   MockGodotConnection,
 } from '../helpers/mock-godot.js';
-import { getResourceInfo } from '../../tools/resource.js';
+import { resource, resourceTools } from '../../tools/resource.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '../fixtures');
@@ -17,26 +17,38 @@ function loadFixture(name: string): unknown {
   return JSON.parse(readFileSync(filepath, 'utf-8'));
 }
 
-describe('Resource Tools', () => {
+describe('resource tool', () => {
   let mock: MockGodotConnection;
 
   beforeEach(() => {
     mock = createMockGodot();
   });
 
-  describe('schema validation', () => {
-    it('requires resource_path', () => {
-      expect(getResourceInfo.schema.safeParse({}).success).toBe(false);
+  describe('tool definitions', () => {
+    it('exports one tool', () => {
+      expect(resourceTools).toHaveLength(1);
     });
 
-    it('accepts valid resource_path', () => {
+    it('has resource tool with get_info action', () => {
+      expect(resource.name).toBe('resource');
+      expect(resource.description).toContain('Resource');
+    });
+  });
+
+  describe('schema validation', () => {
+    it('requires action and resource_path for get_info', () => {
+      expect(resource.schema.safeParse({ action: 'get_info' }).success).toBe(false);
+    });
+
+    it('accepts valid action and resource_path', () => {
       expect(
-        getResourceInfo.schema.safeParse({ resource_path: 'res://test.tres' }).success
+        resource.schema.safeParse({ action: 'get_info', resource_path: 'res://test.tres' }).success
       ).toBe(true);
     });
 
     it('accepts optional max_depth', () => {
-      const result = getResourceInfo.schema.safeParse({
+      const result = resource.schema.safeParse({
+        action: 'get_info',
         resource_path: 'res://test.tres',
         max_depth: 2,
       });
@@ -44,7 +56,8 @@ describe('Resource Tools', () => {
     });
 
     it('accepts optional include_internal', () => {
-      const result = getResourceInfo.schema.safeParse({
+      const result = resource.schema.safeParse({
+        action: 'get_info',
         resource_path: 'res://test.tres',
         include_internal: true,
       });
@@ -52,7 +65,8 @@ describe('Resource Tools', () => {
     });
 
     it('rejects invalid max_depth type', () => {
-      const result = getResourceInfo.schema.safeParse({
+      const result = resource.schema.safeParse({
+        action: 'get_info',
         resource_path: 'res://test.tres',
         max_depth: 'deep',
       });
@@ -60,12 +74,12 @@ describe('Resource Tools', () => {
     });
   });
 
-  describe('command execution', () => {
+  describe('action: get_info', () => {
     it('sends correct command name', async () => {
       mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
-      await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
+      await resource.execute({ action: 'get_info', resource_path: 'res://test.tres' }, ctx);
 
       expect(mock.calls[0].command).toBe('get_resource_info');
     });
@@ -74,7 +88,7 @@ describe('Resource Tools', () => {
       mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
-      await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
+      await resource.execute({ action: 'get_info', resource_path: 'res://test.tres' }, ctx);
 
       expect(mock.calls[0].params.max_depth).toBe(1);
     });
@@ -83,7 +97,7 @@ describe('Resource Tools', () => {
       mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
-      await getResourceInfo.execute({ resource_path: 'res://test.tres' }, ctx);
+      await resource.execute({ action: 'get_info', resource_path: 'res://test.tres' }, ctx);
 
       expect(mock.calls[0].params.include_internal).toBe(false);
     });
@@ -92,7 +106,7 @@ describe('Resource Tools', () => {
       mock.mockResponse({ resource_path: 'res://test.tres', resource_type: 'Resource' });
       const ctx = createToolContext(mock);
 
-      await getResourceInfo.execute({ resource_path: 'res://test.tres', max_depth: 0 }, ctx);
+      await resource.execute({ action: 'get_info', resource_path: 'res://test.tres', max_depth: 0 }, ctx);
 
       expect(mock.calls[0].params.max_depth).toBe(0);
     });
@@ -102,7 +116,7 @@ describe('Resource Tools', () => {
       const ctx = createToolContext(mock);
 
       await expect(
-        getResourceInfo.execute({ resource_path: 'res://missing.tres' }, ctx)
+        resource.execute({ action: 'get_info', resource_path: 'res://missing.tres' }, ctx)
       ).rejects.toThrow('Resource not found');
     });
   });
@@ -113,8 +127,8 @@ describe('Resource Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://player/player_sprites.tres' },
+      const result = await resource.execute(
+        { action: 'get_info', resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
       const parsed = JSON.parse(result as string);
@@ -130,8 +144,8 @@ describe('Resource Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://player/player_sprites.tres' },
+      const result = await resource.execute(
+        { action: 'get_info', resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
       const parsed = JSON.parse(result as string);
@@ -156,8 +170,8 @@ describe('Resource Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://player/player_sprites.tres', max_depth: 0 },
+      const result = await resource.execute(
+        { action: 'get_info', resource_path: 'res://player/player_sprites.tres', max_depth: 0 },
         ctx
       );
       const parsed = JSON.parse(result as string);
@@ -178,8 +192,8 @@ describe('Resource Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://player/player_sprites.tres' },
+      const result = await resource.execute(
+        { action: 'get_info', resource_path: 'res://player/player_sprites.tres' },
         ctx
       );
       const parsed = JSON.parse(result as string);
@@ -197,8 +211,8 @@ describe('Resource Tools', () => {
       mock.mockResponse(fixture);
       const ctx = createToolContext(mock);
 
-      const result = await getResourceInfo.execute(
-        { resource_path: 'res://sprites/player/hero.png' },
+      const result = await resource.execute(
+        { action: 'get_info', resource_path: 'res://sprites/player/hero.png' },
         ctx
       );
       const parsed = JSON.parse(result as string);

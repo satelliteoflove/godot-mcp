@@ -42,18 +42,33 @@ func _get_input_mappings(params: Dictionary) -> Dictionary:
 	var include_builtin: bool = params.get("include_builtin", false)
 	var actions := {}
 
-	for action in InputMap.get_actions():
-		if not include_builtin and str(action).begins_with("ui_"):
+	# Read from ProjectSettings instead of InputMap
+	# InputMap in editor context only has editor actions, not game inputs
+	# Game inputs are stored as "input/<action_name>" in ProjectSettings
+	var all_settings := ProjectSettings.get_property_list()
+
+	for prop in all_settings:
+		var name: String = prop["name"]
+		if not name.begins_with("input/"):
 			continue
 
-		var events := []
-		for event in InputMap.action_get_events(action):
-			events.append(_serialize_input_event(event))
+		var action_name := name.substr(6)  # Remove "input/" prefix
 
-		actions[action] = {
-			"deadzone": InputMap.action_get_deadzone(action),
-			"events": events
-		}
+		if not include_builtin and action_name.begins_with("ui_"):
+			continue
+
+		var action_data = ProjectSettings.get_setting(name)
+		if action_data is Dictionary:
+			var events := []
+			var raw_events = action_data.get("events", [])
+			for event in raw_events:
+				if event is InputEvent:
+					events.append(_serialize_input_event(event))
+
+			actions[action_name] = {
+				"deadzone": action_data.get("deadzone", 0.5),
+				"events": events
+			}
 
 	return _success({"settings": actions})
 
