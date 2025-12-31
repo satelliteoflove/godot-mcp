@@ -9,7 +9,7 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "godot/addons/godot_mcp/plugin.cfg"
+          "path": "../godot/addons/godot_mcp/plugin.cfg"
         }
       ]
     }
