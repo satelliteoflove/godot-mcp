@@ -63,7 +63,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 | `gridmap` | Query and edit GridMap data: list gridmaps, get info, get/set cells |
 | `resource` | Manage Godot resources: inspect Resource files by path |
 
-See [docs/](docs/) for detailed API reference.
+See [docs/](docs/) for detailed API reference, including the [Claude Code Setup Guide](docs/claude-code-setup.md).
 
 ## Architecture
 

@@ -430,6 +430,7 @@ This server provides **${totalTools} tools** and **${allResources.length} resour
 
 ## Quick Links
 
+- [Claude Code Setup Guide](claude-code-setup.md) - Configure your project for AI-assisted development
 - [Tools Reference](tools/README.md) - All available MCP tools
 - [Resources Reference](resources.md) - MCP resources for reading project data
 
@@ -533,7 +534,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 |------|-------------|
 ${toolsTable}
 
-See [docs/](docs/) for detailed API reference.
+See [docs/](docs/) for detailed API reference, including the [Claude Code Setup Guide](docs/claude-code-setup.md).
 
 ## Architecture
 
