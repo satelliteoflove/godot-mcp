@@ -160,35 +160,6 @@ describe('animation tool', () => {
       expect(result).toBe('Animation stopped');
     });
 
-    it('pause sends command with paused=true', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      const result = await animation.execute({
-        action: 'pause',
-        node_path: '/root/AnimPlayer',
-        paused: true,
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('pause_animation');
-      expect(mock.calls[0].params.paused).toBe(true);
-      expect(result).toBe('Animation paused');
-    });
-
-    it('pause sends command with paused=false', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      const result = await animation.execute({
-        action: 'pause',
-        node_path: '/root/AnimPlayer',
-        paused: false,
-      }, ctx);
-
-      expect(mock.calls[0].params.paused).toBe(false);
-      expect(result).toBe('Animation unpaused');
-    });
-
     it('seek sends command and returns position', async () => {
       mock.mockResponse({ position: 1.5 });
       const ctx = createToolContext(mock);
@@ -202,33 +173,6 @@ describe('animation tool', () => {
       expect(mock.calls[0].command).toBe('seek_animation');
       expect(mock.calls[0].params.seconds).toBe(1.5);
       expect(result).toBe('Seeked to position: 1.5');
-    });
-
-    it('queue sends command and returns queue info', async () => {
-      mock.mockResponse({ queued: 'attack', queue_length: 3 });
-      const ctx = createToolContext(mock);
-
-      const result = await animation.execute({
-        action: 'queue',
-        node_path: '/root/AnimPlayer',
-        animation_name: 'attack',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('queue_animation');
-      expect(result).toBe('Queued animation: attack (queue length: 3)');
-    });
-
-    it('clear_queue sends command and returns confirmation', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      const result = await animation.execute({
-        action: 'clear_queue',
-        node_path: '/root/AnimPlayer',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('clear_animation_queue');
-      expect(result).toBe('Animation queue cleared');
     });
   });
 
@@ -282,23 +226,6 @@ describe('animation tool', () => {
 
       expect(mock.calls[0].command).toBe('delete_animation');
       expect(result).toBe('Deleted animation: old_anim');
-    });
-
-    it('rename sends command with old and new names', async () => {
-      mock.mockResponse({ renamed: { from: 'walk', to: 'walk_slow' } });
-      const ctx = createToolContext(mock);
-
-      const result = await animation.execute({
-        action: 'rename',
-        node_path: '/root/AnimPlayer',
-        old_name: 'walk',
-        new_name: 'walk_slow',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('rename_animation');
-      expect(mock.calls[0].params.old_name).toBe('walk');
-      expect(mock.calls[0].params.new_name).toBe('walk_slow');
-      expect(result).toBe('Renamed animation: walk -> walk_slow');
     });
 
     it('update_props sends command and returns updated properties', async () => {

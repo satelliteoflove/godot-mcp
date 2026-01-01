@@ -197,6 +197,28 @@ describe('editor tool', () => {
     });
   });
 
+  describe('action: get_performance', () => {
+    it('sends get_performance_metrics command', async () => {
+      mock.mockResponse({ fps: 60 });
+      const ctx = createToolContext(mock);
+
+      await editor.execute({ action: 'get_performance' }, ctx);
+
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0].command).toBe('get_performance_metrics');
+    });
+
+    it('returns JSON formatted response', async () => {
+      const metrics = { fps: 60, frame_time_ms: 16.67 };
+      mock.mockResponse(metrics);
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_performance' }, ctx);
+
+      expect(result).toBe(JSON.stringify(metrics, null, 2));
+    });
+  });
+
   describe('action: screenshot_game', () => {
     it('sends capture_game_screenshot command', async () => {
       mock.mockResponse({ image_base64: 'abc123', width: 800, height: 600 });

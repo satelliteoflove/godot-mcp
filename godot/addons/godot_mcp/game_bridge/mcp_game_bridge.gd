@@ -28,6 +28,9 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"get_debug_output":
 			_handle_get_debug_output(data)
 			return true
+		"get_performance_metrics":
+			_handle_get_performance_metrics()
+			return true
 	return false
 
 
@@ -77,6 +80,28 @@ func _handle_get_debug_output(data: Array) -> void:
 	if clear and _logger:
 		_logger.clear()
 	EngineDebugger.send_message("godot_mcp:debug_output_result", [output])
+
+
+func _handle_get_performance_metrics() -> void:
+	var metrics := {
+		"fps": Performance.get_monitor(Performance.TIME_FPS),
+		"frame_time_ms": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		"physics_time_ms": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		"navigation_time_ms": Performance.get_monitor(Performance.TIME_NAVIGATION_PROCESS) * 1000.0,
+		"render_objects": int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
+		"render_draw_calls": int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		"render_primitives": int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+		"physics_2d_active_objects": int(Performance.get_monitor(Performance.PHYSICS_2D_ACTIVE_OBJECTS)),
+		"physics_2d_collision_pairs": int(Performance.get_monitor(Performance.PHYSICS_2D_COLLISION_PAIRS)),
+		"physics_2d_island_count": int(Performance.get_monitor(Performance.PHYSICS_2D_ISLAND_COUNT)),
+		"object_count": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+		"object_resource_count": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+		"object_node_count": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"object_orphan_node_count": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
+		"memory_static": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
+		"memory_static_max": int(Performance.get_monitor(Performance.MEMORY_STATIC_MAX)),
+	}
+	EngineDebugger.send_message("godot_mcp:performance_metrics_result", [metrics])
 
 
 class _MCPGameLogger extends Logger:

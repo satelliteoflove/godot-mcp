@@ -18,7 +18,7 @@ Node manipulation and script attachment tools
 
 Editor control, debugging, and screenshot tools
 
-- `editor` - Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
+- `editor` - Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots
 
 ## [Project](project.md)
 
@@ -30,7 +30,7 @@ Project information tools
 
 Animation query, playback, and editing tools
 
-- `animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, pause, seek, queue, clear_queue. Edit: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
+- `animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
 ## [TileMap/GridMap](tilemap.md)
 

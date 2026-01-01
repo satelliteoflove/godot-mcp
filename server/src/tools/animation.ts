@@ -25,13 +25,9 @@ const AnimationSchema = z
         'get_keyframes',
         'play',
         'stop',
-        'pause',
         'seek',
-        'queue',
-        'clear_queue',
         'create',
         'delete',
-        'rename',
         'update_props',
         'add_track',
         'remove_track',
@@ -40,7 +36,7 @@ const AnimationSchema = z
         'update_keyframe',
       ])
       .describe(
-        'Action: list_players, get_info, get_details, get_keyframes (query), play, stop, pause, seek, queue, clear_queue (playback), create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit)'
+        'Action: list_players, get_info, get_details, get_keyframes (query), play, stop, seek (playback), create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit)'
       ),
     root_path: z.string().optional().describe('Starting node path (list_players only)'),
     node_path: z.string().optional().describe('Path to AnimationPlayer (required except list_players)'),
@@ -50,15 +46,12 @@ const AnimationSchema = z
     custom_speed: z.number().optional().describe('Playback speed, 1.0 default (play)'),
     from_end: z.boolean().optional().describe('Play from end for reverse (play)'),
     keep_state: z.boolean().optional().describe('Keep current animation state (stop)'),
-    paused: z.boolean().optional().describe('True to pause, false to unpause (pause)'),
     seconds: z.number().optional().describe('Position to seek to (seek)'),
     update: z.boolean().optional().describe('Update node immediately, default true (seek)'),
-    library_name: z.string().optional().describe('Library name (create, delete, rename)'),
+    library_name: z.string().optional().describe('Library name (create, delete)'),
     length: z.number().optional().describe('Animation length in seconds (create, update_props)'),
     loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong (create, update_props)'),
     step: z.number().optional().describe('Step value for keyframe snapping (create, update_props)'),
-    old_name: z.string().optional().describe('Current animation name (rename)'),
-    new_name: z.string().optional().describe('New animation name (rename)'),
     track_type: TrackTypeEnum.optional().describe('Type of track (add_track)'),
     track_path: z.string().optional().describe('Node path and property, e.g. "Sprite2D:frame" (add_track)'),
     insert_at: z.number().optional().describe('Track index to insert at, -1 for end (add_track)'),
@@ -76,24 +69,17 @@ const AnimationSchema = z
           return true;
         case 'get_info':
         case 'stop':
-        case 'clear_queue':
           return !!data.node_path;
         case 'get_details':
         case 'create':
         case 'delete':
         case 'update_props':
+        case 'play':
           return !!data.node_path && !!data.animation_name;
         case 'get_keyframes':
           return !!data.node_path && !!data.animation_name && data.track_index !== undefined;
-        case 'play':
-        case 'queue':
-          return !!data.node_path && !!data.animation_name;
-        case 'pause':
-          return !!data.node_path && data.paused !== undefined;
         case 'seek':
           return !!data.node_path && data.seconds !== undefined;
-        case 'rename':
-          return !!data.node_path && !!data.old_name && !!data.new_name;
         case 'add_track':
           return !!data.node_path && !!data.animation_name && !!data.track_type && !!data.track_path;
         case 'remove_track':
@@ -125,7 +111,7 @@ type AnimationArgs = z.infer<typeof AnimationSchema>;
 export const animation = defineTool({
   name: 'animation',
   description:
-    'Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, pause, seek, queue, clear_queue. Edit: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
+    'Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
   schema: AnimationSchema,
   async execute(args: AnimationArgs, { godot }) {
     switch (args.action) {
@@ -210,13 +196,6 @@ export const animation = defineTool({
         });
         return 'Animation stopped';
       }
-      case 'pause': {
-        await godot.sendCommand('pause_animation', {
-          node_path: args.node_path,
-          paused: args.paused,
-        });
-        return args.paused ? 'Animation paused' : 'Animation unpaused';
-      }
       case 'seek': {
         const result = await godot.sendCommand<{ position: number }>('seek_animation', {
           node_path: args.node_path,
@@ -224,20 +203,6 @@ export const animation = defineTool({
           update: args.update,
         });
         return `Seeked to position: ${result.position}`;
-      }
-      case 'queue': {
-        const result = await godot.sendCommand<{ queued: string; queue_length: number }>(
-          'queue_animation',
-          {
-            node_path: args.node_path,
-            animation_name: args.animation_name,
-          }
-        );
-        return `Queued animation: ${result.queued} (queue length: ${result.queue_length})`;
-      }
-      case 'clear_queue': {
-        await godot.sendCommand('clear_animation_queue', { node_path: args.node_path });
-        return 'Animation queue cleared';
       }
       case 'create': {
         const result = await godot.sendCommand<{ created: string; library: string }>(
@@ -260,18 +225,6 @@ export const animation = defineTool({
           library_name: args.library_name,
         });
         return `Deleted animation: ${result.deleted}`;
-      }
-      case 'rename': {
-        const result = await godot.sendCommand<{ renamed: { from: string; to: string } }>(
-          'rename_animation',
-          {
-            node_path: args.node_path,
-            old_name: args.old_name,
-            new_name: args.new_name,
-            library_name: args.library_name,
-          }
-        );
-        return `Renamed animation: ${result.renamed.from} -> ${result.renamed.to}`;
       }
       case 'update_props': {
         const result = await godot.sendCommand<{

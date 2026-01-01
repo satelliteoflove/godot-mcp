@@ -10,13 +10,13 @@ Editor control, debugging, and screenshot tools
 
 ## editor
 
-Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots
+Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `screenshot_game`, `screenshot_editor` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, screenshot_game, screenshot_editor |
+| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_performance`, `screenshot_game`, `screenshot_editor` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor |
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
 | `clear` | boolean | get_debug_output | Clear output buffer after reading |
@@ -40,6 +40,8 @@ Parameters: `node_path`*
 #### `get_debug_output`
 
 Parameters: `clear`*
+
+#### `get_performance`
 
 #### `screenshot_game`
 
@@ -73,7 +75,7 @@ Parameters: `viewport`*, `max_width`
 }
 ```
 
-*5 more actions available: `run`, `stop`, `get_debug_output`, `screenshot_game`, `screenshot_editor`*
+*6 more actions available: `run`, `stop`, `get_debug_output`, `get_performance`, `screenshot_game`, `screenshot_editor`*
 
 ---
 

@@ -10,13 +10,13 @@ Animation query, playback, and editing tools
 
 ## animation
 
-Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, pause, seek, queue, clear_queue. Edit: create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
+Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `list_players`, `get_info`, `get_details`, `get_keyframes`, `play`, `stop`, `pause`, `seek`, `queue`, `clear_queue`, `create`, `delete`, `rename`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe` | Yes | Action: list_players, get_info, get_details, get_keyframes (query), play, stop, pause, seek, queue, clear_queue (playback), create, delete, rename, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit) |
+| `action` | `list_players`, `get_info`, `get_details`, `get_keyframes`, `play`, `stop`, `seek`, `create`, `delete`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe` | Yes | Action: list_players, get_info, get_details, get_keyframes (query), play, stop, seek (playback), create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit) |
 | `root_path` | string | list_players | Starting node path |
 | `node_path` | string | No | Path to AnimationPlayer (required except list_players) |
 | `animation_name` | string | No | Animation name |
@@ -25,15 +25,12 @@ Query, control, and edit animations. Query: list_players, get_info, get_details,
 | `custom_speed` | number | No | Playback speed, 1.0 default (play) |
 | `from_end` | boolean | No | Play from end for reverse (play) |
 | `keep_state` | boolean | No | Keep current animation state (stop) |
-| `paused` | boolean | No | True to pause, false to unpause (pause) |
 | `seconds` | number | No | Position to seek to (seek) |
 | `update` | boolean | No | Update node immediately, default true (seek) |
-| `library_name` | string | create, delete, rename | Library name |
+| `library_name` | string | create, delete | Library name |
 | `length` | number | create, update_props | Animation length in seconds |
 | `loop_mode` | `none`, `linear`, `pingpong` | create, update_props | Loop mode: none, linear, pingpong |
 | `step` | number | create, update_props | Step value for keyframe snapping |
-| `old_name` | string | No | Current animation name (rename) |
-| `new_name` | string | No | New animation name (rename) |
 | `track_type` | `value`, `position_3d`, `rotation_3d`, `scale_3d`, `blend_shape`, `method`, `bezier`, `audio`, `animation` | No | Type of track (add_track) |
 | `track_path` | string | No | Node path and property, e.g. "Sprite2D:frame" (add_track) |
 | `insert_at` | number | No | Track index to insert at, -1 for end (add_track) |
@@ -60,23 +57,13 @@ Parameters: `root_path`*
 
 #### `stop`
 
-#### `pause`
-
 #### `seek`
-
-#### `queue`
-
-#### `clear_queue`
 
 #### `create`
 
 Parameters: `library_name`, `length`, `loop_mode`, `step`
 
 #### `delete`
-
-Parameters: `library_name`
-
-#### `rename`
 
 Parameters: `library_name`
 
@@ -124,7 +111,7 @@ Parameters: `time`, `value`, `transition`, `keyframe_index`
 }
 ```
 
-*16 more actions available: `get_keyframes`, `play`, `stop`, `pause`, `seek`, `queue`, `clear_queue`, `create`, `delete`, `rename`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
+*12 more actions available: `get_keyframes`, `play`, `stop`, `seek`, `create`, `delete`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
 
 ---
 

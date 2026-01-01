@@ -4,10 +4,12 @@ class_name MCPDebuggerPlugin
 
 signal screenshot_received(success: bool, image_base64: String, width: int, height: int, error: String)
 signal debug_output_received(output: PackedStringArray)
+signal performance_metrics_received(metrics: Dictionary)
 
 var _active_session_id: int = -1
 var _pending_screenshot: bool = false
 var _pending_debug_output: bool = false
+var _pending_performance_metrics: bool = false
 
 
 func _has_capture(prefix: String) -> bool:
@@ -21,6 +23,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:debug_output_result":
 			_handle_debug_output_result(data)
+			return true
+		"godot_mcp:performance_metrics_result":
+			_handle_performance_metrics_result(data)
 			return true
 	return false
 
@@ -37,6 +42,9 @@ func _session_stopped() -> void:
 	if _pending_debug_output:
 		_pending_debug_output = false
 		debug_output_received.emit(PackedStringArray())
+	if _pending_performance_metrics:
+		_pending_performance_metrics = false
+		performance_metrics_received.emit({})
 
 
 func has_active_session() -> bool:
@@ -86,3 +94,22 @@ func _handle_debug_output_result(data: Array) -> void:
 	_pending_debug_output = false
 	var output: PackedStringArray = data[0] if data.size() > 0 else PackedStringArray()
 	debug_output_received.emit(output)
+
+
+func request_performance_metrics() -> void:
+	if _active_session_id < 0:
+		performance_metrics_received.emit({})
+		return
+	_pending_performance_metrics = true
+	var session := get_session(_active_session_id)
+	if session:
+		session.send_message("godot_mcp:get_performance_metrics", [])
+	else:
+		_pending_performance_metrics = false
+		performance_metrics_received.emit({})
+
+
+func _handle_performance_metrics_result(data: Array) -> void:
+	_pending_performance_metrics = false
+	var metrics: Dictionary = data[0] if data.size() > 0 else {}
+	performance_metrics_received.emit(metrics)

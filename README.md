@@ -56,7 +56,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 |------|-------------|
 | `scene` | Manage scenes: open, save, or create scenes |
 | `node` | Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts |
-| `editor` | Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots |
+| `editor` | Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots |
 | `project` | Get project information and settings |
 | `animation` | Query, control, and edit animations |
 | `tilemap` | Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates |

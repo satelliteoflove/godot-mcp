@@ -19,8 +19,8 @@ function toImageContent(base64: string): ImageContent {
 const EditorSchema = z
   .object({
     action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'screenshot_game', 'screenshot_editor'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, screenshot_game, screenshot_editor'),
+      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_performance', 'screenshot_game', 'screenshot_editor'])
+      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor'),
     node_path: z
       .string()
       .optional()
@@ -59,7 +59,7 @@ type EditorArgs = z.infer<typeof EditorSchema>;
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state, manage selection, run/stop project, get debug output, capture screenshots',
+    'Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -106,6 +106,28 @@ export const editor = defineTool({
           return 'No debug output';
         }
         return `Debug output:\n\`\`\`\n${result.output}\n\`\`\``;
+      }
+
+      case 'get_performance': {
+        const result = await godot.sendCommand<{
+          fps: number;
+          frame_time_ms: number;
+          physics_time_ms: number;
+          navigation_time_ms: number;
+          render_objects: number;
+          render_draw_calls: number;
+          render_primitives: number;
+          physics_2d_active_objects: number;
+          physics_2d_collision_pairs: number;
+          physics_2d_island_count: number;
+          object_count: number;
+          object_resource_count: number;
+          object_node_count: number;
+          object_orphan_node_count: number;
+          memory_static: number;
+          memory_static_max: number;
+        }>('get_performance_metrics');
+        return JSON.stringify(result, null, 2);
       }
 
       case 'screenshot_game': {

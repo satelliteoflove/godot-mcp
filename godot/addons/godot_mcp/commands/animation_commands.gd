@@ -30,13 +30,9 @@ func get_commands() -> Dictionary:
 		"get_track_keyframes": get_track_keyframes,
 		"play_animation": play_animation,
 		"stop_animation": stop_animation,
-		"pause_animation": pause_animation,
 		"seek_animation": seek_animation,
-		"queue_animation": queue_animation,
-		"clear_animation_queue": clear_animation_queue,
 		"create_animation": create_animation,
 		"delete_animation": delete_animation,
-		"rename_animation": rename_animation,
 		"update_animation_properties": update_animation_properties,
 		"add_animation_track": add_animation_track,
 		"remove_animation_track": remove_animation_track,
@@ -75,14 +71,15 @@ func _loop_mode_to_string(loop_mode: int) -> String:
 	return "none"
 
 
-func _find_animation_players(node: Node, result: Array) -> void:
+func _find_animation_players(node: Node, result: Array, root: Node) -> void:
 	if node is AnimationPlayer:
+		var relative_path := str(root.get_path_to(node))
 		result.append({
-			"path": str(node.get_path()),
+			"path": relative_path,
 			"name": node.name
 		})
 	for child in node.get_children():
-		_find_animation_players(child, result)
+		_find_animation_players(child, result, root)
 
 
 func list_animation_players(params: Dictionary) -> Dictionary:
@@ -98,7 +95,7 @@ func list_animation_players(params: Dictionary) -> Dictionary:
 		return _error("NODE_NOT_FOUND", "Root node not found")
 
 	var players := []
-	_find_animation_players(root, players)
+	_find_animation_players(root, players, root)
 
 	return _success({"animation_players": players})
 
@@ -279,31 +276,6 @@ func stop_animation(params: Dictionary) -> Dictionary:
 	return _success({"stopped": true})
 
 
-func pause_animation(params: Dictionary) -> Dictionary:
-	var node_path: String = params.get("node_path", "")
-	var paused: bool = params.get("paused", true)
-
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-	if not params.has("paused"):
-		return _error("INVALID_PARAMS", "paused is required")
-
-	var player := _get_animation_player(node_path)
-	if not player:
-		var node := _get_node(node_path)
-		if not node:
-			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
-		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
-
-	if paused:
-		player.pause()
-	else:
-		if not player.current_animation.is_empty():
-			player.play()
-
-	return _success({"paused": paused})
-
-
 func seek_animation(params: Dictionary) -> Dictionary:
 	var node_path: String = params.get("node_path", "")
 	var seconds: float = params.get("seconds", 0.0)
@@ -324,48 +296,6 @@ func seek_animation(params: Dictionary) -> Dictionary:
 	player.seek(seconds, update)
 
 	return _success({"position": player.current_animation_position})
-
-
-func queue_animation(params: Dictionary) -> Dictionary:
-	var node_path: String = params.get("node_path", "")
-	var anim_name: String = params.get("animation_name", "")
-
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-	if anim_name.is_empty():
-		return _error("INVALID_PARAMS", "animation_name is required")
-
-	var player := _get_animation_player(node_path)
-	if not player:
-		var node := _get_node(node_path)
-		if not node:
-			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
-		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
-
-	if not player.has_animation(anim_name):
-		return _error("ANIMATION_NOT_FOUND", "Animation not found: %s" % anim_name)
-
-	player.queue(anim_name)
-
-	return _success({"queued": anim_name, "queue_length": player.get_queue().size()})
-
-
-func clear_animation_queue(params: Dictionary) -> Dictionary:
-	var node_path: String = params.get("node_path", "")
-
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-
-	var player := _get_animation_player(node_path)
-	if not player:
-		var node := _get_node(node_path)
-		if not node:
-			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
-		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
-
-	player.clear_queue()
-
-	return _success({"cleared": true})
 
 
 func create_animation(params: Dictionary) -> Dictionary:
@@ -438,41 +368,6 @@ func delete_animation(params: Dictionary) -> Dictionary:
 	lib.remove_animation(anim_name)
 
 	return _success({"deleted": anim_name})
-
-
-func rename_animation(params: Dictionary) -> Dictionary:
-	var node_path: String = params.get("node_path", "")
-	var old_name: String = params.get("old_name", "")
-	var new_name: String = params.get("new_name", "")
-	var lib_name: String = params.get("library_name", "")
-
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-	if old_name.is_empty():
-		return _error("INVALID_PARAMS", "old_name is required")
-	if new_name.is_empty():
-		return _error("INVALID_PARAMS", "new_name is required")
-
-	var player := _get_animation_player(node_path)
-	if not player:
-		var node := _get_node(node_path)
-		if not node:
-			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
-		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
-
-	if not player.has_animation_library(lib_name):
-		return _error("LIBRARY_NOT_FOUND", "Animation library not found: %s" % lib_name)
-
-	var lib := player.get_animation_library(lib_name)
-	if not lib.has_animation(old_name):
-		return _error("ANIMATION_NOT_FOUND", "Animation not found: %s" % old_name)
-
-	if lib.has_animation(new_name):
-		return _error("ANIMATION_EXISTS", "Animation already exists: %s" % new_name)
-
-	lib.rename_animation(old_name, new_name)
-
-	return _success({"renamed": {"from": old_name, "to": new_name}})
 
 
 func update_animation_properties(params: Dictionary) -> Dictionary:
