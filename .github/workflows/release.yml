@@ -57,13 +57,18 @@ jobs:
       - run: npm run generate-docs
         if: ${{ steps.check-pr.outputs.branch }}
         working-directory: server
+      - name: Sync version to Godot addon
+        if: ${{ steps.check-pr.outputs.branch }}
+        run: |
+          VERSION=$(node -p "require('./server/package.json').version")
+          sed -i "s/^version=.*/version=\"$VERSION\"/" godot/addons/godot_mcp/plugin.cfg
       - name: Commit docs if changed
         if: ${{ steps.check-pr.outputs.branch }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/ README.md server/README.md
-          git diff --staged --quiet || git commit -m "docs: auto-generate API reference and README"
+          git add docs/ README.md server/README.md godot/addons/godot_mcp/plugin.cfg
+          git diff --staged --quiet || git commit -m "chore: auto-generate docs and sync addon version"
           git push
 
   publish:
