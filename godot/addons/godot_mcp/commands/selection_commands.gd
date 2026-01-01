@@ -26,6 +26,14 @@ func get_editor_state(_params: Dictionary) -> Dictionary:
 	})
 
 
+const MAIN_SCREEN_PATTERNS := {
+	"2D": ["CanvasItemEditor", "2D"],
+	"3D": ["Node3DEditor", "3D"],
+	"Script": ["ScriptEditor", "Script"],
+	"AssetLib": ["AssetLib", "Asset"],
+}
+
+
 func _get_current_main_screen() -> String:
 	var main_screen := EditorInterface.get_editor_main_screen()
 	if not main_screen:
@@ -36,14 +44,10 @@ func _get_current_main_screen() -> String:
 			var cls := child.get_class()
 			var node_name := child.name
 
-			if "CanvasItemEditor" in cls or "2D" in node_name:
-				return "2D"
-			elif "Node3DEditor" in cls or "3D" in node_name:
-				return "3D"
-			elif "ScriptEditor" in cls or "Script" in node_name:
-				return "Script"
-			elif "AssetLib" in cls or "Asset" in node_name:
-				return "AssetLib"
+			for screen_name in MAIN_SCREEN_PATTERNS:
+				var patterns: Array = MAIN_SCREEN_PATTERNS[screen_name]
+				if patterns[0] in cls or patterns[1] in node_name:
+					return screen_name
 
 	return "unknown"
 
