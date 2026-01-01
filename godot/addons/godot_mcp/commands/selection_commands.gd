@@ -13,11 +13,39 @@ func get_commands() -> Dictionary:
 
 func get_editor_state(_params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
+	var open_scenes := EditorInterface.get_open_scenes()
+
+	var main_screen := _get_current_main_screen()
+
 	return _success({
 		"current_scene": root.scene_file_path if root else null,
 		"is_playing": EditorInterface.is_playing_scene(),
-		"godot_version": Engine.get_version_info()["string"]
+		"godot_version": Engine.get_version_info()["string"],
+		"open_scenes": Array(open_scenes),
+		"main_screen": main_screen
 	})
+
+
+func _get_current_main_screen() -> String:
+	var main_screen := EditorInterface.get_editor_main_screen()
+	if not main_screen:
+		return "unknown"
+
+	for child in main_screen.get_children():
+		if child.visible and child is Control:
+			var cls := child.get_class()
+			var node_name := child.name
+
+			if "CanvasItemEditor" in cls or "2D" in node_name:
+				return "2D"
+			elif "Node3DEditor" in cls or "3D" in node_name:
+				return "3D"
+			elif "ScriptEditor" in cls or "Script" in node_name:
+				return "Script"
+			elif "AssetLib" in cls or "Asset" in node_name:
+				return "AssetLib"
+
+	return "unknown"
 
 
 func get_selected_nodes(_params: Dictionary) -> Dictionary:

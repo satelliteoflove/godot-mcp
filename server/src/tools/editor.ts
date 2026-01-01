@@ -68,6 +68,8 @@ export const editor = defineTool({
           current_scene: string | null;
           is_playing: boolean;
           godot_version: string;
+          open_scenes: string[];
+          main_screen: string;
         }>('get_editor_state');
         return JSON.stringify(result, null, 2);
       }

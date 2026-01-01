@@ -23,7 +23,13 @@ describe('editor tool', () => {
 
   describe('action: get_state', () => {
     it('sends get_editor_state command', async () => {
-      mock.mockResponse({ current_scene: 'res://main.tscn', is_playing: false, godot_version: '4.5' });
+      mock.mockResponse({
+        current_scene: 'res://main.tscn',
+        is_playing: false,
+        godot_version: '4.5',
+        open_scenes: ['res://main.tscn'],
+        main_screen: '2D',
+      });
       const ctx = createToolContext(mock);
 
       await editor.execute({ action: 'get_state' }, ctx);
@@ -32,14 +38,38 @@ describe('editor tool', () => {
       expect(mock.calls[0].command).toBe('get_editor_state');
     });
 
-    it('returns JSON state', async () => {
-      const state = { current_scene: 'res://main.tscn', is_playing: true, godot_version: '4.5' };
+    it('returns JSON state with all fields', async () => {
+      const state = {
+        current_scene: 'res://main.tscn',
+        is_playing: true,
+        godot_version: '4.5',
+        open_scenes: ['res://main.tscn', 'res://player.tscn'],
+        main_screen: 'Script',
+      };
       mock.mockResponse(state);
       const ctx = createToolContext(mock);
 
       const result = await editor.execute({ action: 'get_state' }, ctx);
 
       expect(result).toBe(JSON.stringify(state, null, 2));
+    });
+
+    it('includes open_scenes and main_screen in response', async () => {
+      const state = {
+        current_scene: 'res://main.tscn',
+        is_playing: false,
+        godot_version: '4.5',
+        open_scenes: ['res://main.tscn', 'res://enemy.tscn'],
+        main_screen: '3D',
+      };
+      mock.mockResponse(state);
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_state' }, ctx);
+      const parsed = JSON.parse(result as string);
+
+      expect(parsed.open_scenes).toEqual(['res://main.tscn', 'res://enemy.tscn']);
+      expect(parsed.main_screen).toBe('3D');
     });
   });
 
