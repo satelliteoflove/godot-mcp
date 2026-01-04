@@ -18,7 +18,7 @@ Node manipulation and script attachment tools
 
 Editor control, debugging, and screenshot tools
 
-- `editor` - Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots
+- `editor` - Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get performance metrics, capture screenshots, set 2D viewport position/zoom
 
 ## [Project](project.md)
 

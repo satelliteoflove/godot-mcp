@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.2.0...godot-mcp-v2.3.0) (2026-01-04)
+
+
+### Features
+
+* add viewport/camera info and 2D viewport control ([#61](https://github.com/satelliteoflove/godot-mcp/issues/61)) ([09d20c9](https://github.com/satelliteoflove/godot-mcp/commit/09d20c9a85e9f84cf27b75a6f0747b0c6d9ce444))
+
 ## [2.2.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.1.0...godot-mcp-v2.2.0) (2026-01-04)
 
 
