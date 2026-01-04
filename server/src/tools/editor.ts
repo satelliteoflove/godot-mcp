@@ -42,8 +42,8 @@ function toImageContent(base64: string): ImageContent {
 const EditorSchema = z
   .object({
     action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_performance', 'screenshot_game', 'screenshot_editor'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor'),
+      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
+      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
     node_path: z
       .string()
       .optional()
@@ -64,17 +64,32 @@ const EditorSchema = z
       .number()
       .optional()
       .describe('Maximum width in pixels for screenshot (screenshot_game, screenshot_editor)'),
+    center_x: z
+      .number()
+      .optional()
+      .describe('X coordinate to center the 2D viewport on (set_viewport_2d only)'),
+    center_y: z
+      .number()
+      .optional()
+      .describe('Y coordinate to center the 2D viewport on (set_viewport_2d only)'),
+    zoom: z
+      .number()
+      .positive()
+      .optional()
+      .describe('Zoom level for 2D viewport, e.g. 1.0 = 100%, 2.0 = 200% (set_viewport_2d only)'),
   })
   .refine(
     (data) => {
       switch (data.action) {
         case 'select':
           return !!data.node_path;
+        case 'set_viewport_2d':
+          return data.center_x !== undefined || data.center_y !== undefined || data.zoom !== undefined;
         default:
           return true;
       }
     },
-    { message: 'select action requires node_path' }
+    { message: 'select requires node_path; set_viewport_2d requires at least one of center_x, center_y, or zoom' }
   );
 
 type EditorArgs = z.infer<typeof EditorSchema>;
@@ -82,7 +97,7 @@ type EditorArgs = z.infer<typeof EditorSchema>;
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state, manage selection, run/stop project, get debug output, get performance metrics, capture screenshots',
+    'Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get performance metrics, capture screenshots, set 2D viewport position/zoom',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -171,6 +186,18 @@ export const editor = defineTool({
           { viewport: args.viewport, max_width: args.max_width }
         );
         return toImageContent(result.image_base64);
+      }
+
+      case 'set_viewport_2d': {
+        const result = await godot.sendCommand<{
+          center: { x: number; y: number };
+          zoom: number;
+        }>('set_2d_viewport', {
+          center_x: args.center_x ?? 0,
+          center_y: args.center_y ?? 0,
+          zoom: args.zoom ?? 1.0,
+        });
+        return `2D viewport set to center (${result.center.x.toFixed(1)}, ${result.center.y.toFixed(1)}) at ${result.zoom.toFixed(2)}x zoom`;
       }
     }
   },

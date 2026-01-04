@@ -7,7 +7,8 @@ func get_commands() -> Dictionary:
 	return {
 		"get_editor_state": get_editor_state,
 		"get_selected_nodes": get_selected_nodes,
-		"select_node": select_node
+		"select_node": select_node,
+		"set_2d_viewport": set_2d_viewport
 	}
 
 
@@ -82,6 +83,31 @@ func _get_editor_2d_viewport_info() -> Dictionary:
 		"zoom": zoom,
 		"size": {"width": int(size.x), "height": int(size.y)}
 	}
+
+
+func set_2d_viewport(params: Dictionary) -> Dictionary:
+	var viewport := EditorInterface.get_editor_viewport_2d()
+	if not viewport:
+		return _error("NO_VIEWPORT", "Could not access 2D editor viewport")
+
+	var center_x: float = params.get("center_x", 0.0)
+	var center_y: float = params.get("center_y", 0.0)
+	var zoom: float = params.get("zoom", 1.0)
+
+	if zoom <= 0:
+		return _error("INVALID_PARAMS", "zoom must be positive")
+
+	var size := viewport.size
+	var offset := Vector2(center_x - size.x / zoom / 2, center_y - size.y / zoom / 2)
+	var origin := -offset * zoom
+
+	var transform := Transform2D(Vector2(zoom, 0), Vector2(0, zoom), origin)
+	viewport.global_canvas_transform = transform
+
+	return _success({
+		"center": {"x": center_x, "y": center_y},
+		"zoom": zoom
+	})
 
 
 const MAIN_SCREEN_PATTERNS := {
