@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.3.0...godot-mcp-v2.4.0) (2026-01-04)
+
+
+### Features
+
+* add CLI addon installer and version handshake ([#64](https://github.com/satelliteoflove/godot-mcp/issues/64)) ([43c1779](https://github.com/satelliteoflove/godot-mcp/commit/43c1779bcb0e719689df02fe3c5a6d5b8a8139bf))
+
 ## [2.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.2.0...godot-mcp-v2.3.0) (2026-01-04)
 
 
