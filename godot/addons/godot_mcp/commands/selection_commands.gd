@@ -17,13 +17,71 @@ func get_editor_state(_params: Dictionary) -> Dictionary:
 
 	var main_screen := _get_current_main_screen()
 
-	return _success({
+	var result := {
 		"current_scene": root.scene_file_path if root else null,
 		"is_playing": EditorInterface.is_playing_scene(),
 		"godot_version": Engine.get_version_info()["string"],
 		"open_scenes": Array(open_scenes),
 		"main_screen": main_screen
-	})
+	}
+
+	if main_screen == "3D":
+		var camera_info := _get_editor_camera_info()
+		if not camera_info.is_empty():
+			result["camera"] = camera_info
+	elif main_screen == "2D":
+		var viewport_2d_info := _get_editor_2d_viewport_info()
+		if not viewport_2d_info.is_empty():
+			result["viewport_2d"] = viewport_2d_info
+
+	return _success(result)
+
+
+func _get_editor_camera_info() -> Dictionary:
+	var viewport := EditorInterface.get_editor_viewport_3d(0)
+	if not viewport:
+		return {}
+
+	var camera := viewport.get_camera_3d()
+	if not camera:
+		return {}
+
+	var pos: Vector3 = camera.global_position
+	var rot: Vector3 = camera.global_rotation
+	var forward: Vector3 = -camera.global_transform.basis.z
+
+	var info := {
+		"position": {"x": pos.x, "y": pos.y, "z": pos.z},
+		"rotation": {"x": rot.x, "y": rot.y, "z": rot.z},
+		"forward": {"x": forward.x, "y": forward.y, "z": forward.z},
+		"fov": camera.fov,
+		"near": camera.near,
+		"far": camera.far,
+		"projection": "orthogonal" if camera.projection == Camera3D.PROJECTION_ORTHOGONAL else "perspective",
+	}
+
+	if camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		info["size"] = camera.size
+
+	return info
+
+
+func _get_editor_2d_viewport_info() -> Dictionary:
+	var viewport := EditorInterface.get_editor_viewport_2d()
+	if not viewport:
+		return {}
+
+	var transform := viewport.global_canvas_transform
+	var zoom: float = transform.x.x
+	var offset: Vector2 = -transform.origin / zoom
+
+	var size := viewport.size
+
+	return {
+		"center": {"x": offset.x + size.x / zoom / 2, "y": offset.y + size.y / zoom / 2},
+		"zoom": zoom,
+		"size": {"width": int(size.x), "height": int(size.y)}
+	}
 
 
 const MAIN_SCREEN_PATTERNS := {

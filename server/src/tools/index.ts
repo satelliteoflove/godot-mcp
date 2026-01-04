@@ -7,7 +7,6 @@ import { animationTools } from './animation.js';
 import { tilemapTools } from './tilemap.js';
 import { resourceTools } from './resource.js';
 import { scene3dTools } from './scene3d.js';
-import { viewportTools } from './viewport.js';
 
 export function registerAllTools(): void {
   registry.registerTools(sceneTools);
@@ -18,7 +17,6 @@ export function registerAllTools(): void {
   registry.registerTools(tilemapTools);
   registry.registerTools(resourceTools);
   registry.registerTools(scene3dTools);
-  registry.registerTools(viewportTools);
 }
 
 export { sceneTools } from './scene.js';
@@ -29,4 +27,3 @@ export { animationTools } from './animation.js';
 export { tilemapTools } from './tilemap.js';
 export { resourceTools } from './resource.js';
 export { scene3dTools } from './scene3d.js';
-export { viewportTools } from './viewport.js';

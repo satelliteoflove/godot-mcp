@@ -8,6 +8,29 @@ interface ScreenshotResponse {
   height: number;
 }
 
+interface Vector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface CameraInfo {
+  position: Vector3;
+  rotation: Vector3;
+  forward: Vector3;
+  fov: number;
+  near: number;
+  far: number;
+  projection: string;
+  size?: number;
+}
+
+interface Viewport2DInfo {
+  center: { x: number; y: number };
+  zoom: number;
+  size: { width: number; height: number };
+}
+
 function toImageContent(base64: string): ImageContent {
   return {
     type: 'image',
@@ -70,6 +93,8 @@ export const editor = defineTool({
           godot_version: string;
           open_scenes: string[];
           main_screen: string;
+          camera?: CameraInfo;
+          viewport_2d?: Viewport2DInfo;
         }>('get_editor_state');
         return JSON.stringify(result, null, 2);
       }

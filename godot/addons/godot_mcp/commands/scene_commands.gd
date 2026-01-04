@@ -6,6 +6,7 @@ class_name MCPSceneCommands
 func get_commands() -> Dictionary:
 	return {
 		"get_current_scene": get_current_scene,
+		"get_scene_tree": get_scene_tree,
 		"open_scene": open_scene,
 		"save_scene": save_scene,
 		"create_scene": create_scene
@@ -26,6 +27,37 @@ func get_current_scene(_params: Dictionary) -> Dictionary:
 		"root_name": root.name,
 		"root_type": root.get_class()
 	})
+
+
+func get_scene_tree(_params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if not root:
+		return _error("NO_SCENE", "No scene is currently open")
+
+	return _success({"tree": _build_tree(root)})
+
+
+func _build_tree(node: Node) -> Dictionary:
+	var result := {
+		"name": node.name,
+		"type": node.get_class(),
+	}
+
+	if node is Node2D:
+		var pos: Vector2 = node.position
+		result["position"] = {"x": pos.x, "y": pos.y}
+	elif node is Node3D:
+		var pos: Vector3 = node.position
+		result["position"] = {"x": pos.x, "y": pos.y, "z": pos.z}
+
+	var children: Array[Dictionary] = []
+	for child in node.get_children():
+		children.append(_build_tree(child))
+
+	if not children.is_empty():
+		result["children"] = children
+
+	return result
 
 
 func open_scene(params: Dictionary) -> Dictionary:
