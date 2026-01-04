@@ -1,16 +1,20 @@
 # godot-mcp
 
-MCP server for Godot Engine 4.5+, enabling AI assistants to interact with your Godot projects.
+An MCP server that gives Claude direct visibility into your Godot editor and running game. Instead of copy-pasting debug output or describing what you're seeing, Claude can observe it directly.
 
-## Features
+## Core Capabilities
 
-- **8 MCP tools** across 7 categories
-- **3 MCP resources** for reading scene trees, scripts, and project files
-- Screenshot capture from editor viewports and running games
-- Full animation support (query, playback, editing)
-- TileMapLayer and GridMap editing
-- Resource inspection for SpriteFrames, TileSets, Materials, and Textures
-- Debug output capture from running games
+- Live editor state - what scene is open, what's selected, which panel you're in
+- Runtime debug output from the running game
+- Viewport awareness - where the camera is pointed (2D and 3D)
+- Screenshots of the editor or running game
+- Scene tree and node properties at runtime
+
+## Design Goals
+
+- **Observation over automation** - help Claude understand what's happening so it can help you solve problems
+- **Minimal token footprint** - more room for actual conversation
+- **Friction-free maintenance** - version mismatch detection and one-command updates
 
 ## Quick Start
 

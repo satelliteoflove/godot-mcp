@@ -10,13 +10,6 @@ func get_commands() -> Dictionary:
 	}
 
 
-func _require_scene_open() -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if not root:
-		return _error("NO_SCENE", "No scene is currently open")
-	return {}
-
-
 func get_spatial_info(params: Dictionary) -> Dictionary:
 	var scene_check := _require_scene_open()
 	if not scene_check.is_empty():

@@ -30,3 +30,9 @@ export interface ResourceDefinition {
   mimeType: string;
   handler: (ctx: ToolContext) => Promise<string>;
 }
+
+export interface Vector3 {
+  x: number;
+  y: number;
+  z: number;
+}

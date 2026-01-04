@@ -56,7 +56,12 @@ func _session_stopped() -> void:
 
 
 func has_active_session() -> bool:
-	return _active_session_id >= 0
+	if _active_session_id < 0:
+		return false
+	if not EditorInterface.is_playing_scene():
+		_active_session_id = -1
+		return false
+	return true
 
 
 func request_screenshot(max_width: int = 1920) -> void:

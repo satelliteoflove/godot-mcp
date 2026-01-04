@@ -1,17 +1,11 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
-import type { AnyToolDefinition, ImageContent } from '../core/types.js';
+import type { AnyToolDefinition, ImageContent, Vector3 } from '../core/types.js';
 
 interface ScreenshotResponse {
   image_base64: string;
   width: number;
   height: number;
-}
-
-interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
 }
 
 interface CameraInfo {

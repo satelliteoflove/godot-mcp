@@ -1,12 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
-import type { AnyToolDefinition } from '../core/types.js';
-
-interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
-}
+import type { AnyToolDefinition, Vector3 } from '../core/types.js';
 
 interface AABB {
   position: Vector3;

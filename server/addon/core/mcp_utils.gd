@@ -47,7 +47,11 @@ static func serialize_value(value: Variant) -> Variant:
 	match typeof(value):
 		TYPE_VECTOR2:
 			return {"x": value.x, "y": value.y}
+		TYPE_VECTOR2I:
+			return {"x": value.x, "y": value.y}
 		TYPE_VECTOR3:
+			return {"x": value.x, "y": value.y, "z": value.z}
+		TYPE_VECTOR3I:
 			return {"x": value.x, "y": value.y, "z": value.z}
 		TYPE_COLOR:
 			return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}

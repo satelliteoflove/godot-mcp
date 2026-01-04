@@ -2,6 +2,8 @@
 extends MCPBaseCommand
 class_name MCPNodeCommands
 
+const FIND_NODES_TIMEOUT := 5.0
+
 var _find_nodes_pending := false
 var _find_nodes_result: Dictionary = {}
 
@@ -15,13 +17,6 @@ func get_commands() -> Dictionary:
 		"delete_node": delete_node,
 		"reparent_node": reparent_node
 	}
-
-
-func _require_scene_open() -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if not root:
-		return _error("NO_SCENE", "No scene is currently open")
-	return {}
 
 
 func get_node_properties(params: Dictionary) -> Dictionary:
@@ -55,7 +50,7 @@ func find_nodes(params: Dictionary) -> Dictionary:
 		return _error("INVALID_PARAMS", "At least one of name_pattern or type is required")
 
 	var debugger := _plugin.get_debugger_plugin() as MCPDebuggerPlugin
-	if debugger and debugger.has_active_session():
+	if debugger and EditorInterface.is_playing_scene() and debugger.has_active_session():
 		return await _find_nodes_via_game(debugger, name_pattern, type_filter, root_path)
 
 	var scene_check := _require_scene_open()
@@ -80,11 +75,19 @@ func _find_nodes_via_game(debugger: MCPDebuggerPlugin, name_pattern: String, typ
 	_find_nodes_pending = true
 	_find_nodes_result = {}
 
+	if debugger.find_nodes_received.is_connected(_on_find_nodes_received):
+		debugger.find_nodes_received.disconnect(_on_find_nodes_received)
 	debugger.find_nodes_received.connect(_on_find_nodes_received, CONNECT_ONE_SHOT)
 	debugger.request_find_nodes(name_pattern, type_filter, root_path)
 
+	var start_time := Time.get_ticks_msec()
 	while _find_nodes_pending:
 		await Engine.get_main_loop().process_frame
+		if (Time.get_ticks_msec() - start_time) / 1000.0 > FIND_NODES_TIMEOUT:
+			_find_nodes_pending = false
+			if debugger.find_nodes_received.is_connected(_on_find_nodes_received):
+				debugger.find_nodes_received.disconnect(_on_find_nodes_received)
+			return _error("TIMEOUT", "Game did not respond within %d seconds" % int(FIND_NODES_TIMEOUT))
 
 	return _find_nodes_result
 

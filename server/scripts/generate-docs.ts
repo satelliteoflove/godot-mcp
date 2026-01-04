@@ -467,15 +467,7 @@ Add to your MCP configuration:
 }
 
 function generateRootReadme(): string {
-  const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
   const allTools = categories.flatMap(c => c.tools);
-  const capabilities = analyzeCapabilities();
-
-  const featureList = [
-    `**${totalTools} MCP tools** across ${categories.length} categories`,
-    `**${allResources.length} MCP resources** for reading scene trees, scripts, and project files`,
-    ...capabilities,
-  ];
 
   const toolsTable = allTools.map(tool => {
     const desc = tool.description.split('.')[0];
@@ -484,11 +476,21 @@ function generateRootReadme(): string {
 
   return `# godot-mcp
 
-MCP server for Godot Engine 4.5+, enabling AI assistants to interact with your Godot projects.
+An MCP server that gives Claude direct visibility into your Godot editor and running game. Instead of copy-pasting debug output or describing what you're seeing, Claude can observe it directly.
 
-## Features
+## Core Capabilities
 
-${featureList.map(f => `- ${f}`).join('\n')}
+- Live editor state - what scene is open, what's selected, which panel you're in
+- Runtime debug output from the running game
+- Viewport awareness - where the camera is pointed (2D and 3D)
+- Screenshots of the editor or running game
+- Scene tree and node properties at runtime
+
+## Design Goals
+
+- **Observation over automation** - help Claude understand what's happening so it can help you solve problems
+- **Minimal token footprint** - more room for actual conversation
+- **Friction-free maintenance** - version mismatch detection and one-command updates
 
 ## Quick Start
 
@@ -568,80 +570,6 @@ MIT
 `;
 }
 
-function generateNpmReadme(): string {
-  const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
-  const capabilities = analyzeCapabilities();
-
-  const featureList = [
-    `**${totalTools} MCP tools** across ${categories.length} categories`,
-    `**${allResources.length} MCP resources** for reading scene trees, scripts, and project files`,
-    ...capabilities,
-  ];
-
-  return `# @satelliteoflove/godot-mcp
-
-MCP server for Godot Engine 4.5+, enabling AI assistants to interact with your Godot projects.
-
-## Features
-
-${featureList.map(f => `- ${f}`).join('\n')}
-
-## Installation
-
-\`\`\`bash
-npx @satelliteoflove/godot-mcp
-\`\`\`
-
-## Setup
-
-1. Configure your MCP client (see below)
-2. Install the addon: \`npx @satelliteoflove/godot-mcp --install-addon /path/to/project\`
-3. Enable it in Godot: Project Settings > Plugins > Godot MCP
-
-### Claude Desktop
-
-Add to \`~/Library/Application Support/Claude/claude_desktop_config.json\` (macOS) or \`%APPDATA%\\Claude\\claude_desktop_config.json\` (Windows):
-
-\`\`\`json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-\`\`\`
-
-### Claude Code
-
-Add to \`.mcp.json\`:
-
-\`\`\`json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-\`\`\`
-
-## Documentation
-
-See the [GitHub repository](https://github.com/satelliteoflove/godot-mcp) for full documentation.
-
-## Requirements
-
-- Node.js 20+
-- Godot 4.5+
-
-## License
-
-MIT
-`;
-}
 
 function main(): void {
   console.log('Generating documentation...');
@@ -666,11 +594,12 @@ function main(): void {
   writeFileSync(join(DOCS_DIR, 'resources.md'), generateResourcesDoc());
   console.log('  Created docs/resources.md');
 
-  writeFileSync(ROOT_README, generateRootReadme());
+  const readme = generateRootReadme();
+  writeFileSync(ROOT_README, readme);
   console.log('  Created README.md');
 
-  writeFileSync(NPM_README, generateNpmReadme());
-  console.log('  Created server/README.md');
+  writeFileSync(NPM_README, readme);
+  console.log('  Created server/README.md (copy of root)');
 
   console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools and ${allResources.length} resources.`);
 }
