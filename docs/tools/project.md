@@ -16,7 +16,7 @@ Get project information and settings
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_info`, `get_settings` | Yes | Action: get_info, get_settings |
+| `action` | `get_info`, `get_settings`, `addon_status` | Yes | Action: get_info, get_settings, addon_status (check addon/server version compatibility) |
 | `category` | string | No | Settings category to filter by (get_settings only, use "input" for input mappings) |
 | `include_builtin` | boolean | get_settings with category="input" | Include built-in ui_* actions |
 
@@ -27,6 +27,8 @@ Get project information and settings
 #### `get_settings`
 
 Parameters: `include_builtin`*
+
+#### `addon_status`
 
 ### Examples
 
@@ -42,6 +44,13 @@ Parameters: `include_builtin`*
 {
   "action": "get_settings",
   "category": "example"
+}
+```
+
+```json
+// addon_status
+{
+  "action": "addon_status"
 }
 ```
 

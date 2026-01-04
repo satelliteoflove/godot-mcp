@@ -13,13 +13,22 @@ import {
   GodotCommandError,
   GodotTimeoutError,
 } from '../utils/errors.js';
+import { getServerVersion } from '../version.js';
 
 const DEFAULT_PORT = 6550;
 const DEFAULT_HOST = 'localhost';
 const COMMAND_TIMEOUT_MS = 30000;
+const HANDSHAKE_TIMEOUT_MS = 5000;
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30000;
 const PONG_TIMEOUT_MS = 10000;
+
+export interface HandshakeResult {
+  addonVersion: string;
+  godotVersion: string;
+  projectPath: string;
+  projectName: string;
+}
 
 interface PendingRequest {
   resolve: (result: unknown) => void;
@@ -41,6 +50,7 @@ export class GodotConnection extends EventEmitter {
   private pingInterval: NodeJS.Timeout | null = null;
   private pongTimeout: NodeJS.Timeout | null = null;
   private isClosing = false;
+  private handshakeResult: HandshakeResult | null = null;
 
   private readonly host: string;
   private readonly port: number;
@@ -61,6 +71,31 @@ export class GodotConnection extends EventEmitter {
     return `ws://${this.host}:${this.port}`;
   }
 
+  get addonVersion(): string | null {
+    return this.handshakeResult?.addonVersion ?? null;
+  }
+
+  get projectPath(): string | null {
+    return this.handshakeResult?.projectPath ?? null;
+  }
+
+  get projectName(): string | null {
+    return this.handshakeResult?.projectName ?? null;
+  }
+
+  get godotVersion(): string | null {
+    return this.handshakeResult?.godotVersion ?? null;
+  }
+
+  get serverVersion(): string {
+    return getServerVersion();
+  }
+
+  get versionsMatch(): boolean {
+    if (!this.handshakeResult) return false;
+    return this.handshakeResult.addonVersion === this.serverVersion;
+  }
+
   async connect(): Promise<void> {
     if (this.isConnected) {
       return;
@@ -70,9 +105,16 @@ export class GodotConnection extends EventEmitter {
       this.isClosing = false;
       this.ws = new WebSocket(this.url);
 
-      this.ws.on('open', () => {
+      this.ws.on('open', async () => {
         this.reconnectAttempt = 0;
         this.startPingInterval();
+
+        try {
+          await this.performHandshake();
+        } catch (error) {
+          console.error('[godot-mcp] Handshake failed (addon may be outdated):', error);
+        }
+
         this.emit('connected');
         resolve();
       });
@@ -126,6 +168,52 @@ export class GodotConnection extends EventEmitter {
 
       this.pendingRequests.set(request.id, {
         resolve: resolve as (result: unknown) => void,
+        reject,
+        timeoutId,
+      });
+
+      this.ws!.send(JSON.stringify(request));
+    });
+  }
+
+  private async performHandshake(): Promise<void> {
+    const request = createRequest('mcp_handshake', {
+      server_version: this.serverVersion,
+    });
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingRequests.delete(request.id);
+        this.handshakeResult = null;
+        reject(new GodotTimeoutError('mcp_handshake', HANDSHAKE_TIMEOUT_MS));
+      }, HANDSHAKE_TIMEOUT_MS);
+
+      this.pendingRequests.set(request.id, {
+        resolve: (result: unknown) => {
+          const data = result as {
+            addon_version?: string;
+            godot_version?: string;
+            project_path?: string;
+            project_name?: string;
+          };
+
+          this.handshakeResult = {
+            addonVersion: data.addon_version ?? 'unknown',
+            godotVersion: data.godot_version ?? 'unknown',
+            projectPath: data.project_path ?? '',
+            projectName: data.project_name ?? '',
+          };
+
+          if (!this.versionsMatch) {
+            this.emit('version_mismatch', {
+              serverVersion: this.serverVersion,
+              addonVersion: this.handshakeResult.addonVersion,
+              projectPath: this.handshakeResult.projectPath,
+            });
+          }
+
+          resolve();
+        },
         reject,
         timeoutId,
       });
@@ -227,6 +315,7 @@ export class GodotConnection extends EventEmitter {
 
   private cleanup(): void {
     this.stopPingInterval();
+    this.handshakeResult = null;
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -285,6 +374,11 @@ export async function initializeConnection(): Promise<void> {
 
   connection.on('error', (error) => {
     console.error(`[godot-mcp] Connection error: ${error.message}`);
+  });
+
+  connection.on('version_mismatch', ({ serverVersion, addonVersion, projectPath }) => {
+    console.error(`[godot-mcp] Version mismatch: server=${serverVersion}, addon=${addonVersion}`);
+    console.error(`[godot-mcp] Update addon with: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`);
   });
 
   try {

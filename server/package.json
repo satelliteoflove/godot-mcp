@@ -5,11 +5,12 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "godot-mcp": "./dist/index.js"
+    "godot-mcp": "./dist/cli.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "addon"
   ],
   "repository": {
     "type": "git",
@@ -20,7 +21,8 @@
   },
   "homepage": "https://github.com/satelliteoflove/godot-mcp#readme",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-addon",
+    "copy-addon": "rm -rf addon && cp -r ../godot/addons/godot_mcp addon",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
     "test": "vitest run",

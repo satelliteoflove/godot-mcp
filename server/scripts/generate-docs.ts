@@ -492,11 +492,7 @@ ${featureList.map(f => `- ${f}`).join('\n')}
 
 ## Quick Start
 
-### 1. Install the Godot Addon
-
-Download the addon from [GitHub Releases](https://github.com/satelliteoflove/godot-mcp/releases) and extract to your project's \`addons\` directory. Enable it in Project Settings > Plugins.
-
-### 2. Configure Your AI Assistant
+### 1. Configure Your AI Assistant
 
 **Claude Desktop** - Add to config (\`~/Library/Application Support/Claude/claude_desktop_config.json\` on macOS):
 
@@ -524,9 +520,19 @@ Download the addon from [GitHub Releases](https://github.com/satelliteoflove/god
 }
 \`\`\`
 
+### 2. Install the Godot Addon
+
+\`\`\`bash
+npx @satelliteoflove/godot-mcp --install-addon /path/to/your/godot/project
+\`\`\`
+
+Then enable the addon in Godot: Project Settings > Plugins > Godot MCP.
+
 ### 3. Start Using
 
 Open your Godot project (with addon enabled), restart your AI assistant, and start building.
+
+**Version Sync:** The MCP server auto-updates via npx. If the addon version falls behind, use \`project\` tool with \`addon_status\` action to check compatibility, then re-run the install command to update.
 
 ## Tools
 
@@ -588,10 +594,9 @@ npx @satelliteoflove/godot-mcp
 
 ## Setup
 
-1. Download the addon from [GitHub Releases](https://github.com/satelliteoflove/godot-mcp/releases)
-2. Extract to your project's \`addons\` directory
-3. Enable it in Project Settings > Plugins
-4. Configure your MCP client (see below)
+1. Configure your MCP client (see below)
+2. Install the addon: \`npx @satelliteoflove/godot-mcp --install-addon /path/to/project\`
+3. Enable it in Godot: Project Settings > Plugins > Godot MCP
 
 ### Claude Desktop
 

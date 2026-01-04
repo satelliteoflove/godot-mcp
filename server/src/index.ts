@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -16,7 +15,7 @@ import { registerAllResources } from './resources/index.js';
 registerAllTools();
 registerAllResources();
 
-async function main() {
+export async function main() {
   const server = new Server(
     {
       name: 'godot-mcp',
@@ -85,7 +84,3 @@ async function main() {
   console.error('[godot-mcp] Server started');
 }
 
-main().catch((error) => {
-  console.error('[godot-mcp] Fatal error:', error);
-  process.exit(1);
-});
