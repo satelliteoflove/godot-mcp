@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.0...godot-mcp-v2.4.1) (2026-01-04)
+
+
+### Bug Fixes
+
+* improve find_nodes reliability and DRY cleanup ([#66](https://github.com/satelliteoflove/godot-mcp/issues/66)) ([adcef21](https://github.com/satelliteoflove/godot-mcp/commit/adcef219629bb4ba9e887d1a5e9d865dbcab1b27))
+
 ## [2.4.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.3.0...godot-mcp-v2.4.0) (2026-01-04)
 
 
