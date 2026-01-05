@@ -4,17 +4,24 @@ An MCP server that gives Claude direct visibility into your Godot editor and run
 
 ## Core Capabilities
 
-- Live editor state - what scene is open, what's selected, which panel you're in
-- Runtime debug output from the running game
-- Viewport awareness - where the camera is pointed (2D and 3D)
-- Screenshots of the editor or running game
-- Scene tree and node properties at runtime
+**Observe** - Claude sees what you see
+- Live editor state, selection, and open scenes
+- Screenshots from editor viewports or running game
+- Debug output and performance metrics from runtime
+- Camera position and viewport in 2D and 3D
 
-## Design Goals
+**Inspect** - Deep access to your project
+- Scene tree traversal with node properties
+- 3D spatial data: transforms, bounding boxes, visibility
+- Resource introspection: SpriteFrames, TileSets, Materials
+- Project settings and input mappings
 
-- **Observation over automation** - help Claude understand what's happening so it can help you solve problems
-- **Minimal token footprint** - more room for actual conversation
-- **Friction-free maintenance** - version mismatch detection and one-command updates
+**Modify** - Direct manipulation when needed
+- Create, update, delete, and reparent nodes
+- Attach and detach scripts
+- Edit TileMapLayers and GridMaps cell-by-cell
+- Control animation playback and edit tracks/keyframes
+- Run and stop the game from the editor
 
 ## Quick Start
 
@@ -58,7 +65,7 @@ Then enable the addon in Godot: Project Settings > Plugins > Godot MCP.
 
 Open your Godot project (with addon enabled), restart your AI assistant, and start building.
 
-**Version Sync:** The MCP server auto-updates via npx. If the addon version falls behind, use `project` tool with `addon_status` action to check compatibility, then re-run the install command to update.
+**Version Sync:** The MCP server auto-updates via npx. Version mismatches are detected automatically on connection. If prompted, re-run the install command to update the addon.
 
 ## Tools
 
@@ -72,6 +79,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 | `tilemap` | Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates |
 | `gridmap` | Query and edit GridMap data: list gridmaps, get info, get/set cells |
 | `resource` | Manage Godot resources: inspect Resource files by path |
+| `scene3d` | Get spatial information for 3D nodes: global transforms, bounding boxes, visibility |
 
 See [docs/](docs/) for detailed API reference, including the [Claude Code Setup Guide](docs/claude-code-setup.md).
 

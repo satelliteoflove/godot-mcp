@@ -45,3 +45,9 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 - `resource` - Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
 
+## [Scene3D](scene3d.md)
+
+3D spatial information and bounding box tools
+
+- `scene3d` - Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.
+
