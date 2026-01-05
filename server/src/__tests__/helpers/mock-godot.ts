@@ -11,6 +11,7 @@ export interface MockGodotConnection {
   calls: CommandCall[];
   mockResponse: (response: unknown) => void;
   mockError: (error: Error) => void;
+  godotVersion: string | null;
 }
 
 export function createMockGodot(): MockGodotConnection {
@@ -39,11 +40,17 @@ export function createMockGodot(): MockGodotConnection {
     mockError: (error: Error) => {
       nextError = error;
     },
+    godotVersion: null,
   };
 }
 
 export function createToolContext(mock: MockGodotConnection) {
   return {
-    godot: { sendCommand: mock.sendCommand } as unknown as GodotConnection,
+    godot: {
+      sendCommand: mock.sendCommand,
+      get godotVersion() {
+        return mock.godotVersion;
+      },
+    } as unknown as GodotConnection,
   };
 }

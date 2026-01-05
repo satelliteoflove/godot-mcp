@@ -51,3 +51,9 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 - `scene3d` - Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.
 
+## [Documentation](docs.md)
+
+Fetch Godot Engine documentation with smart extraction
+
+- `godot_docs` - Fetch Godot Engine documentation. Use fetch_class for class references (e.g. CharacterBody2D), fetch_page for tutorials/guides. Auto-detects Godot version from editor connection. Returns clean markdown.
+

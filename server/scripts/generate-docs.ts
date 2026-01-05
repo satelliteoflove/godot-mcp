@@ -10,6 +10,7 @@ import { animationTools } from '../src/tools/animation.js';
 import { tilemapTools } from '../src/tools/tilemap.js';
 import { resourceTools } from '../src/tools/resource.js';
 import { scene3dTools } from '../src/tools/scene3d.js';
+import { docsTools } from '../src/tools/docs.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
@@ -37,6 +38,7 @@ const categories: ToolCategory[] = [
   { name: 'TileMap/GridMap', filename: 'tilemap', description: 'TileMap and GridMap editing tools', tools: tilemapTools },
   { name: 'Resource', filename: 'resource', description: 'Resource inspection tools for SpriteFrames, TileSet, Materials, etc.', tools: resourceTools },
   { name: 'Scene3D', filename: 'scene3d', description: '3D spatial information and bounding box tools', tools: scene3dTools },
+  { name: 'Documentation', filename: 'docs', description: 'Fetch Godot Engine documentation with smart extraction', tools: docsTools },
 ];
 
 const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];
