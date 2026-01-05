@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.0...godot-mcp-v2.5.1) (2026-01-05)
+
+
+### Bug Fixes
+
+* use scene-relative paths instead of full editor paths ([#72](https://github.com/satelliteoflove/godot-mcp/issues/72)) ([da3d18a](https://github.com/satelliteoflove/godot-mcp/commit/da3d18a2850d6f03fda770dbfadf16abdc283b5b))
+
 ## [2.5.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.2...godot-mcp-v2.5.0) (2026-01-05)
 
 
