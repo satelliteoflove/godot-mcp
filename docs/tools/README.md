@@ -32,9 +32,9 @@ Animation query, playback, and editing tools
 
 - `animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
-## [TileMap/GridMap](tilemap.md)
+## [TileMapLayer/GridMap](tilemap.md)
 
-TileMap and GridMap editing tools
+TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap)
 
 - `tilemap` - Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates
 - `gridmap` - Query and edit GridMap data: list gridmaps, get info, get/set cells

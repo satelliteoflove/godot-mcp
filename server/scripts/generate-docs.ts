@@ -35,7 +35,7 @@ const categories: ToolCategory[] = [
   { name: 'Editor', filename: 'editor', description: 'Editor control, debugging, and screenshot tools', tools: editorTools },
   { name: 'Project', filename: 'project', description: 'Project information tools', tools: projectTools },
   { name: 'Animation', filename: 'animation', description: 'Animation query, playback, and editing tools', tools: animationTools },
-  { name: 'TileMap/GridMap', filename: 'tilemap', description: 'TileMap and GridMap editing tools', tools: tilemapTools },
+  { name: 'TileMapLayer/GridMap', filename: 'tilemap', description: 'TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap)', tools: tilemapTools },
   { name: 'Resource', filename: 'resource', description: 'Resource inspection tools for SpriteFrames, TileSet, Materials, etc.', tools: resourceTools },
   { name: 'Scene3D', filename: 'scene3d', description: '3D spatial information and bounding box tools', tools: scene3dTools },
   { name: 'Documentation', filename: 'docs', description: 'Fetch Godot Engine documentation with smart extraction', tools: docsTools },

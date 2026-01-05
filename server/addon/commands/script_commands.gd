@@ -136,7 +136,8 @@ func attach_script(params: Dictionary) -> Dictionary:
 	if node.get_script() != script:
 		return _error("ATTACH_FAILED", "Script attachment did not persist")
 
-	return _success({"node_path": str(node.get_path()), "script_path": script_path})
+	var scene_root := EditorInterface.get_edited_scene_root()
+	return _success({"node_path": str(scene_root.get_path_to(node)), "script_path": script_path})
 
 
 func detach_script(params: Dictionary) -> Dictionary:

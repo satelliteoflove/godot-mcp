@@ -1,6 +1,6 @@
-# TileMap/GridMap Tools
+# TileMapLayer/GridMap Tools
 
-TileMap and GridMap editing tools
+TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap)
 
 ## Tools
 

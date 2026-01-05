@@ -168,9 +168,10 @@ func create_node(params: Dictionary) -> Dictionary:
 			node.set(key, deserialized)
 
 	parent.add_child(node)
-	_set_owner_recursive(node, EditorInterface.get_edited_scene_root())
+	var scene_root := EditorInterface.get_edited_scene_root()
+	_set_owner_recursive(node, scene_root)
 
-	return _success({"node_path": str(node.get_path())})
+	return _success({"node_path": str(scene_root.get_path_to(node))})
 
 
 func _set_owner_recursive(node: Node, owner: Node) -> void:
@@ -250,6 +251,6 @@ func reparent_node(params: Dictionary) -> Dictionary:
 
 	node.reparent(new_parent)
 
-	return _success({"new_path": str(node.get_path())})
+	return _success({"new_path": str(root.get_path_to(node))})
 
 

@@ -21,7 +21,7 @@ This server provides **10 tools** and **3 resources** for AI-assisted Godot deve
 | [Editor](tools/editor.md) | 1 | Editor control, debugging, and screenshot tools |
 | [Project](tools/project.md) | 1 | Project information tools |
 | [Animation](tools/animation.md) | 1 | Animation query, playback, and editing tools |
-| [TileMap/GridMap](tools/tilemap.md) | 2 | TileMap and GridMap editing tools |
+| [TileMapLayer/GridMap](tools/tilemap.md) | 2 | TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap) |
 | [Resource](tools/resource.md) | 1 | Resource inspection tools for SpriteFrames, TileSet, Materials, etc. |
 | [Scene3D](tools/scene3d.md) | 1 | 3D spatial information and bounding box tools |
 | [Documentation](tools/docs.md) | 1 | Fetch Godot Engine documentation with smart extraction |

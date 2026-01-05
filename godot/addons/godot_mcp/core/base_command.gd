@@ -47,12 +47,14 @@ func _require_typed_node(path: String, type: String, type_error_code: String = "
 
 func _find_nodes_of_type(root: Node, type: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	_find_nodes_recursive(root, type, result)
+	var scene_root := EditorInterface.get_edited_scene_root()
+	if scene_root:
+		_find_nodes_recursive(root, type, result, scene_root)
 	return result
 
 
-func _find_nodes_recursive(node: Node, type: String, result: Array[Dictionary]) -> void:
+func _find_nodes_recursive(node: Node, type: String, result: Array[Dictionary], scene_root: Node) -> void:
 	if node.is_class(type):
-		result.append({"path": str(node.get_path()), "name": node.name})
+		result.append({"path": str(scene_root.get_path_to(node)), "name": node.name})
 	for child in node.get_children():
-		_find_nodes_recursive(child, type, result)
+		_find_nodes_recursive(child, type, result, scene_root)

@@ -238,8 +238,8 @@ describe('node tool', () => {
       });
     });
 
-    it('returns confirmation with both paths', async () => {
-      mock.mockResponse({});
+    it('returns confirmation with new path', async () => {
+      mock.mockResponse({ new_path: 'New/Node' });
       const ctx = createToolContext(mock);
 
       const result = await node.execute({
@@ -248,7 +248,7 @@ describe('node tool', () => {
         new_parent_path: '/root/New',
       }, ctx);
 
-      expect(result).toBe('Moved node /root/Old/Node to /root/New');
+      expect(result).toBe('Reparented node to: New/Node');
     });
 
     it('requires both node_path and new_parent_path for reparent', () => {

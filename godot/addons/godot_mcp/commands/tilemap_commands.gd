@@ -47,24 +47,24 @@ func _get_gridmap(node_path: String) -> GridMap:
 	return node as GridMap
 
 
-func _find_tilemap_layers(node: Node, result: Array) -> void:
+func _find_tilemap_layers(node: Node, result: Array, scene_root: Node) -> void:
 	if node is TileMapLayer:
 		result.append({
-			"path": str(node.get_path()),
+			"path": str(scene_root.get_path_to(node)),
 			"name": node.name
 		})
 	for child in node.get_children():
-		_find_tilemap_layers(child, result)
+		_find_tilemap_layers(child, result, scene_root)
 
 
-func _find_gridmaps(node: Node, result: Array) -> void:
+func _find_gridmaps(node: Node, result: Array, scene_root: Node) -> void:
 	if node is GridMap:
 		result.append({
-			"path": str(node.get_path()),
+			"path": str(scene_root.get_path_to(node)),
 			"name": node.name
 		})
 	for child in node.get_children():
-		_find_gridmaps(child, result)
+		_find_gridmaps(child, result, scene_root)
 
 
 func _serialize_vector2i(v: Vector2i) -> Dictionary:
@@ -85,10 +85,14 @@ func _deserialize_vector3i(d: Dictionary) -> Vector3i:
 
 func list_tilemap_layers(params: Dictionary) -> Dictionary:
 	var root_path: String = params.get("root_path", "")
+	var scene_root := EditorInterface.get_edited_scene_root()
 	var root: Node
 
+	if not scene_root:
+		return _error("NO_SCENE", "No scene is open")
+
 	if root_path.is_empty():
-		root = EditorInterface.get_edited_scene_root()
+		root = scene_root
 	else:
 		root = _get_node(root_path)
 
@@ -96,7 +100,7 @@ func list_tilemap_layers(params: Dictionary) -> Dictionary:
 		return _error("NODE_NOT_FOUND", "Root node not found")
 
 	var layers := []
-	_find_tilemap_layers(root, layers)
+	_find_tilemap_layers(root, layers, scene_root)
 
 	return _success({"tilemap_layers": layers})
 
@@ -400,10 +404,14 @@ func convert_coords(params: Dictionary) -> Dictionary:
 
 func list_gridmaps(params: Dictionary) -> Dictionary:
 	var root_path: String = params.get("root_path", "")
+	var scene_root := EditorInterface.get_edited_scene_root()
 	var root: Node
 
+	if not scene_root:
+		return _error("NO_SCENE", "No scene is open")
+
 	if root_path.is_empty():
-		root = EditorInterface.get_edited_scene_root()
+		root = scene_root
 	else:
 		root = _get_node(root_path)
 
@@ -411,7 +419,7 @@ func list_gridmaps(params: Dictionary) -> Dictionary:
 		return _error("NODE_NOT_FOUND", "Root node not found")
 
 	var gridmaps := []
-	_find_gridmaps(root, gridmaps)
+	_find_gridmaps(root, gridmaps, scene_root)
 
 	return _success({"gridmaps": gridmaps})
 

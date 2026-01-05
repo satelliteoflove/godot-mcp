@@ -150,11 +150,11 @@ export const node = defineTool({
       }
 
       case 'reparent': {
-        await godot.sendCommand('reparent_node', {
+        const result = await godot.sendCommand<{ new_path: string }>('reparent_node', {
           node_path: args.node_path,
           new_parent_path: args.new_parent_path,
         });
-        return `Moved node ${args.node_path} to ${args.new_parent_path}`;
+        return `Reparented node to: ${result.new_path}`;
       }
 
       case 'attach_script': {
