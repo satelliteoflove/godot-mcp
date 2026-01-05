@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.1...godot-mcp-v2.4.2) (2026-01-05)
+
+
+### Bug Fixes
+
+* update README and add missing scene3d to docs ([#68](https://github.com/satelliteoflove/godot-mcp/issues/68)) ([c56cec4](https://github.com/satelliteoflove/godot-mcp/commit/c56cec4c66d6699d8b3b0d5a4915549fd36847d1))
+
 ## [2.4.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.0...godot-mcp-v2.4.1) (2026-01-04)
 
 
