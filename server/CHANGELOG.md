@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.2...godot-mcp-v2.5.0) (2026-01-05)
+
+
+### Features
+
+* add godot_docs tool for fetching Godot documentation ([#70](https://github.com/satelliteoflove/godot-mcp/issues/70)) ([14b418d](https://github.com/satelliteoflove/godot-mcp/commit/14b418d4d23d426f9a47c46e85acf3b453eb0e58))
+
 ## [2.4.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.4.1...godot-mcp-v2.4.2) (2026-01-05)
 
 
