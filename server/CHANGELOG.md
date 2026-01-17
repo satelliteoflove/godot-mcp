@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.1...godot-mcp-v2.6.2) (2026-01-17)
+
+
+### Bug Fixes
+
+* use dynamic import for MCP server to fix npx stdin issue ([#87](https://github.com/satelliteoflove/godot-mcp/issues/87)) ([5bbaeda](https://github.com/satelliteoflove/godot-mcp/commit/5bbaedaca819af25a925dd8be57f9899e13c0e0f))
+
 ## [2.6.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.0...godot-mcp-v2.6.1) (2026-01-17)
 
 
