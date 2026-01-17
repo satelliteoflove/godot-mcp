@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.3...godot-mcp-v2.6.0) (2026-01-17)
+
+
+### Features
+
+* replace ad-hoc logging with proper MCP protocol and centralized addon logging ([#83](https://github.com/satelliteoflove/godot-mcp/issues/83)) ([cf1b7e4](https://github.com/satelliteoflove/godot-mcp/commit/cf1b7e4823b64fe3548d4d5e04d2a2ef9002cafb))
+
 ## [2.5.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.2...godot-mcp-v2.5.3) (2026-01-17)
 
 
