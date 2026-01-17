@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.0...godot-mcp-v2.6.1) (2026-01-17)
+
+
+### Bug Fixes
+
+* prevent CLI commands from spawning unwanted WebSocket connections ([#85](https://github.com/satelliteoflove/godot-mcp/issues/85)) ([404b09d](https://github.com/satelliteoflove/godot-mcp/commit/404b09d91e4e801800e8a4fdace2fa50f9d5b89b))
+
 ## [2.6.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.3...godot-mcp-v2.6.0) (2026-01-17)
 
 
