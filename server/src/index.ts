@@ -12,6 +12,7 @@ import { registry } from './core/registry.js';
 import { registerAllTools } from './tools/index.js';
 import { registerAllResources } from './resources/index.js';
 import { GodotCommandError } from './utils/errors.js';
+import { setMcpServer, logger } from './utils/logger.js';
 
 registerAllTools();
 registerAllResources();
@@ -26,9 +27,12 @@ export async function main() {
       capabilities: {
         tools: {},
         resources: {},
+        logging: {},
       },
     }
   );
+
+  setMcpServer(server);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return { tools: registry.getToolList() };
@@ -89,6 +93,6 @@ export async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  console.error('[godot-mcp] Server started');
+  logger.info('Server started');
 }
 

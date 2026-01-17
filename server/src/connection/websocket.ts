@@ -14,6 +14,7 @@ import {
   GodotTimeoutError,
 } from '../utils/errors.js';
 import { getServerVersion } from '../version.js';
+import { logger } from '../utils/logger.js';
 
 const DEFAULT_PORT = 6550;
 const DEFAULT_HOST = 'localhost';
@@ -202,7 +203,7 @@ export class GodotConnection extends EventEmitter {
         } catch (error) {
           this.currentState = 'connected';
           const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('[godot-mcp] Handshake failed (addon may be outdated):', errorMessage);
+          logger.error('Handshake failed (addon may be outdated)', { error: errorMessage });
           this.emit('handshake_failed', { error: errorMessage });
         }
 
@@ -226,11 +227,14 @@ export class GodotConnection extends EventEmitter {
           this.lastDisconnectReason = 'rejected_another_client';
           this.rejectionCount++;
           const reasonStr = reason?.toString() || 'Another client is already connected';
-          console.error(`[godot-mcp] Connection rejected: ${reasonStr}`);
-          console.error('[godot-mcp] This usually means multiple MCP server processes are running.');
-          console.error('[godot-mcp] Check for duplicate processes:');
-          console.error('[godot-mcp]   macOS/Linux: ps aux | grep godot-mcp');
-          console.error('[godot-mcp]   Windows: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"');
+          logger.critical('Connection rejected: another client already connected', {
+            reason: reasonStr,
+            suggestion: 'Multiple MCP server processes may be running',
+            diagnostics: {
+              macLinux: 'ps aux | grep godot-mcp',
+              windows: 'Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"',
+            },
+          });
         } else if (wasConnected) {
           this.lastDisconnectReason = 'connection_lost';
         } else if (this.lastDisconnectReason === 'never_connected') {
@@ -434,7 +438,10 @@ export class GodotConnection extends EventEmitter {
         await this.connect();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[godot-mcp] Reconnection attempt ${this.reconnectAttempt} failed: ${errorMessage}`);
+        logger.warningRateLimited('reconnect-fail', 'Reconnection attempt failed', {
+          attempt: this.reconnectAttempt,
+          error: errorMessage,
+        });
       }
     }, delay);
   }
@@ -462,7 +469,7 @@ function parsePortEnv(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const port = parseInt(value, 10);
   if (Number.isNaN(port) || port < 1 || port > 65535) {
-    console.error(`[godot-mcp] Invalid GODOT_PORT "${value}", using default`);
+    logger.warning('Invalid GODOT_PORT, using default', { value, default: DEFAULT_PORT });
     return undefined;
   }
   return port;
@@ -487,34 +494,42 @@ export async function initializeConnection(): Promise<void> {
   const connection = getGodotConnection();
 
   connection.on('connected', () => {
-    console.error('[godot-mcp] Connected to Godot');
+    logger.info('Connected to Godot');
   });
 
   connection.on('disconnected', () => {
-    console.error('[godot-mcp] Disconnected from Godot');
+    logger.warning('Disconnected from Godot');
   });
 
   connection.on('reconnecting', ({ attempt, delay }) => {
-    console.error(`[godot-mcp] Reconnecting (attempt ${attempt}) in ${delay}ms...`);
+    logger.warningRateLimited('reconnect', 'Reconnecting to Godot', { attempt, delayMs: delay });
   });
 
   connection.on('error', (error) => {
-    console.error(`[godot-mcp] Connection error: ${error.message}`);
+    logger.error('Connection error', { error: error.message });
   });
 
   connection.on('version_mismatch', ({ serverVersion, addonVersion, projectPath }) => {
     console.error(`[godot-mcp] Version mismatch: server=${serverVersion}, addon=${addonVersion}`);
     console.error(`[godot-mcp] Update addon with: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`);
+    logger.notice('Version mismatch detected', {
+      serverVersion,
+      addonVersion,
+      suggestion: 'Run: npx @satelliteoflove/godot-mcp --install-addon <project-path>',
+    });
   });
 
   connection.on('handshake_failed', ({ error }) => {
-    console.error(`[godot-mcp] Handshake failed: ${error}`);
-    console.error('[godot-mcp] The addon may be outdated or incompatible. Connection will continue but some features may not work.');
+    logger.error('Handshake failed', {
+      error,
+      advisory: 'The addon may be outdated or incompatible. Connection will continue but some features may not work.',
+    });
   });
 
   try {
     await connection.connect();
   } catch (error) {
-    console.error(`[godot-mcp] Initial connection failed, will retry: ${error}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warning('Initial connection failed, will retry', { error: errorMessage });
   }
 }
