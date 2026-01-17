@@ -68,7 +68,21 @@ func create_script(params: Dictionary) -> Dictionary:
 		return _error("WRITE_FAILED", "Failed to create script: %s" % script_path)
 
 	file.store_string(content)
+	var write_err := file.get_error()
 	file.close()
+
+	if write_err != OK:
+		return _error("WRITE_FAILED", "Failed to write script: %s (error: %s)" % [script_path, error_string(write_err)])
+
+	var verify_file := FileAccess.open(script_path, FileAccess.READ)
+	if not verify_file:
+		return _error("WRITE_VERIFY_FAILED", "Cannot verify script was written: %s" % script_path)
+
+	var written_content := verify_file.get_as_text()
+	verify_file.close()
+
+	if written_content.length() != content.length():
+		return _error("WRITE_VERIFY_FAILED", "Content length mismatch: expected %d, got %d" % [content.length(), written_content.length()])
 
 	EditorInterface.get_resource_filesystem().scan()
 
@@ -97,7 +111,21 @@ func edit_script(params: Dictionary) -> Dictionary:
 		return _error("WRITE_FAILED", "Failed to write script: %s" % script_path)
 
 	file.store_string(content)
+	var write_err := file.get_error()
 	file.close()
+
+	if write_err != OK:
+		return _error("WRITE_FAILED", "Failed to write script: %s (error: %s)" % [script_path, error_string(write_err)])
+
+	var verify_file := FileAccess.open(script_path, FileAccess.READ)
+	if not verify_file:
+		return _error("WRITE_VERIFY_FAILED", "Cannot verify script was written: %s" % script_path)
+
+	var written_content := verify_file.get_as_text()
+	verify_file.close()
+
+	if written_content.length() != content.length():
+		return _error("WRITE_VERIFY_FAILED", "Content length mismatch: expected %d, got %d" % [content.length(), written_content.length()])
 
 	EditorInterface.get_resource_filesystem().scan()
 
