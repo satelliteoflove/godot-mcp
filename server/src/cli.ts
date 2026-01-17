@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { main } from './index.js';
 import { installAddon } from './installer/install.js';
 import { getServerVersion } from './version.js';
 
@@ -58,6 +57,8 @@ if (values['install-addon']) {
   }
 } else {
   // Only start the MCP server if no CLI command was specified
+  // Dynamic import avoids loading MCP SDK for CLI commands (fixes npx stdin issue)
+  const { main } = await import('./index.js');
   main().catch((error) => {
     console.error('[godot-mcp] Fatal error:', error);
     process.exit(1);
