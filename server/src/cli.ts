@@ -56,9 +56,10 @@ if (values['install-addon']) {
     console.error('Error:', result.message);
     process.exit(1);
   }
+} else {
+  // Only start the MCP server if no CLI command was specified
+  main().catch((error) => {
+    console.error('[godot-mcp] Fatal error:', error);
+    process.exit(1);
+  });
 }
-
-main().catch((error) => {
-  console.error('[godot-mcp] Fatal error:', error);
-  process.exit(1);
-});
