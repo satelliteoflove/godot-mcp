@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.2...godot-mcp-v2.5.3) (2026-01-17)
+
+
+### Bug Fixes
+
+* remove dead code and improve error handling ([#79](https://github.com/satelliteoflove/godot-mcp/issues/79)) ([c283118](https://github.com/satelliteoflove/godot-mcp/commit/c28311838399bd409a75e87c15eea98fd22b1556))
+
 ## [2.5.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.1...godot-mcp-v2.5.2) (2026-01-17)
 
 
