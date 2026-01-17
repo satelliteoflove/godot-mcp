@@ -250,4 +250,80 @@ describe('logger', () => {
       }).not.toThrow();
     });
   });
+
+  describe('stderr output', () => {
+    it('writes error level to stderr', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockServer = {
+        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
+      };
+      setMcpServer(mockServer as never);
+
+      logger.error('test error');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[godot-mcp] [error] test error');
+      consoleSpy.mockRestore();
+    });
+
+    it('writes warning level to stderr', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockServer = {
+        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
+      };
+      setMcpServer(mockServer as never);
+
+      logger.warning('test warning');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[godot-mcp] [warning] test warning');
+      consoleSpy.mockRestore();
+    });
+
+    it('writes critical level to stderr', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockServer = {
+        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
+      };
+      setMcpServer(mockServer as never);
+
+      logger.critical('test critical');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[godot-mcp] [critical] test critical');
+      consoleSpy.mockRestore();
+    });
+
+    it('does not write info level to stderr', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockServer = {
+        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
+      };
+      setMcpServer(mockServer as never);
+
+      logger.info('test info');
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('does not write debug level to stderr', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockServer = {
+        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
+      };
+      setMcpServer(mockServer as never);
+
+      logger.debug('test debug');
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('writes to stderr even when no server is bound', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      logger.error('error without server');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[godot-mcp] [error] error without server');
+      consoleSpy.mockRestore();
+    });
+  });
 });

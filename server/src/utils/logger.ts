@@ -48,10 +48,17 @@ function sendToMcp(level: LogLevel, data: unknown, loggerName: string = LOGGER_N
 
 function log(level: LogLevel, message: string, data?: Record<string, unknown>): void {
   const logData = data ? { message, ...data } : message;
+
+  // Send to MCP (for compliant clients)
   if (mcpServer) {
     sendToMcp(level, logData);
   } else if (messageQueue.length < MAX_QUEUE_SIZE) {
     messageQueue.push({ level, logger: LOGGER_NAME, data: logData });
+  }
+
+  // Write errors/warnings to stderr (visible during development)
+  if (level === 'error' || level === 'critical' || level === 'warning') {
+    console.error(`[${LOGGER_NAME}] [${level}] ${message}`);
   }
 }
 
