@@ -11,6 +11,7 @@ import { initializeConnection, getGodotConnection } from './connection/websocket
 import { registry } from './core/registry.js';
 import { registerAllTools } from './tools/index.js';
 import { registerAllResources } from './resources/index.js';
+import { GodotCommandError } from './utils/errors.js';
 
 registerAllTools();
 registerAllResources();
@@ -48,7 +49,14 @@ export async function main() {
         content: [result],
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      let message: string;
+      if (error instanceof GodotCommandError) {
+        message = `[${error.code}] ${error.message}`;
+      } else if (error instanceof Error) {
+        message = error.message;
+      } else {
+        message = String(error);
+      }
       return {
         content: [{ type: 'text', text: `Error: ${message}` }],
         isError: true,

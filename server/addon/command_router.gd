@@ -13,7 +13,6 @@ func setup(plugin: EditorPlugin) -> void:
 	_register_handler(MCPScriptCommands.new(), plugin)
 	_register_handler(MCPSelectionCommands.new(), plugin)
 	_register_handler(MCPProjectCommands.new(), plugin)
-	_register_handler(MCPFileCommands.new(), plugin)
 	_register_handler(MCPDebugCommands.new(), plugin)
 	_register_handler(MCPScreenshotCommands.new(), plugin)
 	_register_handler(MCPAnimationCommands.new(), plugin)

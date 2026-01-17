@@ -1,6 +1,11 @@
 import type { AnyToolDefinition, ResourceDefinition, ToolContext, ToolResult } from './types.js';
 import { toInputSchema } from './schema.js';
-import { formatError } from '../utils/errors.js';
+import {
+  formatError,
+  GodotCommandError,
+  GodotConnectionError,
+  GodotTimeoutError,
+} from '../utils/errors.js';
 
 class ToolRegistry {
   private tools: Map<string, AnyToolDefinition> = new Map();
@@ -65,6 +70,13 @@ class ToolRegistry {
       const validated = tool.schema.parse(args);
       return await tool.execute(validated, ctx);
     } catch (error) {
+      if (
+        error instanceof GodotCommandError ||
+        error instanceof GodotConnectionError ||
+        error instanceof GodotTimeoutError
+      ) {
+        throw error;
+      }
       throw new Error(formatError(error));
     }
   }
