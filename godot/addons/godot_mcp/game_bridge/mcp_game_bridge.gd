@@ -12,7 +12,7 @@ func _ready() -> void:
 	_logger = _MCPGameLogger.new()
 	OS.add_logger(_logger)
 	EngineDebugger.register_message_capture("godot_mcp", _on_debugger_message)
-	print("[MCP Game Bridge] Initialized")
+	MCPLog.info("Game bridge initialized")
 
 
 func _exit_tree() -> void:

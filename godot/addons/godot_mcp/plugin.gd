@@ -35,7 +35,7 @@ func _enter_tree() -> void:
 	_ensure_game_bridge_autoload()
 
 	_websocket_server.start_server()
-	print("[godot-mcp] Plugin initialized")
+	MCPLog.info("Plugin initialized")
 
 
 func _exit_tree() -> void:
@@ -54,14 +54,14 @@ func _exit_tree() -> void:
 	if _command_router:
 		_command_router = null  # RefCounted - freed automatically
 
-	print("[godot-mcp] Plugin disabled")
+	MCPLog.info("Plugin disabled")
 
 
 func _ensure_game_bridge_autoload() -> void:
 	if not ProjectSettings.has_setting("autoload/" + GAME_BRIDGE_AUTOLOAD):
 		ProjectSettings.set_setting("autoload/" + GAME_BRIDGE_AUTOLOAD, GAME_BRIDGE_PATH)
 		ProjectSettings.save()
-		print("[godot-mcp] Added MCPGameBridge autoload")
+		MCPLog.info("Added MCPGameBridge autoload")
 
 
 func get_debugger_plugin() -> MCPDebuggerPlugin:
@@ -76,12 +76,12 @@ func _on_command_received(id: String, command: String, params: Dictionary) -> vo
 
 func _on_client_connected() -> void:
 	_update_status("Connected")
-	print("[godot-mcp] Client connected")
+	MCPLog.info("Client connected")
 
 
 func _on_client_disconnected() -> void:
 	_update_status("Disconnected")
-	print("[godot-mcp] Client disconnected")
+	MCPLog.info("Client disconnected")
 
 
 func _update_status(status: String) -> void:

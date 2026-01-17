@@ -37,10 +37,10 @@ func start_server(port: int = DEFAULT_PORT) -> Error:
 	_server = TCPServer.new()
 	var err := _server.listen(port)
 	if err != OK:
-		push_error("[godot-mcp] Failed to start server on port %d: %s" % [port, error_string(err)])
+		MCPLog.error("Failed to start server on port %d: %s" % [port, error_string(err)])
 		return err
 
-	print("[godot-mcp] Server listening on port %d" % port)
+	MCPLog.info("Server listening on port %d" % port)
 	return OK
 
 
@@ -74,7 +74,7 @@ func get_rejected_connection_count() -> int:
 
 func send_response(response: Dictionary) -> void:
 	if not _ws_peer or _ws_peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
-		push_warning("[godot-mcp] Cannot send response: not connected")
+		MCPLog.warn("Cannot send response: not connected")
 		return
 
 	var json := JSON.stringify(response)
@@ -96,12 +96,12 @@ func _accept_connection() -> void:
 	_ws_peer.outbound_buffer_size = 16 * 1024 * 1024  # 16MB for screenshot data
 	var err := _ws_peer.accept_stream(_peer)
 	if err != OK:
-		push_error("[godot-mcp] Failed to accept WebSocket stream: %s" % error_string(err))
+		MCPLog.error("Failed to accept WebSocket stream: %s" % error_string(err))
 		_ws_peer = null
 		_peer = null
 		return
 
-	print("[godot-mcp] TCP connection received, awaiting WebSocket handshake...")
+	MCPLog.info("TCP connection received, awaiting WebSocket handshake...")
 
 
 func _reject_connection(incoming: StreamPeerTCP) -> void:
@@ -110,7 +110,7 @@ func _reject_connection(incoming: StreamPeerTCP) -> void:
 	# If we're already processing a rejection, just drop this one at TCP level
 	if _pending_rejection != null:
 		incoming.disconnect_from_host()
-		print("[godot-mcp] Rejected connection at TCP level (busy processing previous rejection) - total rejections: %d" % _rejected_connections)
+		MCPLog.info("Rejected connection at TCP level (busy processing previous rejection) - total rejections: %d" % _rejected_connections)
 		return
 
 	# Accept WebSocket to send proper close code with reason
@@ -122,10 +122,10 @@ func _reject_connection(incoming: StreamPeerTCP) -> void:
 		incoming.disconnect_from_host()
 		_pending_rejection = null
 		_pending_rejection_peer = null
-		print("[godot-mcp] Rejected connection at TCP level (WebSocket accept failed) - total rejections: %d" % _rejected_connections)
+		MCPLog.info("Rejected connection at TCP level (WebSocket accept failed) - total rejections: %d" % _rejected_connections)
 		return
 
-	print("[godot-mcp] Rejecting connection (another client already connected) - total rejections: %d" % _rejected_connections)
+	MCPLog.info("Rejecting connection (another client already connected) - total rejections: %d" % _rejected_connections)
 
 
 func _process_pending_rejection() -> void:
@@ -168,7 +168,7 @@ func _process_websocket() -> void:
 			if not _is_connected:
 				_is_connected = true
 				client_connected.emit()
-				print("[godot-mcp] WebSocket handshake complete")
+				MCPLog.info("WebSocket handshake complete")
 
 			while _ws_peer.get_available_packet_count() > 0:
 				var packet := _ws_peer.get_packet()
@@ -191,13 +191,13 @@ func _handle_packet(packet: PackedByteArray) -> void:
 	var json := JSON.new()
 	var err := json.parse(text)
 	if err != OK:
-		push_error("[godot-mcp] Failed to parse command: %s" % json.get_error_message())
+		MCPLog.error("Failed to parse command: %s" % json.get_error_message())
 		_send_error_response("", "PARSE_ERROR", "Invalid JSON: %s" % json.get_error_message())
 		return
 
 	var data: Dictionary = json.data
 	if not data.has("id") or not data.has("command"):
-		push_error("[godot-mcp] Invalid command format")
+		MCPLog.error("Invalid command format")
 		_send_error_response(data.get("id", ""), "INVALID_FORMAT", "Missing 'id' or 'command' field")
 		return
 

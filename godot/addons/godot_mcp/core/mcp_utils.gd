@@ -85,15 +85,15 @@ static func deserialize_value(value: Variant) -> Variant:
 static func _create_resource(spec: Dictionary) -> Resource:
 	var resource_type: String = spec.get("_resource", "")
 	if not ClassDB.class_exists(resource_type):
-		push_error("MCPUtils: Unknown resource type: %s" % resource_type)
+		MCPLog.error("Unknown resource type: %s" % resource_type)
 		return null
 	if not ClassDB.is_parent_class(resource_type, "Resource"):
-		push_error("MCPUtils: Type is not a Resource: %s" % resource_type)
+		MCPLog.error("Type is not a Resource: %s" % resource_type)
 		return null
 
 	var resource: Resource = ClassDB.instantiate(resource_type)
 	if not resource:
-		push_error("MCPUtils: Failed to create resource: %s" % resource_type)
+		MCPLog.error("Failed to create resource: %s" % resource_type)
 		return null
 
 	for key in spec:
