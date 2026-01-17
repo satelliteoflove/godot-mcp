@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.1...godot-mcp-v2.5.2) (2026-01-17)
+
+
+### Bug Fixes
+
+* reject concurrent connections and provide diagnostic error context ([#76](https://github.com/satelliteoflove/godot-mcp/issues/76)) ([76ebfe5](https://github.com/satelliteoflove/godot-mcp/commit/76ebfe5f4cf3afca5d4a3beacdce0b87fa482332))
+
 ## [2.5.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.5.0...godot-mcp-v2.5.1) (2026-01-05)
 
 
