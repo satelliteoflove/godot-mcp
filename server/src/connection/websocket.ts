@@ -23,6 +23,25 @@ const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30000;
 const PONG_TIMEOUT_MS = 10000;
 
+const CLOSE_CODE_ALREADY_CONNECTED = 4001;
+
+export type DisconnectReason =
+  | 'never_connected'
+  | 'rejected_another_client'
+  | 'connection_refused'
+  | 'connection_lost'
+  | 'closed_normally'
+  | 'error';
+
+export interface ConnectionDiagnostics {
+  currentState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
+  lastDisconnectReason: DisconnectReason;
+  rejectionCount: number;
+  reconnectAttempts: number;
+  lastErrorMessage: string | null;
+  url: string;
+}
+
 export interface HandshakeResult {
   addonVersion: string;
   godotVersion: string;
@@ -51,6 +70,11 @@ export class GodotConnection extends EventEmitter {
   private pongTimeout: NodeJS.Timeout | null = null;
   private isClosing = false;
   private handshakeResult: HandshakeResult | null = null;
+
+  private lastDisconnectReason: DisconnectReason = 'never_connected';
+  private rejectionCount = 0;
+  private lastErrorMessage: string | null = null;
+  private currentState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
 
   private readonly host: string;
   private readonly port: number;
@@ -96,6 +120,65 @@ export class GodotConnection extends EventEmitter {
     return this.handshakeResult.addonVersion === this.serverVersion;
   }
 
+  getDiagnostics(): ConnectionDiagnostics {
+    return {
+      currentState: this.currentState,
+      lastDisconnectReason: this.lastDisconnectReason,
+      rejectionCount: this.rejectionCount,
+      reconnectAttempts: this.reconnectAttempt,
+      lastErrorMessage: this.lastErrorMessage,
+      url: this.url,
+    };
+  }
+
+  getDiagnosticMessage(): string {
+    const diag = this.getDiagnostics();
+    const lines: string[] = [];
+
+    switch (diag.lastDisconnectReason) {
+      case 'rejected_another_client':
+        lines.push('Status: Connection rejected (another client already connected)');
+        if (diag.rejectionCount > 1) {
+          lines.push(`Details: ${diag.rejectionCount} connection attempts rejected`);
+        }
+        lines.push('Suggestion: Multiple MCP server processes may be running.');
+        lines.push('  Check: ps aux | grep godot-mcp (macOS/Linux)');
+        lines.push('  Check: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*" (Windows)');
+        lines.push('  Fix: Kill all godot-mcp processes and restart your MCP client');
+        break;
+
+      case 'connection_refused':
+        lines.push(`Status: Cannot reach Godot at ${diag.url}`);
+        lines.push('Suggestion: Ensure Godot is running with the MCP addon enabled.');
+        break;
+
+      case 'connection_lost':
+        lines.push('Status: Connection to Godot was lost');
+        if (diag.reconnectAttempts > 0) {
+          lines.push(`Details: ${diag.reconnectAttempts} reconnection attempts made`);
+        }
+        lines.push('Suggestion: Check if Godot is still running.');
+        break;
+
+      case 'never_connected':
+        lines.push(`Status: Never successfully connected to Godot at ${diag.url}`);
+        lines.push('Suggestion: Ensure Godot is running with the MCP addon enabled.');
+        break;
+
+      case 'error':
+        lines.push('Status: Connection error');
+        if (diag.lastErrorMessage) {
+          lines.push(`Details: ${diag.lastErrorMessage}`);
+        }
+        break;
+
+      default:
+        lines.push(`Status: Disconnected (${diag.lastDisconnectReason})`);
+    }
+
+    return lines.join('\n');
+  }
+
   async connect(): Promise<void> {
     if (this.isConnected) {
       return;
@@ -103,10 +186,12 @@ export class GodotConnection extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.isClosing = false;
+      this.currentState = this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting';
       this.ws = new WebSocket(this.url);
 
       this.ws.on('open', async () => {
         this.reconnectAttempt = 0;
+        this.currentState = 'connected';
         this.startPingInterval();
 
         try {
@@ -127,7 +212,25 @@ export class GodotConnection extends EventEmitter {
         this.clearPongTimeout();
       });
 
-      this.ws.on('close', () => {
+      this.ws.on('close', (code, reason) => {
+        const wasConnected = this.currentState === 'connected';
+        this.currentState = 'disconnected';
+
+        if (code === CLOSE_CODE_ALREADY_CONNECTED) {
+          this.lastDisconnectReason = 'rejected_another_client';
+          this.rejectionCount++;
+          const reasonStr = reason?.toString() || 'Another client is already connected';
+          console.error(`[godot-mcp] Connection rejected: ${reasonStr}`);
+          console.error('[godot-mcp] This usually means multiple MCP server processes are running.');
+          console.error('[godot-mcp] Check for duplicate processes:');
+          console.error('[godot-mcp]   macOS/Linux: ps aux | grep godot-mcp');
+          console.error('[godot-mcp]   Windows: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"');
+        } else if (wasConnected) {
+          this.lastDisconnectReason = 'connection_lost';
+        } else if (this.lastDisconnectReason === 'never_connected') {
+          this.lastDisconnectReason = 'connection_refused';
+        }
+
         this.cleanup();
         this.emit('disconnected');
         if (this.autoReconnect && !this.isClosing) {
@@ -136,6 +239,12 @@ export class GodotConnection extends EventEmitter {
       });
 
       this.ws.on('error', (error) => {
+        this.lastErrorMessage = error.message;
+        if (error.message.includes('ECONNREFUSED')) {
+          this.lastDisconnectReason = 'connection_refused';
+        } else {
+          this.lastDisconnectReason = 'error';
+        }
         this.emit('error', error);
         if (!this.isConnected) {
           reject(new GodotConnectionError(`Failed to connect: ${error.message}`));
@@ -146,6 +255,8 @@ export class GodotConnection extends EventEmitter {
 
   disconnect(): void {
     this.isClosing = true;
+    this.lastDisconnectReason = 'closed_normally';
+    this.currentState = 'disconnected';
     this.cleanup();
     if (this.ws) {
       this.ws.close();
@@ -155,7 +266,8 @@ export class GodotConnection extends EventEmitter {
 
   async sendCommand<T = unknown>(command: string, params: Record<string, unknown> = {}): Promise<T> {
     if (!this.isConnected) {
-      throw new GodotConnectionError('Not connected to Godot');
+      const diagnosticMessage = this.getDiagnosticMessage();
+      throw new GodotConnectionError(`Not connected to Godot\n${diagnosticMessage}`);
     }
 
     const request = createRequest(command, params);

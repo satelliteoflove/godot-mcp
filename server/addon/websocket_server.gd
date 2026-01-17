@@ -7,11 +7,16 @@ signal client_connected()
 signal client_disconnected()
 
 const DEFAULT_PORT := 6550
+const CLOSE_CODE_ALREADY_CONNECTED := 4001
+const CLOSE_REASON_ALREADY_CONNECTED := "Another client is already connected"
 
 var _server: TCPServer
 var _peer: StreamPeerTCP
 var _ws_peer: WebSocketPeer
 var _is_connected := false
+var _rejected_connections := 0
+var _pending_rejection: WebSocketPeer = null
+var _pending_rejection_peer: StreamPeerTCP = null
 
 
 func _process(_delta: float) -> void:
@@ -24,6 +29,8 @@ func _process(_delta: float) -> void:
 	if _ws_peer:
 		_ws_peer.poll()
 		_process_websocket()
+
+	_process_pending_rejection()
 
 
 func start_server(port: int = DEFAULT_PORT) -> Error:
@@ -38,6 +45,14 @@ func start_server(port: int = DEFAULT_PORT) -> Error:
 
 
 func stop_server() -> void:
+	if _pending_rejection:
+		_pending_rejection.close()
+		_pending_rejection = null
+
+	if _pending_rejection_peer:
+		_pending_rejection_peer.disconnect_from_host()
+		_pending_rejection_peer = null
+
 	if _ws_peer:
 		_ws_peer.close()
 		_ws_peer = null
@@ -50,6 +65,11 @@ func stop_server() -> void:
 		_server.stop()
 
 	_is_connected = false
+	_rejected_connections = 0
+
+
+func get_rejected_connection_count() -> int:
+	return _rejected_connections
 
 
 func send_response(response: Dictionary) -> void:
@@ -62,10 +82,16 @@ func send_response(response: Dictionary) -> void:
 
 
 func _accept_connection() -> void:
-	_peer = _server.take_connection()
-	if not _peer:
+	var incoming := _server.take_connection()
+	if not incoming:
 		return
 
+	# Reject if we already have an active or pending connection
+	if _ws_peer != null:
+		_reject_connection(incoming)
+		return
+
+	_peer = incoming
 	_ws_peer = WebSocketPeer.new()
 	_ws_peer.outbound_buffer_size = 16 * 1024 * 1024  # 16MB for screenshot data
 	var err := _ws_peer.accept_stream(_peer)
@@ -76,6 +102,56 @@ func _accept_connection() -> void:
 		return
 
 	print("[godot-mcp] TCP connection received, awaiting WebSocket handshake...")
+
+
+func _reject_connection(incoming: StreamPeerTCP) -> void:
+	_rejected_connections += 1
+
+	# If we're already processing a rejection, just drop this one at TCP level
+	if _pending_rejection != null:
+		incoming.disconnect_from_host()
+		print("[godot-mcp] Rejected connection at TCP level (busy processing previous rejection) - total rejections: %d" % _rejected_connections)
+		return
+
+	# Accept WebSocket to send proper close code with reason
+	_pending_rejection_peer = incoming
+	_pending_rejection = WebSocketPeer.new()
+	var err := _pending_rejection.accept_stream(_pending_rejection_peer)
+	if err != OK:
+		# Fall back to TCP disconnect
+		incoming.disconnect_from_host()
+		_pending_rejection = null
+		_pending_rejection_peer = null
+		print("[godot-mcp] Rejected connection at TCP level (WebSocket accept failed) - total rejections: %d" % _rejected_connections)
+		return
+
+	print("[godot-mcp] Rejecting connection (another client already connected) - total rejections: %d" % _rejected_connections)
+
+
+func _process_pending_rejection() -> void:
+	if _pending_rejection == null:
+		return
+
+	_pending_rejection.poll()
+	var state := _pending_rejection.get_ready_state()
+
+	match state:
+		WebSocketPeer.STATE_CONNECTING:
+			# Still waiting for handshake, will send close once ready
+			pass
+
+		WebSocketPeer.STATE_OPEN:
+			# Handshake complete, now send close with our custom code
+			_pending_rejection.close(CLOSE_CODE_ALREADY_CONNECTED, CLOSE_REASON_ALREADY_CONNECTED)
+
+		WebSocketPeer.STATE_CLOSING:
+			# Waiting for close to complete
+			pass
+
+		WebSocketPeer.STATE_CLOSED:
+			# Done, clean up
+			_pending_rejection = null
+			_pending_rejection_peer = null
 
 
 func _process_websocket() -> void:
