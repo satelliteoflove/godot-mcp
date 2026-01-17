@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 server/dist/
+server/addon/
 
 # IDE
 .idea/
