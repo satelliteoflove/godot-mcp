@@ -4,6 +4,7 @@ node_modules/
 # Build output
 server/dist/
 server/addon/
+server/src/*.js
 
 # IDE
 .idea/
@@ -15,9 +16,18 @@ server/addon/
 .DS_Store
 Thumbs.db
 
+# Godot test project
+godot/*
+!godot/addons/
+godot/addons/*
+!godot/addons/godot_mcp/
+!godot/addons/godot_mcp/**
+godot/.editorconfig
+
 # Godot
 .godot/
 *.import
+*.uid
 
 # Environment
 .env
