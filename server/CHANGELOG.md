@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.7.0...godot-mcp-v2.8.0) (2026-01-24)
+
+
+### Features
+
+* add signal connection support to node tool ([#96](https://github.com/satelliteoflove/godot-mcp/issues/96)) ([5ff874d](https://github.com/satelliteoflove/godot-mcp/commit/5ff874d73c04978b63c5bf2c0fe83ba5fa91e9c2)), closes [#89](https://github.com/satelliteoflove/godot-mcp/issues/89)
+
 ## [2.7.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.3...godot-mcp-v2.7.0) (2026-01-24)
 
 
