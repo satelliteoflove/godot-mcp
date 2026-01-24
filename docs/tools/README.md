@@ -57,3 +57,9 @@ Fetch Godot Engine documentation with smart extraction
 
 - `godot_docs` - Fetch Godot Engine documentation. Use fetch_class for class references (e.g. CharacterBody2D), fetch_page for tutorials/guides. Auto-detects Godot version from editor connection. Returns clean markdown.
 
+## [Input](input.md)
+
+Input injection for testing running games (action-based, no mouse/coordinates yet)
+
+- `input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, then sequence to execute inputs with precise timing. Supports parallel inputs (same start_ms) and sequential choreography (different start_ms values). Note: Mouse/coordinate input not yet supported.
+

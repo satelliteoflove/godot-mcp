@@ -20,6 +20,36 @@ func _exit_tree() -> void:
 		EngineDebugger.unregister_message_capture("godot_mcp")
 
 
+func _process(_delta: float) -> void:
+	if not _sequence_running or _sequence_events.is_empty():
+		return
+
+	var elapsed := Time.get_ticks_msec() - _sequence_start_time
+
+	while _sequence_events.size() > 0 and _sequence_events[0].time <= elapsed:
+		var event: Dictionary = _sequence_events.pop_front()
+		if event.is_press:
+			Input.action_press(event.action)
+		else:
+			Input.action_release(event.action)
+			_actions_completed += 1
+
+	if _sequence_events.is_empty():
+		_sequence_running = false
+		set_process(false)
+		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+			"completed": true,
+			"actions_executed": _actions_completed,
+		}])
+
+
+var _sequence_events: Array = []
+var _sequence_start_time: int = 0
+var _sequence_running: bool = false
+var _actions_completed: int = 0
+var _actions_total: int = 0
+
+
 func _on_debugger_message(message: String, data: Array) -> bool:
 	match message:
 		"take_screenshot":
@@ -33,6 +63,12 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"find_nodes":
 			_handle_find_nodes(data)
+			return true
+		"get_input_map":
+			_handle_get_input_map()
+			return true
+		"execute_input_sequence":
+			_handle_execute_input_sequence(data)
 			return true
 	return false
 
@@ -193,3 +229,97 @@ class _MCPGameLogger extends Logger:
 		_mutex.lock()
 		_output.clear()
 		_mutex.unlock()
+
+
+func _handle_get_input_map() -> void:
+	var actions: Array = []
+	for action_name in InputMap.get_actions():
+		if action_name.begins_with("ui_"):
+			continue
+		var events := InputMap.action_get_events(action_name)
+		var event_strings: Array = []
+		for event in events:
+			event_strings.append(_event_to_string(event))
+		actions.append({
+			"name": action_name,
+			"events": event_strings,
+		})
+	EngineDebugger.send_message("godot_mcp:input_map_result", [actions, ""])
+
+
+func _event_to_string(event: InputEvent) -> String:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		var key_name := OS.get_keycode_string(key_event.keycode)
+		if key_event.ctrl_pressed:
+			key_name = "Ctrl+" + key_name
+		if key_event.alt_pressed:
+			key_name = "Alt+" + key_name
+		if key_event.shift_pressed:
+			key_name = "Shift+" + key_name
+		return key_name
+	elif event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		match mouse_event.button_index:
+			MOUSE_BUTTON_LEFT:
+				return "Mouse Left"
+			MOUSE_BUTTON_RIGHT:
+				return "Mouse Right"
+			MOUSE_BUTTON_MIDDLE:
+				return "Mouse Middle"
+			_:
+				return "Mouse Button %d" % mouse_event.button_index
+	elif event is InputEventJoypadButton:
+		var joy_event := event as InputEventJoypadButton
+		return "Joypad Button %d" % joy_event.button_index
+	elif event is InputEventJoypadMotion:
+		var joy_motion := event as InputEventJoypadMotion
+		return "Joypad Axis %d" % joy_motion.axis
+	return event.as_text()
+
+
+func _handle_execute_input_sequence(data: Array) -> void:
+	var inputs: Array = data[0] if data.size() > 0 else []
+
+	if inputs.is_empty():
+		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+			"error": "No inputs provided",
+		}])
+		return
+
+	_sequence_events.clear()
+	_actions_completed = 0
+	_actions_total = inputs.size()
+
+	for input in inputs:
+		var action_name: String = input.get("action_name", "")
+		var start_ms: int = int(input.get("start_ms", 0))
+		var duration_ms: int = int(input.get("duration_ms", 0))
+
+		if action_name.is_empty():
+			continue
+
+		if not InputMap.has_action(action_name):
+			EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+				"error": "Unknown action: %s" % action_name,
+			}])
+			return
+
+		_sequence_events.append({
+			"time": start_ms,
+			"action": action_name,
+			"is_press": true,
+		})
+		_sequence_events.append({
+			"time": start_ms + duration_ms,
+			"action": action_name,
+			"is_press": false,
+		})
+
+	_sequence_events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.time < b.time
+	)
+
+	_sequence_start_time = Time.get_ticks_msec()
+	_sequence_running = true
+	set_process(true)

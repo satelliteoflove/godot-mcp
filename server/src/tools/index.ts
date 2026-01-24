@@ -8,6 +8,7 @@ import { tilemapTools } from './tilemap.js';
 import { resourceTools } from './resource.js';
 import { scene3dTools } from './scene3d.js';
 import { docsTools } from './docs.js';
+import { inputTools } from './input.js';
 
 export function registerAllTools(): void {
   registry.registerTools(sceneTools);
@@ -19,6 +20,7 @@ export function registerAllTools(): void {
   registry.registerTools(resourceTools);
   registry.registerTools(scene3dTools);
   registry.registerTools(docsTools);
+  registry.registerTools(inputTools);
 }
 
 export { sceneTools } from './scene.js';
@@ -30,3 +32,4 @@ export { tilemapTools } from './tilemap.js';
 export { resourceTools } from './resource.js';
 export { scene3dTools } from './scene3d.js';
 export { docsTools } from './docs.js';
+export { inputTools } from './input.js';

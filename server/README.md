@@ -81,6 +81,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 | `resource` | Manage Godot resources: inspect Resource files by path |
 | `scene3d` | Get spatial information for 3D nodes: global transforms, bounding boxes, visibility |
 | `godot_docs` | Fetch Godot Engine documentation |
+| `input` | Inject input into a running Godot game for testing |
 
 See [docs/](docs/) for detailed API reference, including the [Claude Code Setup Guide](docs/claude-code-setup.md).
 
