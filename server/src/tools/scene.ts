@@ -60,12 +60,12 @@ export const scene = defineTool({
       }
 
       case 'create': {
-        await godot.sendCommand('create_scene', {
+        const result = await godot.sendCommand<{ path: string; uid: string }>('create_scene', {
           root_type: args.root_type,
           root_name: args.root_name ?? args.root_type,
           scene_path: args.scene_path,
         });
-        return `Created scene: ${args.scene_path} with root node type ${args.root_type}`;
+        return `Created scene: ${result.path} with root node type ${args.root_type}\nUID: ${result.uid}`;
       }
     }
   },

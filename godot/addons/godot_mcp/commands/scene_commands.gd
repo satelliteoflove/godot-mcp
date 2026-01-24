@@ -127,5 +127,7 @@ func create_scene(params: Dictionary) -> Dictionary:
 		return _error("SAVE_FAILED", "Failed to save scene: %s" % error_string(err))
 
 	EditorInterface.open_scene_from_path(scene_path)
-	return _success({"path": scene_path})
+
+	var uid := ResourceUID.id_to_text(ResourceLoader.get_resource_uid(scene_path))
+	return _success({"path": scene_path, "uid": uid})
 

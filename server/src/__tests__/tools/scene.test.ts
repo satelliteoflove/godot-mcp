@@ -105,8 +105,8 @@ describe('scene tool', () => {
       expect(mock.calls[0].params.root_name).toBe('Control');
     });
 
-    it('returns confirmation message', async () => {
-      mock.mockResponse({});
+    it('returns confirmation message with UID', async () => {
+      mock.mockResponse({ path: 'res://levels/world.tscn', uid: 'uid://abc123xyz' });
       const ctx = createToolContext(mock);
 
       const result = await scene.execute({
@@ -115,7 +115,7 @@ describe('scene tool', () => {
         scene_path: 'res://levels/world.tscn',
       }, ctx);
 
-      expect(result).toBe('Created scene: res://levels/world.tscn with root node type Node3D');
+      expect(result).toBe('Created scene: res://levels/world.tscn with root node type Node3D\nUID: uid://abc123xyz');
     });
 
     it('requires root_type and scene_path for create', () => {
