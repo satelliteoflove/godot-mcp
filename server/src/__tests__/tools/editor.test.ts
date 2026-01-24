@@ -190,7 +190,7 @@ describe('editor tool', () => {
 
   describe('action: get_debug_output', () => {
     it('sends get_debug_output command', async () => {
-      mock.mockResponse({ output: 'Debug message' });
+      mock.mockResponse({ output: 'Debug message', source: 'game' });
       const ctx = createToolContext(mock);
 
       await editor.execute({ action: 'get_debug_output' }, ctx);
@@ -199,7 +199,7 @@ describe('editor tool', () => {
     });
 
     it('passes clear parameter', async () => {
-      mock.mockResponse({ output: 'Debug message' });
+      mock.mockResponse({ output: 'Debug message', source: 'game' });
       const ctx = createToolContext(mock);
 
       await editor.execute({ action: 'get_debug_output', clear: true }, ctx);
@@ -207,7 +207,36 @@ describe('editor tool', () => {
       expect(mock.calls[0].params.clear).toBe(true);
     });
 
-    it('returns formatted output', async () => {
+    it('passes source parameter', async () => {
+      mock.mockResponse({ output: 'Editor error', source: 'editor' });
+      const ctx = createToolContext(mock);
+
+      await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx);
+
+      expect(mock.calls[0].params.source).toBe('editor');
+    });
+
+    it('returns formatted output with Editor label for editor source', async () => {
+      mock.mockResponse({ output: 'Script parse error', source: 'editor' });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx);
+
+      expect(result).toContain('Editor output:');
+      expect(result).toContain('Script parse error');
+    });
+
+    it('returns formatted output with Game label for game source', async () => {
+      mock.mockResponse({ output: 'Player spawned', source: 'game' });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_debug_output', source: 'game' }, ctx);
+
+      expect(result).toContain('Game output:');
+      expect(result).toContain('Player spawned');
+    });
+
+    it('returns formatted output with Debug label when no source', async () => {
       mock.mockResponse({ output: 'Error: Something went wrong' });
       const ctx = createToolContext(mock);
 
@@ -217,7 +246,16 @@ describe('editor tool', () => {
       expect(result).toContain('Error: Something went wrong');
     });
 
-    it('returns message when no output', async () => {
+    it('returns message when no output with source label', async () => {
+      mock.mockResponse({ output: '', source: 'editor' });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx);
+
+      expect(result).toBe('No editor output');
+    });
+
+    it('returns message when no output without source', async () => {
       mock.mockResponse({ output: '' });
       const ctx = createToolContext(mock);
 

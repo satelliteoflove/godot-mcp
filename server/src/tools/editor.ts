@@ -50,6 +50,10 @@ const EditorSchema = z
       .boolean()
       .optional()
       .describe('Clear output buffer after reading (get_debug_output only)'),
+    source: z
+      .enum(['editor', 'game'])
+      .optional()
+      .describe('Output source: "editor" for editor panel messages (script errors, loading failures), "game" for running game output. If omitted, returns game output when running, else editor output.'),
     viewport: z
       .enum(['2d', '3d'])
       .optional()
@@ -134,14 +138,15 @@ export const editor = defineTool({
       }
 
       case 'get_debug_output': {
-        const result = await godot.sendCommand<{ output: string }>(
+        const result = await godot.sendCommand<{ output: string; source: string }>(
           'get_debug_output',
-          { clear: args.clear ?? false }
+          { clear: args.clear ?? false, source: args.source }
         );
         if (!result.output || result.output.trim() === '') {
-          return 'No debug output';
+          return `No ${result.source ?? 'debug'} output`;
         }
-        return `Debug output:\n\`\`\`\n${result.output}\n\`\`\``;
+        const label = result.source === 'editor' ? 'Editor' : result.source === 'game' ? 'Game' : 'Debug';
+        return `${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
       }
 
       case 'get_performance': {

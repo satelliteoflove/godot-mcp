@@ -41,20 +41,39 @@ func stop_project(_params: Dictionary) -> Dictionary:
 
 func get_debug_output(params: Dictionary) -> Dictionary:
 	var clear: bool = params.get("clear", false)
+	var source: String = params.get("source", "")
+
+	if source == "editor":
+		var output := "\n".join(MCPLogger.get_output())
+		if clear:
+			MCPLogger.clear()
+		return _success({"output": output, "source": "editor"})
+
+	if source == "game":
+		if not EditorInterface.is_playing_scene():
+			return _error("NOT_RUNNING", "No game is currently running. Use source: 'editor' for editor output.")
+		var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
+		if debugger_plugin == null or not debugger_plugin.has_active_session():
+			return _error("NO_SESSION", "No active debug session. Use source: 'editor' for editor output.")
+		return await _fetch_game_debug_output(debugger_plugin, clear)
 
 	if not EditorInterface.is_playing_scene():
 		var output := "\n".join(MCPLogger.get_output())
 		if clear:
 			MCPLogger.clear()
-		return _success({"output": output})
+		return _success({"output": output, "source": "editor"})
 
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		var output := "\n".join(MCPLogger.get_output())
 		if clear:
 			MCPLogger.clear()
-		return _success({"output": output})
+		return _success({"output": output, "source": "editor"})
 
+	return await _fetch_game_debug_output(debugger_plugin, clear)
+
+
+func _fetch_game_debug_output(debugger_plugin: MCPDebuggerPlugin, clear: bool) -> Dictionary:
 	_debug_output_pending = true
 	_debug_output_result = PackedStringArray()
 
@@ -68,9 +87,9 @@ func get_debug_output(params: Dictionary) -> Dictionary:
 			_debug_output_pending = false
 			if debugger_plugin.debug_output_received.is_connected(_on_debug_output_received):
 				debugger_plugin.debug_output_received.disconnect(_on_debug_output_received)
-			return _success({"output": "\n".join(MCPLogger.get_output())})
+			return _success({"output": "\n".join(MCPLogger.get_output()), "source": "editor"})
 
-	return _success({"output": "\n".join(_debug_output_result)})
+	return _success({"output": "\n".join(_debug_output_result), "source": "game"})
 
 
 func _on_debug_output_received(output: PackedStringArray) -> void:

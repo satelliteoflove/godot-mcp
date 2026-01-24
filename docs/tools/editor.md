@@ -20,6 +20,7 @@ Control the Godot editor: get state (includes viewport/camera info), manage sele
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
 | `clear` | boolean | get_debug_output | Clear output buffer after reading |
+| `source` | `editor`, `game` | No | Output source: "editor" for editor panel messages (script errors, loading failures), "game" for running game output. If omitted, returns game output when running, else editor output. |
 | `viewport` | `2d`, `3d` | screenshot_editor | Which editor viewport to capture |
 | `max_width` | number | screenshot_game, screenshot_editor | Maximum width in pixels for screenshot |
 | `center_x` | number | set_viewport_2d | X coordinate to center the 2D viewport on |
