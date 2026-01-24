@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.8.0...godot-mcp-v2.9.0) (2026-01-24)
+
+
+### Features
+
+* add get_errors and get_stack_trace actions to editor tool ([#99](https://github.com/satelliteoflove/godot-mcp/issues/99)) ([9b24dbe](https://github.com/satelliteoflove/godot-mcp/commit/9b24dbe0e076d421ca274696bc494830f8c449b9)), closes [#98](https://github.com/satelliteoflove/godot-mcp/issues/98)
+
 ## [2.8.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.7.0...godot-mcp-v2.8.0) (2026-01-24)
 
 
