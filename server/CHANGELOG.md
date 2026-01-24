@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.3...godot-mcp-v2.7.0) (2026-01-24)
+
+
+### Features
+
+* add source parameter to get_debug_output for editor vs game output ([#94](https://github.com/satelliteoflove/godot-mcp/issues/94)) ([e3c67b4](https://github.com/satelliteoflove/godot-mcp/commit/e3c67b4314c7c68da96e6c11fa41bf44a065e5e7)), closes [#91](https://github.com/satelliteoflove/godot-mcp/issues/91)
+
 ## [2.6.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.2...godot-mcp-v2.6.3) (2026-01-24)
 
 
