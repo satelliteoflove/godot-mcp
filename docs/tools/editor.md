@@ -10,13 +10,13 @@ Editor control, debugging, and screenshot tools
 
 ## editor
 
-Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get performance metrics, capture screenshots, set 2D viewport position/zoom
+Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_errors (structured errors with file:line), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
+| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, get_errors, get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
 | `clear` | boolean | get_debug_output | Clear output buffer after reading |
@@ -44,6 +44,10 @@ Parameters: `node_path`*
 #### `get_debug_output`
 
 Parameters: `clear`*
+
+#### `get_errors`
+
+#### `get_stack_trace`
 
 #### `get_performance`
 
@@ -83,7 +87,7 @@ Parameters: `center_x`*, `center_y`*, `zoom`*
 }
 ```
 
-*7 more actions available: `run`, `stop`, `get_debug_output`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d`*
+*9 more actions available: `run`, `stop`, `get_debug_output`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d`*
 
 ---
 

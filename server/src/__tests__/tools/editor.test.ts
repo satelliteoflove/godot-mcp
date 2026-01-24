@@ -265,6 +265,98 @@ describe('editor tool', () => {
     });
   });
 
+  describe('action: get_errors', () => {
+    it('sends get_errors command', async () => {
+      mock.mockResponse({ error_count: 0, errors: [] });
+      const ctx = createToolContext(mock);
+
+      await editor.execute({ action: 'get_errors' }, ctx);
+
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0].command).toBe('get_errors');
+    });
+
+    it('passes clear parameter', async () => {
+      mock.mockResponse({ error_count: 0, errors: [] });
+      const ctx = createToolContext(mock);
+
+      await editor.execute({ action: 'get_errors', clear: true }, ctx);
+
+      expect(mock.calls[0].params.clear).toBe(true);
+    });
+
+    it('returns "No errors" when error_count is 0', async () => {
+      mock.mockResponse({ error_count: 0, errors: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_errors' }, ctx);
+
+      expect(result).toBe('No errors');
+    });
+
+    it('returns JSON with errors when present', async () => {
+      const errorData = {
+        error_count: 1,
+        errors: [{
+          timestamp: 12345,
+          type: 'Parser Error',
+          message: 'Could not find type "DungeonData"',
+          file: 'res://scenes/dungeon.gd',
+          line: 10,
+          function: '',
+          error_type: 1,
+          frames: [],
+        }],
+      };
+      mock.mockResponse(errorData);
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_errors' }, ctx);
+
+      expect(result).toBe(JSON.stringify(errorData, null, 2));
+    });
+  });
+
+  describe('action: get_stack_trace', () => {
+    it('sends get_stack_trace command', async () => {
+      mock.mockResponse({ error: '', error_type: '', file: '', line: 0, frames: [] });
+      const ctx = createToolContext(mock);
+
+      await editor.execute({ action: 'get_stack_trace' }, ctx);
+
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0].command).toBe('get_stack_trace');
+    });
+
+    it('returns "No stack trace available" when empty', async () => {
+      mock.mockResponse({ error: '', error_type: '', file: '', line: 0, frames: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_stack_trace' }, ctx);
+
+      expect(result).toBe('No stack trace available');
+    });
+
+    it('returns JSON with stack trace when present', async () => {
+      const stackData = {
+        error: 'Null instance access',
+        error_type: 'Runtime Error',
+        file: 'res://player.gd',
+        line: 42,
+        frames: [
+          { file: 'res://player.gd', line: 42, function: '_process' },
+          { file: 'res://main.gd', line: 15, function: '_ready' },
+        ],
+      };
+      mock.mockResponse(stackData);
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'get_stack_trace' }, ctx);
+
+      expect(result).toBe(JSON.stringify(stackData, null, 2));
+    });
+  });
+
   describe('action: get_performance', () => {
     it('sends get_performance_metrics command', async () => {
       mock.mockResponse({ fps: 60 });

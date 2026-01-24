@@ -17,7 +17,9 @@ func get_commands() -> Dictionary:
 		"run_project": run_project,
 		"stop_project": stop_project,
 		"get_debug_output": get_debug_output,
-		"get_performance_metrics": get_performance_metrics
+		"get_performance_metrics": get_performance_metrics,
+		"get_errors": get_errors,
+		"get_stack_trace": get_stack_trace,
 	}
 
 
@@ -126,3 +128,24 @@ func get_performance_metrics(_params: Dictionary) -> Dictionary:
 func _on_performance_metrics_received(metrics: Dictionary) -> void:
 	_performance_metrics_pending = false
 	_performance_metrics_result = metrics
+
+
+func get_errors(params: Dictionary) -> Dictionary:
+	var clear: bool = params.get("clear", false)
+	var errors := MCPLogger.get_errors()
+	if clear:
+		MCPLogger.clear_errors()
+	return _success({"error_count": errors.size(), "errors": errors})
+
+
+func get_stack_trace(_params: Dictionary) -> Dictionary:
+	var frames := MCPLogger.get_last_stack_trace()
+	var errors := MCPLogger.get_errors()
+	var last_error: Dictionary = errors[-1] if not errors.is_empty() else {}
+	return _success({
+		"error": last_error.get("message", ""),
+		"error_type": last_error.get("type", ""),
+		"file": last_error.get("file", ""),
+		"line": last_error.get("line", 0),
+		"frames": frames,
+	})

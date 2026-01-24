@@ -36,8 +36,8 @@ function toImageContent(base64: string): ImageContent {
 const EditorSchema = z
   .object({
     action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
+      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_errors', 'get_stack_trace', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
+      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_errors, get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
     node_path: z
       .string()
       .optional()
@@ -95,7 +95,7 @@ type EditorArgs = z.infer<typeof EditorSchema>;
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get performance metrics, capture screenshots, set 2D viewport position/zoom',
+    'Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_errors (structured errors with file:line), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -147,6 +147,40 @@ export const editor = defineTool({
         }
         const label = result.source === 'editor' ? 'Editor' : result.source === 'game' ? 'Game' : 'Debug';
         return `${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
+      }
+
+      case 'get_errors': {
+        const result = await godot.sendCommand<{
+          error_count: number;
+          errors: Array<{
+            timestamp: number;
+            type: string;
+            message: string;
+            file: string;
+            line: number;
+            function: string;
+            error_type: number;
+            frames: Array<{ file: string; line: number; function: string }>;
+          }>;
+        }>('get_errors', { clear: args.clear ?? false });
+        if (result.error_count === 0) {
+          return 'No errors';
+        }
+        return JSON.stringify(result, null, 2);
+      }
+
+      case 'get_stack_trace': {
+        const result = await godot.sendCommand<{
+          error: string;
+          error_type: string;
+          file: string;
+          line: number;
+          frames: Array<{ file: string; line: number; function: string }>;
+        }>('get_stack_trace');
+        if (!result.error && result.frames.length === 0) {
+          return 'No stack trace available';
+        }
+        return JSON.stringify(result, null, 2);
       }
 
       case 'get_performance': {
