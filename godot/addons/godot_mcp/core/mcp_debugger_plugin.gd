@@ -8,6 +8,7 @@ signal performance_metrics_received(metrics: Dictionary)
 signal find_nodes_received(matches: Array, count: int, error: String)
 signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
+signal type_text_completed(result: Dictionary)
 
 var _active_session_id: int = -1
 var _pending_screenshot: bool = false
@@ -16,6 +17,7 @@ var _pending_performance_metrics: bool = false
 var _pending_find_nodes: bool = false
 var _pending_input_map: bool = false
 var _pending_input_sequence: bool = false
+var _pending_type_text: bool = false
 
 
 func _has_capture(prefix: String) -> bool:
@@ -41,6 +43,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:input_sequence_result":
 			_handle_input_sequence_result(data)
+			return true
+		"godot_mcp:type_text_result":
+			_handle_type_text_result(data)
 			return true
 	return false
 
@@ -69,6 +74,9 @@ func _session_stopped() -> void:
 	if _pending_input_sequence:
 		_pending_input_sequence = false
 		input_sequence_completed.emit({"error": "Game session ended"})
+	if _pending_type_text:
+		_pending_type_text = false
+		type_text_completed.emit({"error": "Game session ended"})
 
 
 func has_active_session() -> bool:
@@ -202,3 +210,22 @@ func _handle_input_sequence_result(data: Array) -> void:
 	_pending_input_sequence = false
 	var result: Dictionary = data[0] if data.size() > 0 else {}
 	input_sequence_completed.emit(result)
+
+
+func request_type_text(text: String, delay_ms: int) -> void:
+	if _active_session_id < 0:
+		type_text_completed.emit({"error": "No active game session"})
+		return
+	_pending_type_text = true
+	var session := get_session(_active_session_id)
+	if session:
+		session.send_message("godot_mcp:type_text", [text, delay_ms])
+	else:
+		_pending_type_text = false
+		type_text_completed.emit({"error": "Could not get debugger session"})
+
+
+func _handle_type_text_result(data: Array) -> void:
+	_pending_type_text = false
+	var result: Dictionary = data[0] if data.size() > 0 else {}
+	type_text_completed.emit(result)

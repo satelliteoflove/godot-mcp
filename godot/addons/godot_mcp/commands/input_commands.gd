@@ -11,10 +11,15 @@ var _sequence_result: Dictionary = {}
 var _sequence_pending: bool = false
 
 
+var _type_text_result: Dictionary = {}
+var _type_text_pending: bool = false
+
+
 func get_commands() -> Dictionary:
 	return {
 		"get_input_map": get_input_map,
 		"execute_input_sequence": execute_input_sequence,
+		"type_text": type_text,
 	}
 
 
@@ -143,3 +148,45 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 func _on_sequence_completed(result: Dictionary) -> void:
 	_sequence_pending = false
 	_sequence_result = result
+
+
+func type_text(params: Dictionary) -> Dictionary:
+	var text: String = params.get("text", "")
+	var delay_ms: int = int(params.get("delay_ms", 50))
+
+	if text.is_empty():
+		return _error("INVALID_PARAMS", "text is required and must not be empty")
+
+	if not EditorInterface.is_playing_scene():
+		return _error("NOT_RUNNING", "No game is currently running")
+
+	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
+	if debugger_plugin == null or not debugger_plugin.has_active_session():
+		return _error("NO_SESSION", "No active debug session")
+
+	var timeout := max(INPUT_TIMEOUT, (text.length() * delay_ms / 1000.0) + 5.0)
+
+	_type_text_pending = true
+	_type_text_result = {}
+
+	debugger_plugin.type_text_completed.connect(_on_type_text_completed, CONNECT_ONE_SHOT)
+	debugger_plugin.request_type_text(text, delay_ms)
+
+	var start_time := Time.get_ticks_msec()
+	while _type_text_pending:
+		await Engine.get_main_loop().process_frame
+		if (Time.get_ticks_msec() - start_time) / 1000.0 > timeout:
+			_type_text_pending = false
+			if debugger_plugin.type_text_completed.is_connected(_on_type_text_completed):
+				debugger_plugin.type_text_completed.disconnect(_on_type_text_completed)
+			return _error("TIMEOUT", "Timed out waiting for text input to complete")
+
+	if _type_text_result.has("error"):
+		return _error("TYPE_TEXT_ERROR", _type_text_result.get("error", "Unknown error"))
+
+	return _success(_type_text_result)
+
+
+func _on_type_text_completed(result: Dictionary) -> void:
+	_type_text_pending = false
+	_type_text_result = result

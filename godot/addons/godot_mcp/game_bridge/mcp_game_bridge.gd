@@ -72,6 +72,9 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"execute_input_sequence":
 			_handle_execute_input_sequence(data)
 			return true
+		"type_text":
+			_handle_type_text(data)
+			return true
 	return false
 
 
@@ -325,3 +328,41 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	_sequence_start_time = Time.get_ticks_msec()
 	_sequence_running = true
 	set_process(true)
+
+
+func _handle_type_text(data: Array) -> void:
+	var text: String = data[0] if data.size() > 0 else ""
+	var delay_ms: int = int(data[1]) if data.size() > 1 else 50
+
+	if text.is_empty():
+		EngineDebugger.send_message("godot_mcp:type_text_result", [{
+			"error": "No text provided",
+		}])
+		return
+
+	_type_text_async(text, delay_ms)
+
+
+func _type_text_async(text: String, delay_ms: int) -> void:
+	for i in text.length():
+		var char_code := text.unicode_at(i)
+
+		var press := InputEventKey.new()
+		press.keycode = char_code
+		press.unicode = char_code
+		press.pressed = true
+		Input.parse_input_event(press)
+
+		var release := InputEventKey.new()
+		release.keycode = char_code
+		release.unicode = char_code
+		release.pressed = false
+		Input.parse_input_event(release)
+
+		if delay_ms > 0 and i < text.length() - 1:
+			await get_tree().create_timer(delay_ms / 1000.0).timeout
+
+	EngineDebugger.send_message("godot_mcp:type_text_result", [{
+		"completed": true,
+		"chars_typed": text.length(),
+	}])

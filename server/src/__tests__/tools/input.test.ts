@@ -19,14 +19,21 @@ describe('input tool', () => {
       }).success).toBe(true);
     });
 
+    it('type_text requires non-empty text', () => {
+      expect(input.schema.safeParse({ action: 'type_text' }).success).toBe(false);
+      expect(input.schema.safeParse({ action: 'type_text', text: '' }).success).toBe(false);
+      expect(input.schema.safeParse({ action: 'type_text', text: 'Hello' }).success).toBe(true);
+    });
+
     it('rejects negative timing values', () => {
       expect(input.schema.safeParse({
         action: 'sequence',
         inputs: [{ action_name: 'jump', start_ms: -1 }],
       }).success).toBe(false);
       expect(input.schema.safeParse({
-        action: 'sequence',
-        inputs: [{ action_name: 'jump', duration_ms: -1 }],
+        action: 'type_text',
+        text: 'Hello',
+        delay_ms: -1,
       }).success).toBe(false);
     });
   });
@@ -42,7 +49,7 @@ describe('input tool', () => {
       });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map' }, ctx);
+      const result = await input.execute({ action: 'get_map', delay_ms: 50 }, ctx);
       expect(result).toContain('jump: Space, Joypad Button 0');
       expect(result).toContain('move_left: A, Left');
       expect(result).toContain('source: game');
@@ -52,7 +59,7 @@ describe('input tool', () => {
       mock.mockResponse({ actions: [], source: 'editor' });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map' }, ctx);
+      const result = await input.execute({ action: 'get_map', delay_ms: 50 }, ctx);
       expect(result).toContain('No custom input actions defined');
     });
   });
@@ -65,6 +72,7 @@ describe('input tool', () => {
       const result = await input.execute({
         action: 'sequence',
         inputs: [{ action_name: 'jump', start_ms: 0, duration_ms: 0 }],
+        delay_ms: 50,
       }, ctx);
 
       expect(result).toContain('1 action(s) executed');
@@ -82,6 +90,7 @@ describe('input tool', () => {
           { action_name: 'move_forward', start_ms: 0, duration_ms: 1000 },
           { action_name: 'jump', start_ms: 500, duration_ms: 250 },
         ],
+        delay_ms: 50,
       }, ctx);
 
       expect(result).toContain('2 action(s) executed');
@@ -96,7 +105,36 @@ describe('input tool', () => {
       await expect(input.execute({
         action: 'sequence',
         inputs: [{ action_name: 'invalid', start_ms: 0, duration_ms: 0 }],
+        delay_ms: 50,
       }, ctx)).rejects.toThrow('Unknown action: invalid');
+    });
+  });
+
+  describe('type_text', () => {
+    it('types text and returns character count', async () => {
+      mock.mockResponse({ completed: true, chars_typed: 5 });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'type_text',
+        text: 'Hello',
+        delay_ms: 50,
+      }, ctx);
+
+      expect(result).toContain('5 character(s)');
+      expect(mock.calls[0].params.text).toBe('Hello');
+      expect(mock.calls[0].params.delay_ms).toBe(50);
+    });
+
+    it('throws on error response', async () => {
+      mock.mockResponse({ completed: false, chars_typed: 0, error: 'No focused element' });
+      const ctx = createToolContext(mock);
+
+      await expect(input.execute({
+        action: 'type_text',
+        text: 'Test',
+        delay_ms: 50,
+      }, ctx)).rejects.toThrow('No focused element');
     });
   });
 });

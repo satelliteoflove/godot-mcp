@@ -11,22 +11,37 @@ const InputActionSchema = z.object({
 const InputSchema = z
   .object({
     action: z
-      .enum(['get_map', 'sequence'])
-      .describe('Action: get_map (list available input actions), sequence (execute input timeline)'),
+      .enum(['get_map', 'sequence', 'type_text'])
+      .describe('Action: get_map (list available input actions), sequence (execute input timeline), type_text (type text into focused UI element)'),
     inputs: z
       .array(InputActionSchema)
       .min(1)
       .optional()
       .describe('Array of inputs to execute (sequence only)'),
+    text: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Text to type (type_text only)'),
+    delay_ms: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .default(50)
+      .describe('Delay between keystrokes in milliseconds (type_text only, default 50)'),
   })
   .refine(
     (data) => {
       if (data.action === 'sequence') {
         return data.inputs && data.inputs.length > 0;
       }
+      if (data.action === 'type_text') {
+        return data.text && data.text.length > 0;
+      }
       return true;
     },
-    { message: 'sequence action requires inputs array with at least one input' }
+    { message: 'sequence requires inputs array; type_text requires text string' }
   );
 
 type InputArgs = z.infer<typeof InputSchema>;
@@ -39,7 +54,7 @@ interface InputMapAction {
 export const input = defineTool({
   name: 'input',
   description:
-    'Inject input into a running Godot game for testing. Use get_map to discover available input actions, then sequence to execute inputs with precise timing. Supports parallel inputs (same start_ms) and sequential choreography (different start_ms values). Note: Mouse/coordinate input not yet supported.',
+    'Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.',
   schema: InputSchema,
   async execute(args: InputArgs, { godot }) {
     switch (args.action) {
@@ -77,6 +92,20 @@ export const input = defineTool({
         const actionNames = [...new Set(inputs.map((i) => i.action_name))].join(', ');
 
         return `Input sequence completed: ${result.actions_executed} action(s) executed [${actionNames}] over ${totalDuration}ms`;
+      }
+
+      case 'type_text': {
+        const result = await godot.sendCommand<{
+          completed: boolean;
+          chars_typed: number;
+          error?: string;
+        }>('type_text', { text: args.text, delay_ms: args.delay_ms });
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        return `Typed ${result.chars_typed} character(s)`;
       }
     }
   },
