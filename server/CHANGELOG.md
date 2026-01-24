@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.2...godot-mcp-v2.6.3) (2026-01-24)
+
+
+### Bug Fixes
+
+* return generated UID from scene create action ([#92](https://github.com/satelliteoflove/godot-mcp/issues/92)) ([49940cd](https://github.com/satelliteoflove/godot-mcp/commit/49940cd165212eda7637cd34d1ceeb54f2c4bbbe)), closes [#90](https://github.com/satelliteoflove/godot-mcp/issues/90)
+
 ## [2.6.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.6.1...godot-mcp-v2.6.2) (2026-01-17)
 
 
