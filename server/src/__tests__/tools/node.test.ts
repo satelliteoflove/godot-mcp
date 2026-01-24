@@ -337,4 +337,69 @@ describe('node tool', () => {
       expect(node.schema.safeParse({ action: 'detach_script', node_path: '/root/Test' }).success).toBe(true);
     });
   });
+
+  describe('action: connect_signal', () => {
+    it('sends connect_signal command with all params', async () => {
+      mock.mockResponse({});
+      const ctx = createToolContext(mock);
+
+      await node.execute({
+        action: 'connect_signal',
+        node_path: '/root/Main/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+        method_name: '_on_button_pressed',
+      }, ctx);
+
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0].command).toBe('connect_signal');
+      expect(mock.calls[0].params).toEqual({
+        node_path: '/root/Main/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+        method_name: '_on_button_pressed',
+      });
+    });
+
+    it('returns confirmation message', async () => {
+      mock.mockResponse({});
+      const ctx = createToolContext(mock);
+
+      const result = await node.execute({
+        action: 'connect_signal',
+        node_path: '/root/Main/Area2D',
+        signal_name: 'body_entered',
+        target_path: '/root/Main/Player',
+        method_name: '_on_area_entered',
+      }, ctx);
+
+      expect(result).toBe('Connected /root/Main/Area2D.body_entered to /root/Main/Player._on_area_entered()');
+    });
+
+    it('requires all signal connection params', () => {
+      expect(node.schema.safeParse({ action: 'connect_signal' }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+        method_name: '_on_pressed',
+      }).success).toBe(true);
+    });
+  });
 });

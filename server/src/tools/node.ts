@@ -5,9 +5,9 @@ import type { AnyToolDefinition } from '../core/types.js';
 const NodeSchema = z
   .object({
     action: z
-      .enum(['get_properties', 'find', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script'])
+      .enum(['get_properties', 'find', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script', 'connect_signal'])
       .describe(
-        'Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script'
+        'Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal'
       ),
     node_path: z
       .string()
@@ -59,6 +59,18 @@ const NodeSchema = z
       .string()
       .optional()
       .describe('Path to the script file (attach_script only)'),
+    signal_name: z
+      .string()
+      .optional()
+      .describe('Name of the signal to connect, e.g. "pressed", "body_entered" (connect_signal only)'),
+    target_path: z
+      .string()
+      .optional()
+      .describe('Path to the target node that will receive the signal (connect_signal only)'),
+    method_name: z
+      .string()
+      .optional()
+      .describe('Name of the method to call on the target node (connect_signal only)'),
   })
   .refine(
     (data) => {
@@ -80,13 +92,15 @@ const NodeSchema = z
           return !!data.node_path && !!data.new_parent_path;
         case 'attach_script':
           return !!data.node_path && !!data.script_path;
+        case 'connect_signal':
+          return !!data.node_path && !!data.signal_name && !!data.target_path && !!data.method_name;
         default:
           return false;
       }
     },
     {
       message:
-        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path',
+        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path; connect_signal needs node_path, signal_name, target_path, and method_name',
     }
   );
 
@@ -95,7 +109,7 @@ type NodeArgs = z.infer<typeof NodeSchema>;
 export const node = defineTool({
   name: 'node',
   description:
-    'Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts',
+    'Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals',
   schema: NodeSchema,
   async execute(args: NodeArgs, { godot }) {
     switch (args.action) {
@@ -168,6 +182,16 @@ export const node = defineTool({
       case 'detach_script': {
         await godot.sendCommand('detach_script', { node_path: args.node_path });
         return `Detached script from ${args.node_path}`;
+      }
+
+      case 'connect_signal': {
+        await godot.sendCommand('connect_signal', {
+          node_path: args.node_path,
+          signal_name: args.signal_name,
+          target_path: args.target_path,
+          method_name: args.method_name,
+        });
+        return `Connected ${args.node_path}.${args.signal_name} to ${args.target_path}.${args.method_name}()`;
       }
     }
   },

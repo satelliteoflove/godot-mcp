@@ -10,13 +10,13 @@ Node manipulation and script attachment tools
 
 ## node
 
-Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts
+Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_properties`, `find`, `create`, `update`, `delete`, `reparent`, `attach_script`, `detach_script` | Yes | Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script |
+| `action` | `get_properties`, `find`, `create`, `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal` | Yes | Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal |
 | `node_path` | string | get_properties, update, delete, reparent, attach_script, detach_script | Path to the node |
 | `name_pattern` | string | find | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
 | `type` | string | find | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
@@ -28,6 +28,9 @@ Manage scene nodes: get properties, find, create, update, delete, reparent, atta
 | `properties` | Record<string, unknown> | create, update | Properties to set |
 | `new_parent_path` | string | reparent | Path to the new parent node |
 | `script_path` | string | attach_script | Path to the script file |
+| `signal_name` | string | connect_signal | Name of the signal to connect, e.g. "pressed", "body_entered" |
+| `target_path` | string | connect_signal | Path to the target node that will receive the signal |
+| `method_name` | string | connect_signal | Name of the method to call on the target node |
 
 ### Actions
 
@@ -63,6 +66,10 @@ Parameters: `node_path`*, `script_path`*
 
 Parameters: `node_path`*
 
+#### `connect_signal`
+
+Parameters: `signal_name`*, `target_path`*, `method_name`*
+
 ### Examples
 
 ```json
@@ -93,7 +100,7 @@ Parameters: `node_path`*
 }
 ```
 
-*5 more actions available: `update`, `delete`, `reparent`, `attach_script`, `detach_script`*
+*6 more actions available: `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal`*
 
 ---
 

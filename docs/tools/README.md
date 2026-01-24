@@ -12,7 +12,7 @@ Scene management tools
 
 Node manipulation and script attachment tools
 
-- `node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts
+- `node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
 
 ## [Editor](editor.md)
 

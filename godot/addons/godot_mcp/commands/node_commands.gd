@@ -15,7 +15,8 @@ func get_commands() -> Dictionary:
 		"create_node": create_node,
 		"update_node": update_node,
 		"delete_node": delete_node,
-		"reparent_node": reparent_node
+		"reparent_node": reparent_node,
+		"connect_signal": connect_signal
 	}
 
 
@@ -252,5 +253,47 @@ func reparent_node(params: Dictionary) -> Dictionary:
 	node.reparent(new_parent)
 
 	return _success({"new_path": str(root.get_path_to(node))})
+
+
+func connect_signal(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
+	var node_path: String = params.get("node_path", "")
+	var signal_name: String = params.get("signal_name", "")
+	var target_path: String = params.get("target_path", "")
+	var method_name: String = params.get("method_name", "")
+
+	if node_path.is_empty():
+		return _error("INVALID_PARAMS", "node_path is required")
+	if signal_name.is_empty():
+		return _error("INVALID_PARAMS", "signal_name is required")
+	if target_path.is_empty():
+		return _error("INVALID_PARAMS", "target_path is required")
+	if method_name.is_empty():
+		return _error("INVALID_PARAMS", "method_name is required")
+
+	var source_node := _get_node(node_path)
+	if not source_node:
+		return _error("NODE_NOT_FOUND", "Source node not found: %s" % node_path)
+
+	var target_node := _get_node(target_path)
+	if not target_node:
+		return _error("NODE_NOT_FOUND", "Target node not found: %s" % target_path)
+
+	if not source_node.has_signal(signal_name):
+		return _error("SIGNAL_NOT_FOUND", "Signal '%s' not found on node %s" % [signal_name, node_path])
+
+	if source_node.is_connected(signal_name, Callable(target_node, method_name)):
+		return _error("ALREADY_CONNECTED", "Signal '%s' is already connected to %s.%s()" % [signal_name, target_path, method_name])
+
+	var err := source_node.connect(signal_name, Callable(target_node, method_name), CONNECT_PERSIST)
+	if err != OK:
+		return _error("CONNECT_FAILED", "Failed to connect signal: %s" % error_string(err))
+
+	EditorInterface.mark_scene_as_unsaved()
+
+	return _success({})
 
 

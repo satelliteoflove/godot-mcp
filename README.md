@@ -72,7 +72,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 | Tool | Description |
 |------|-------------|
 | `scene` | Manage scenes: open, save, or create scenes |
-| `node` | Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts |
+| `node` | Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals |
 | `editor` | Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get performance metrics, capture screenshots, set 2D viewport position/zoom |
 | `project` | Get project information and settings |
 | `animation` | Query, control, and edit animations |
