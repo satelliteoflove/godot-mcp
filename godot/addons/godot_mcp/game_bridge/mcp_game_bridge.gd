@@ -27,11 +27,13 @@ func _process(_delta: float) -> void:
 	var elapsed := Time.get_ticks_msec() - _sequence_start_time
 
 	while _sequence_events.size() > 0 and _sequence_events[0].time <= elapsed:
-		var event: Dictionary = _sequence_events.pop_front()
-		if event.is_press:
-			Input.action_press(event.action)
-		else:
-			Input.action_release(event.action)
+		var seq_event: Dictionary = _sequence_events.pop_front()
+		var input_event := InputEventAction.new()
+		input_event.action = seq_event.action
+		input_event.pressed = seq_event.is_press
+		input_event.strength = 1.0 if seq_event.is_press else 0.0
+		Input.parse_input_event(input_event)
+		if not seq_event.is_press:
 			_actions_completed += 1
 
 	if _sequence_events.is_empty():
