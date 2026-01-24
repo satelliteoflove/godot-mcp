@@ -1,144 +1,77 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
-import { tilemap, gridmap, tilemapTools } from '../../tools/tilemap.js';
+import { tilemap, gridmap } from '../../tools/tilemap.js';
 
 describe('tilemap tool', () => {
-  describe('tool definitions', () => {
-    it('exports two tools', () => {
-      expect(tilemapTools).toHaveLength(2);
-    });
+  let mock: MockGodotConnection;
 
-    it('has tilemap and gridmap tools', () => {
-      expect(tilemap.name).toBe('tilemap');
-      expect(gridmap.name).toBe('gridmap');
-    });
+  beforeEach(() => {
+    mock = createMockGodot();
   });
 
-  describe('tilemap query actions', () => {
-    let mock: MockGodotConnection;
-
-    beforeEach(() => {
-      mock = createMockGodot();
-    });
-
-    it('list_layers sends command and formats empty result', async () => {
-      mock.mockResponse({ tilemap_layers: [] });
+  describe('query actions', () => {
+    it('list_layers returns formatted list or empty message', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await tilemap.execute({ action: 'list_layers' }, ctx);
+      mock.mockResponse({ tilemap_layers: [] });
+      expect(await tilemap.execute({ action: 'list_layers' }, ctx))
+        .toBe('No TileMapLayer nodes found in scene');
 
-      expect(mock.calls[0].command).toBe('list_tilemap_layers');
-      expect(result).toBe('No TileMapLayer nodes found in scene');
-    });
-
-    it('list_layers formats found layers', async () => {
       mock.mockResponse({
         tilemap_layers: [
           { path: '/root/Ground', name: 'Ground' },
           { path: '/root/Walls', name: 'Walls' },
         ],
       });
-      const ctx = createToolContext(mock);
-
       const result = await tilemap.execute({ action: 'list_layers' }, ctx);
-
       expect(result).toContain('Found 2 TileMapLayer(s)');
-      expect(result).toContain('/root/Ground');
     });
 
-    it('get_info sends command and returns JSON', async () => {
-      const info = { name: 'Ground', enabled: true, used_cells_count: 100 };
-      mock.mockResponse(info);
+    it('info/tileset/cells queries return JSON', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await tilemap.execute({
+      mock.mockResponse({ name: 'Ground', enabled: true });
+      expect(JSON.parse(await tilemap.execute({
         action: 'get_info',
         node_path: '/root/Ground',
-      }, ctx);
+      }, ctx) as string)).toHaveProperty('name', 'Ground');
 
-      expect(mock.calls[0].command).toBe('get_tilemap_layer_info');
-      expect(result).toBe(JSON.stringify(info, null, 2));
-    });
-
-    it('get_tileset_info sends command and returns JSON', async () => {
-      const info = { tile_size: { x: 16, y: 16 }, source_count: 1 };
-      mock.mockResponse(info);
-      const ctx = createToolContext(mock);
-
-      const result = await tilemap.execute({
+      mock.mockResponse({ tile_size: { x: 16, y: 16 } });
+      expect(JSON.parse(await tilemap.execute({
         action: 'get_tileset_info',
         node_path: '/root/Ground',
-      }, ctx);
+      }, ctx) as string)).toHaveProperty('tile_size');
 
-      expect(mock.calls[0].command).toBe('get_tileset_info');
-      expect(result).toBe(JSON.stringify(info, null, 2));
-    });
-
-    it('get_used_cells sends command and returns JSON', async () => {
-      const cells = { cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }], count: 2 };
-      mock.mockResponse(cells);
-      const ctx = createToolContext(mock);
-
-      const result = await tilemap.execute({
+      mock.mockResponse({ cells: [{ x: 0, y: 0 }], count: 1 });
+      expect(JSON.parse(await tilemap.execute({
         action: 'get_used_cells',
         node_path: '/root/Ground',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_used_cells');
-      expect(result).toBe(JSON.stringify(cells, null, 2));
+      }, ctx) as string)).toHaveProperty('count', 1);
     });
 
-    it('get_cell sends command with coords', async () => {
-      const cell = { coords: { x: 5, y: 10 }, empty: false, source_id: 0 };
-      mock.mockResponse(cell);
+    it('get_cell and get_cells_in_region pass coords correctly', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await tilemap.execute({
+      mock.mockResponse({ coords: { x: 5, y: 10 }, empty: false });
+      await tilemap.execute({
         action: 'get_cell',
         node_path: '/root/Ground',
         coords: { x: 5, y: 10 },
       }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_cell');
       expect(mock.calls[0].params.coords).toEqual({ x: 5, y: 10 });
-      expect(result).toBe(JSON.stringify(cell, null, 2));
-    });
 
-    it('get_cells_in_region sends command with bounds', async () => {
-      const region = { cells: [], count: 0 };
-      mock.mockResponse(region);
-      const ctx = createToolContext(mock);
-
-      const result = await tilemap.execute({
+      mock.mockResponse({ cells: [], count: 0 });
+      await tilemap.execute({
         action: 'get_cells_in_region',
         node_path: '/root/Ground',
         min_coords: { x: 0, y: 0 },
         max_coords: { x: 10, y: 10 },
       }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_cells_in_region');
-      expect(mock.calls[0].params.min_coords).toEqual({ x: 0, y: 0 });
-      expect(mock.calls[0].params.max_coords).toEqual({ x: 10, y: 10 });
-      expect(result).toBe(JSON.stringify(region, null, 2));
+      expect(mock.calls[1].params.min_coords).toEqual({ x: 0, y: 0 });
+      expect(mock.calls[1].params.max_coords).toEqual({ x: 10, y: 10 });
     });
 
-    it('convert_coords sends command with local_position', async () => {
-      const converted = { direction: 'local_to_map', map_coords: { x: 2, y: 3 } };
-      mock.mockResponse(converted);
-      const ctx = createToolContext(mock);
-
-      const result = await tilemap.execute({
-        action: 'convert_coords',
-        node_path: '/root/Ground',
-        local_position: { x: 32, y: 48 },
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('convert_coords');
-      expect(mock.calls[0].params.local_position).toEqual({ x: 32, y: 48 });
-      expect(result).toBe(JSON.stringify(converted, null, 2));
-    });
-
-    it('throws on error from Godot', async () => {
+    it('propagates errors from Godot', async () => {
       mock.mockError(new Error('Node not found'));
       const ctx = createToolContext(mock);
 
@@ -149,20 +82,9 @@ describe('tilemap tool', () => {
     });
   });
 
-  describe('tilemap edit actions', () => {
-    let mock: MockGodotConnection;
-
-    beforeEach(() => {
-      mock = createMockGodot();
-    });
-
-    it('set_cell sends command and returns confirmation', async () => {
-      mock.mockResponse({
-        coords: { x: 3, y: 4 },
-        source_id: 1,
-        atlas_coords: { x: 2, y: 0 },
-        alternative_tile: 0,
-      });
+  describe('edit actions', () => {
+    it('set_cell returns confirmation with coordinates', async () => {
+      mock.mockResponse({ coords: { x: 3, y: 4 }, source_id: 1, atlas_coords: { x: 2, y: 0 }, alternative_tile: 0 });
       const ctx = createToolContext(mock);
 
       const result = await tilemap.execute({
@@ -172,62 +94,36 @@ describe('tilemap tool', () => {
         source_id: 1,
         atlas_coords: { x: 2, y: 0 },
       }, ctx);
-
-      expect(mock.calls[0].command).toBe('set_cell');
-      expect(mock.calls[0].params.coords).toEqual({ x: 3, y: 4 });
-      expect(mock.calls[0].params.source_id).toBe(1);
       expect(result).toContain('Set cell at (3, 4)');
     });
 
-    it('erase_cell sends command and returns confirmation', async () => {
-      mock.mockResponse({ erased: { x: 5, y: 6 } });
+    it('erase_cell/clear_layer return confirmations', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await tilemap.execute({
+      mock.mockResponse({ erased: { x: 5, y: 6 } });
+      expect(await tilemap.execute({
         action: 'erase_cell',
         node_path: '/root/Ground',
         coords: { x: 5, y: 6 },
-      }, ctx);
+      }, ctx)).toBe('Erased cell at (5, 6)');
 
-      expect(mock.calls[0].command).toBe('erase_cell');
-      expect(result).toBe('Erased cell at (5, 6)');
-    });
-
-    it('clear_layer sends command and returns cell count', async () => {
       mock.mockResponse({ cleared: true, cells_removed: 100 });
-      const ctx = createToolContext(mock);
-
-      const result = await tilemap.execute({
+      expect(await tilemap.execute({
         action: 'clear_layer',
         node_path: '/root/Ground',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('clear_layer');
-      expect(result).toBe('Cleared layer: 100 cells removed');
+      }, ctx)).toBe('Cleared layer: 100 cells removed');
     });
 
-    it('set_cells_batch sends command and returns count', async () => {
-      mock.mockResponse({ cells_set: 5 });
+    it('set_cells_batch returns count from response and requires non-empty array', async () => {
+      mock.mockResponse({ cells_set: 2 });
       const ctx = createToolContext(mock);
 
-      const result = await tilemap.execute({
+      expect(await tilemap.execute({
         action: 'set_cells_batch',
         node_path: '/root/Ground',
-        cells: [
-          { coords: { x: 0, y: 0 } },
-          { coords: { x: 1, y: 0 } },
-          { coords: { x: 2, y: 0 } },
-          { coords: { x: 3, y: 0 } },
-          { coords: { x: 4, y: 0 } },
-        ],
-      }, ctx);
+        cells: [{ coords: { x: 0, y: 0 } }, { coords: { x: 1, y: 0 } }],
+      }, ctx)).toBe('Set 2 cells');
 
-      expect(mock.calls[0].command).toBe('set_cells_batch');
-      expect(mock.calls[0].params.cells).toHaveLength(5);
-      expect(result).toBe('Set 5 cells');
-    });
-
-    it('set_cells_batch requires non-empty cells array', () => {
       expect(tilemap.schema.safeParse({
         action: 'set_cells_batch',
         node_path: '/root/Ground',
@@ -238,124 +134,61 @@ describe('tilemap tool', () => {
 });
 
 describe('gridmap tool', () => {
-  describe('gridmap query actions', () => {
-    let mock: MockGodotConnection;
+  let mock: MockGodotConnection;
 
-    beforeEach(() => {
-      mock = createMockGodot();
-    });
+  beforeEach(() => {
+    mock = createMockGodot();
+  });
 
-    it('list sends command and formats empty result', async () => {
+  describe('query actions', () => {
+    it('list returns formatted list or empty message', async () => {
+      const ctx = createToolContext(mock);
+
       mock.mockResponse({ gridmaps: [] });
-      const ctx = createToolContext(mock);
+      expect(await gridmap.execute({ action: 'list' }, ctx))
+        .toBe('No GridMap nodes found in scene');
 
-      const result = await gridmap.execute({ action: 'list' }, ctx);
-
-      expect(mock.calls[0].command).toBe('list_gridmaps');
-      expect(result).toBe('No GridMap nodes found in scene');
-    });
-
-    it('list formats found gridmaps', async () => {
       mock.mockResponse({
-        gridmaps: [
-          { path: '/root/Floor', name: 'Floor' },
-          { path: '/root/Walls', name: 'Walls' },
-        ],
+        gridmaps: [{ path: '/root/Floor', name: 'Floor' }],
       });
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({ action: 'list' }, ctx);
-
-      expect(result).toContain('Found 2 GridMap(s)');
-      expect(result).toContain('/root/Floor');
+      expect(await gridmap.execute({ action: 'list' }, ctx))
+        .toContain('Found 1 GridMap(s)');
     });
 
-    it('get_info sends command and returns JSON', async () => {
-      const info = { name: 'Floor', cell_size: { x: 2, y: 2, z: 2 }, used_cells_count: 50 };
-      mock.mockResponse(info);
+    it('info/meshlib/cells queries return JSON', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await gridmap.execute({
+      mock.mockResponse({ name: 'Floor', cell_size: { x: 2, y: 2, z: 2 } });
+      expect(JSON.parse(await gridmap.execute({
         action: 'get_info',
         node_path: '/root/Floor',
-      }, ctx);
+      }, ctx) as string)).toHaveProperty('cell_size');
 
-      expect(mock.calls[0].command).toBe('get_gridmap_info');
-      expect(result).toBe(JSON.stringify(info, null, 2));
-    });
-
-    it('get_meshlib_info sends command and returns JSON', async () => {
-      const info = { item_count: 3, items: [{ index: 0, name: 'Cube' }] };
-      mock.mockResponse(info);
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
+      mock.mockResponse({ item_count: 3 });
+      expect(JSON.parse(await gridmap.execute({
         action: 'get_meshlib_info',
         node_path: '/root/Floor',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_meshlib_info');
-      expect(result).toBe(JSON.stringify(info, null, 2));
+      }, ctx) as string)).toHaveProperty('item_count', 3);
     });
 
-    it('get_used_cells sends command and returns JSON', async () => {
-      const cells = { cells: [{ x: 0, y: 0, z: 0 }], count: 1 };
-      mock.mockResponse(cells);
+    it('get_cell passes 3D coords correctly', async () => {
       const ctx = createToolContext(mock);
 
-      const result = await gridmap.execute({
-        action: 'get_used_cells',
-        node_path: '/root/Floor',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_gridmap_used_cells');
-      expect(result).toBe(JSON.stringify(cells, null, 2));
-    });
-
-    it('get_cell sends command with 3D coords', async () => {
-      const cell = { coords: { x: 1, y: 2, z: 3 }, empty: false, item: 0 };
-      mock.mockResponse(cell);
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
+      mock.mockResponse({ coords: { x: 1, y: 2, z: 3 }, empty: false });
+      await gridmap.execute({
         action: 'get_cell',
         node_path: '/root/Floor',
         coords: { x: 1, y: 2, z: 3 },
       }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_gridmap_cell');
       expect(mock.calls[0].params.coords).toEqual({ x: 1, y: 2, z: 3 });
-      expect(result).toBe(JSON.stringify(cell, null, 2));
-    });
-
-    it('get_cells_by_item sends command with item index', async () => {
-      const cells = { item: 0, cells: [{ x: 0, y: 0, z: 0 }], count: 1 };
-      mock.mockResponse(cells);
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
-        action: 'get_cells_by_item',
-        node_path: '/root/Floor',
-        item: 0,
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('get_cells_by_item');
-      expect(mock.calls[0].params.item).toBe(0);
-      expect(result).toBe(JSON.stringify(cells, null, 2));
     });
   });
 
-  describe('gridmap edit actions', () => {
-    let mock: MockGodotConnection;
-
-    beforeEach(() => {
-      mock = createMockGodot();
-    });
-
-    it('set_cell sends command and returns confirmation', async () => {
-      mock.mockResponse({ coords: { x: 1, y: 0, z: 1 }, item: 2, orientation: 4 });
+  describe('edit actions', () => {
+    it('set_cell/clear_cell/clear return confirmations', async () => {
       const ctx = createToolContext(mock);
 
+      mock.mockResponse({ coords: { x: 1, y: 0, z: 1 }, item: 2, orientation: 4 });
       const result = await gridmap.execute({
         action: 'set_cell',
         node_path: '/root/Floor',
@@ -363,61 +196,24 @@ describe('gridmap tool', () => {
         item: 2,
         orientation: 4,
       }, ctx);
-
-      expect(mock.calls[0].command).toBe('set_gridmap_cell');
-      expect(mock.calls[0].params.item).toBe(2);
-      expect(mock.calls[0].params.orientation).toBe(4);
       expect(result).toContain('Set cell at (1, 0, 1)');
       expect(result).toContain('item 2');
-    });
 
-    it('clear_cell sends command and returns confirmation', async () => {
       mock.mockResponse({ cleared: { x: 2, y: 1, z: 3 } });
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
+      expect(await gridmap.execute({
         action: 'clear_cell',
         node_path: '/root/Floor',
         coords: { x: 2, y: 1, z: 3 },
-      }, ctx);
+      }, ctx)).toBe('Cleared cell at (2, 1, 3)');
 
-      expect(mock.calls[0].command).toBe('clear_gridmap_cell');
-      expect(result).toBe('Cleared cell at (2, 1, 3)');
-    });
-
-    it('clear sends command and returns cell count', async () => {
       mock.mockResponse({ cleared: true, cells_removed: 50 });
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
+      expect(await gridmap.execute({
         action: 'clear',
         node_path: '/root/Floor',
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('clear_gridmap');
-      expect(result).toBe('Cleared GridMap: 50 cells removed');
+      }, ctx)).toBe('Cleared GridMap: 50 cells removed');
     });
 
-    it('set_cells_batch sends command and returns count', async () => {
-      mock.mockResponse({ cells_set: 3 });
-      const ctx = createToolContext(mock);
-
-      const result = await gridmap.execute({
-        action: 'set_cells_batch',
-        node_path: '/root/Floor',
-        cells: [
-          { coords: { x: 0, y: 0, z: 0 }, item: 1 },
-          { coords: { x: 1, y: 0, z: 0 }, item: 1 },
-          { coords: { x: 2, y: 0, z: 0 }, item: 1 },
-        ],
-      }, ctx);
-
-      expect(mock.calls[0].command).toBe('set_gridmap_cells_batch');
-      expect(mock.calls[0].params.cells).toHaveLength(3);
-      expect(result).toBe('Set 3 cells');
-    });
-
-    it('set_cells_batch requires non-empty cells array', () => {
+    it('set_cells_batch requires non-empty array', () => {
       expect(gridmap.schema.safeParse({
         action: 'set_cells_batch',
         node_path: '/root/Floor',

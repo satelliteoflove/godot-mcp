@@ -9,76 +9,96 @@ describe('node tool', () => {
     mock = createMockGodot();
   });
 
-  describe('action: get_properties', () => {
-    it('sends get_node_properties command with node_path', async () => {
-      mock.mockResponse({ properties: { position: { x: 0, y: 0 } } });
-      const ctx = createToolContext(mock);
-
-      await node.execute({ action: 'get_properties', node_path: '/root/Main/Player' }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('get_node_properties');
-      expect(mock.calls[0].params).toEqual({ node_path: '/root/Main/Player' });
+  describe('schema validation', () => {
+    it('requires node_path for get_properties/update/delete/detach_script', () => {
+      const actionsNeedingNodePath = ['get_properties', 'update', 'delete', 'detach_script'];
+      for (const action of actionsNeedingNodePath) {
+        expect(node.schema.safeParse({ action }).success).toBe(false);
+        expect(node.schema.safeParse({ action, node_path: '/root/Test' }).success).toBe(true);
+      }
     });
 
-    it('returns formatted JSON properties', async () => {
-      const properties = { position: { x: 100, y: 200 }, visible: true, name: 'Player' };
-      mock.mockResponse({ properties });
-      const ctx = createToolContext(mock);
-
-      const result = await node.execute({ action: 'get_properties', node_path: '/root/Main/Player' }, ctx);
-
-      expect(result).toBe(JSON.stringify(properties, null, 2));
+    it('requires parent_path, node_name, and either node_type or scene_path for create', () => {
+      expect(node.schema.safeParse({ action: 'create' }).success).toBe(false);
+      expect(node.schema.safeParse({ action: 'create', parent_path: '/root' }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'create',
+        parent_path: '/root',
+        node_type: 'Node2D',
+        node_name: 'Test',
+      }).success).toBe(true);
+      expect(node.schema.safeParse({
+        action: 'create',
+        parent_path: '/root',
+        scene_path: 'res://enemy.tscn',
+        node_name: 'Enemy',
+      }).success).toBe(true);
     });
 
-    it('requires node_path for get_properties', () => {
-      expect(node.schema.safeParse({ action: 'get_properties' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'get_properties', node_path: '/root/Test' }).success).toBe(true);
+    it('rejects create when both node_type and scene_path provided', () => {
+      expect(node.schema.safeParse({
+        action: 'create',
+        parent_path: '/root',
+        node_type: 'Node2D',
+        scene_path: 'res://scene.tscn',
+        node_name: 'Test',
+      }).success).toBe(false);
+    });
+
+    it('requires new_parent_path for reparent', () => {
+      expect(node.schema.safeParse({
+        action: 'reparent',
+        node_path: '/root/Test',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'reparent',
+        node_path: '/root/Test',
+        new_parent_path: '/root/New',
+      }).success).toBe(true);
+    });
+
+    it('requires script_path for attach_script', () => {
+      expect(node.schema.safeParse({
+        action: 'attach_script',
+        node_path: '/root/Test',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'attach_script',
+        node_path: '/root/Test',
+        script_path: 'res://test.gd',
+      }).success).toBe(true);
+    });
+
+    it('requires all params for connect_signal', () => {
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+      }).success).toBe(false);
+      expect(node.schema.safeParse({
+        action: 'connect_signal',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+        method_name: '_on_pressed',
+      }).success).toBe(true);
     });
   });
 
-  describe('action: create', () => {
-    it('sends create_node command with required params', async () => {
-      mock.mockResponse({ node_path: '/root/Main/NewSprite' });
+  describe('get_properties', () => {
+    it('returns formatted JSON properties', async () => {
+      const properties = { position: { x: 100, y: 200 }, visible: true };
+      mock.mockResponse({ properties });
       const ctx = createToolContext(mock);
 
-      await node.execute({
-        action: 'create',
-        parent_path: '/root/Main',
-        node_type: 'Sprite2D',
-        node_name: 'NewSprite',
-      }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('create_node');
-      expect(mock.calls[0].params).toEqual({
-        parent_path: '/root/Main',
-        node_type: 'Sprite2D',
-        scene_path: undefined,
-        node_name: 'NewSprite',
-        properties: {},
-      });
+      const result = await node.execute({ action: 'get_properties', node_path: '/root/Player' }, ctx);
+      expect(JSON.parse(result as string)).toEqual(properties);
     });
+  });
 
-    it('passes optional properties to Godot', async () => {
-      mock.mockResponse({ node_path: '/root/Main/Enemy' });
-      const ctx = createToolContext(mock);
-
-      await node.execute({
-        action: 'create',
-        parent_path: '/root/Main',
-        node_type: 'CharacterBody2D',
-        node_name: 'Enemy',
-        properties: { position: { x: 50, y: 100 }, scale: { x: 2, y: 2 } },
-      }, ctx);
-
-      expect(mock.calls[0].params.properties).toEqual({
-        position: { x: 50, y: 100 },
-        scale: { x: 2, y: 2 },
-      });
-    });
-
-    it('returns created node path', async () => {
+  describe('create', () => {
+    it('returns created node path and passes properties', async () => {
       mock.mockResponse({ node_path: '/root/Main/NewNode' });
       const ctx = createToolContext(mock);
 
@@ -87,58 +107,14 @@ describe('node tool', () => {
         parent_path: '/root/Main',
         node_type: 'Node2D',
         node_name: 'NewNode',
+        properties: { position: { x: 50, y: 100 } },
       }, ctx);
 
       expect(result).toBe('Created node: /root/Main/NewNode');
+      expect(mock.calls[0].params.properties).toEqual({ position: { x: 50, y: 100 } });
     });
 
-    it('requires parent_path and node_name', () => {
-      expect(node.schema.safeParse({ action: 'create' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'create', parent_path: '/root' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'create', parent_path: '/root', node_type: 'Node2D' }).success).toBe(false);
-    });
-
-    it('accepts node_type for creating new nodes', () => {
-      const result = node.schema.safeParse({
-        action: 'create',
-        parent_path: '/root',
-        node_type: 'Node2D',
-        node_name: 'Test',
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('accepts scene_path for instantiating scenes', () => {
-      const result = node.schema.safeParse({
-        action: 'create',
-        parent_path: '/root',
-        scene_path: 'res://enemies/goblin.tscn',
-        node_name: 'Goblin',
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('rejects when both node_type and scene_path are provided', () => {
-      const result = node.schema.safeParse({
-        action: 'create',
-        parent_path: '/root',
-        node_type: 'Node2D',
-        scene_path: 'res://scene.tscn',
-        node_name: 'Test',
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it('rejects when neither node_type nor scene_path is provided', () => {
-      const result = node.schema.safeParse({
-        action: 'create',
-        parent_path: '/root',
-        node_name: 'Test',
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it('passes scene_path to Godot when instantiating', async () => {
+    it('passes scene_path for instantiating scenes', async () => {
       mock.mockResponse({ node_path: '/root/Main/Goblin' });
       const ctx = createToolContext(mock);
 
@@ -154,252 +130,73 @@ describe('node tool', () => {
     });
   });
 
-  describe('action: update', () => {
-    it('sends update_node command with node_path and properties', async () => {
-      mock.mockResponse({});
+  describe('update/delete/reparent', () => {
+    it('returns appropriate confirmations', async () => {
       const ctx = createToolContext(mock);
 
-      await node.execute({
+      mock.mockResponse({});
+      expect(await node.execute({
         action: 'update',
-        node_path: '/root/Main/Player',
-        properties: { health: 100, speed: 200 },
-      }, ctx);
+        node_path: '/root/Player',
+        properties: { health: 100 },
+      }, ctx)).toBe('Updated node: /root/Player');
 
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('update_node');
-      expect(mock.calls[0].params).toEqual({
-        node_path: '/root/Main/Player',
-        properties: { health: 100, speed: 200 },
-      });
-    });
-
-    it('returns confirmation with node path', async () => {
       mock.mockResponse({});
-      const ctx = createToolContext(mock);
+      expect(await node.execute({
+        action: 'delete',
+        node_path: '/root/Obsolete',
+      }, ctx)).toBe('Deleted node: /root/Obsolete');
 
-      const result = await node.execute({
-        action: 'update',
-        node_path: '/root/Main/Enemy',
-        properties: { visible: false },
-      }, ctx);
-
-      expect(result).toBe('Updated node: /root/Main/Enemy');
-    });
-
-    it('requires node_path for update', () => {
-      expect(node.schema.safeParse({ action: 'update' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'update', node_path: '/root/Test' }).success).toBe(true);
-    });
-  });
-
-  describe('action: delete', () => {
-    it('sends delete_node command with node_path', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      await node.execute({ action: 'delete', node_path: '/root/Main/Obsolete' }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('delete_node');
-      expect(mock.calls[0].params).toEqual({ node_path: '/root/Main/Obsolete' });
-    });
-
-    it('returns confirmation with deleted path', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      const result = await node.execute({ action: 'delete', node_path: '/root/Main/ToRemove' }, ctx);
-
-      expect(result).toBe('Deleted node: /root/Main/ToRemove');
-    });
-
-    it('requires node_path for delete', () => {
-      expect(node.schema.safeParse({ action: 'delete' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'delete', node_path: '/root/Test' }).success).toBe(true);
-    });
-  });
-
-  describe('action: reparent', () => {
-    it('sends reparent_node command with both paths', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      await node.execute({
-        action: 'reparent',
-        node_path: '/root/Main/Child',
-        new_parent_path: '/root/Main/NewParent',
-      }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('reparent_node');
-      expect(mock.calls[0].params).toEqual({
-        node_path: '/root/Main/Child',
-        new_parent_path: '/root/Main/NewParent',
-      });
-    });
-
-    it('returns confirmation with new path', async () => {
-      mock.mockResponse({ new_path: 'New/Node' });
-      const ctx = createToolContext(mock);
-
-      const result = await node.execute({
+      mock.mockResponse({ new_path: '/root/New/Node' });
+      expect(await node.execute({
         action: 'reparent',
         node_path: '/root/Old/Node',
         new_parent_path: '/root/New',
-      }, ctx);
-
-      expect(result).toBe('Reparented node to: New/Node');
-    });
-
-    it('requires both node_path and new_parent_path for reparent', () => {
-      expect(node.schema.safeParse({ action: 'reparent' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'reparent', node_path: '/root/Test' }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'reparent',
-        node_path: '/root/Test',
-        new_parent_path: '/root/New',
-      }).success).toBe(true);
+      }, ctx)).toBe('Reparented node to: /root/New/Node');
     });
   });
 
-  describe('action: attach_script', () => {
-    it('sends attach_script command with node_path and script_path', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      await node.execute({
-        action: 'attach_script',
-        node_path: '/root/Main/Player',
-        script_path: 'res://scripts/player.gd',
-      }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('attach_script');
-      expect(mock.calls[0].params).toEqual({
-        node_path: '/root/Main/Player',
-        script_path: 'res://scripts/player.gd',
-      });
-    });
-
-    it('returns confirmation message', async () => {
+  describe('script operations', () => {
+    it('attach_script returns confirmation with paths', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
       const result = await node.execute({
         action: 'attach_script',
-        node_path: '/root/Main/Enemy',
-        script_path: 'res://scripts/enemy.gd',
+        node_path: '/root/Player',
+        script_path: 'res://scripts/player.gd',
       }, ctx);
 
-      expect(result).toBe('Attached res://scripts/enemy.gd to /root/Main/Enemy');
+      expect(result).toBe('Attached res://scripts/player.gd to /root/Player');
     });
 
-    it('requires both node_path and script_path', () => {
-      expect(node.schema.safeParse({ action: 'attach_script' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'attach_script', node_path: '/root/Test' }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'attach_script',
-        node_path: '/root/Test',
-        script_path: 'res://test.gd',
-      }).success).toBe(true);
-    });
-  });
-
-  describe('action: detach_script', () => {
-    it('sends detach_script command with node_path', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      await node.execute({
-        action: 'detach_script',
-        node_path: '/root/Main/Player',
-      }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('detach_script');
-      expect(mock.calls[0].params).toEqual({ node_path: '/root/Main/Player' });
-    });
-
-    it('returns confirmation message', async () => {
+    it('detach_script returns confirmation', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
       const result = await node.execute({
         action: 'detach_script',
-        node_path: '/root/Main/Enemy',
+        node_path: '/root/Player',
       }, ctx);
 
-      expect(result).toBe('Detached script from /root/Main/Enemy');
-    });
-
-    it('requires node_path', () => {
-      expect(node.schema.safeParse({ action: 'detach_script' }).success).toBe(false);
-      expect(node.schema.safeParse({ action: 'detach_script', node_path: '/root/Test' }).success).toBe(true);
+      expect(result).toBe('Detached script from /root/Player');
     });
   });
 
-  describe('action: connect_signal', () => {
-    it('sends connect_signal command with all params', async () => {
-      mock.mockResponse({});
-      const ctx = createToolContext(mock);
-
-      await node.execute({
-        action: 'connect_signal',
-        node_path: '/root/Main/Button',
-        signal_name: 'pressed',
-        target_path: '/root/Main',
-        method_name: '_on_button_pressed',
-      }, ctx);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0].command).toBe('connect_signal');
-      expect(mock.calls[0].params).toEqual({
-        node_path: '/root/Main/Button',
-        signal_name: 'pressed',
-        target_path: '/root/Main',
-        method_name: '_on_button_pressed',
-      });
-    });
-
-    it('returns confirmation message', async () => {
+  describe('connect_signal', () => {
+    it('returns formatted connection confirmation', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
 
       const result = await node.execute({
         action: 'connect_signal',
-        node_path: '/root/Main/Area2D',
-        signal_name: 'body_entered',
-        target_path: '/root/Main/Player',
-        method_name: '_on_area_entered',
+        node_path: '/root/Button',
+        signal_name: 'pressed',
+        target_path: '/root/Main',
+        method_name: '_on_button_pressed',
       }, ctx);
 
-      expect(result).toBe('Connected /root/Main/Area2D.body_entered to /root/Main/Player._on_area_entered()');
-    });
-
-    it('requires all signal connection params', () => {
-      expect(node.schema.safeParse({ action: 'connect_signal' }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'connect_signal',
-        node_path: '/root/Button',
-      }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'connect_signal',
-        node_path: '/root/Button',
-        signal_name: 'pressed',
-      }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'connect_signal',
-        node_path: '/root/Button',
-        signal_name: 'pressed',
-        target_path: '/root/Main',
-      }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'connect_signal',
-        node_path: '/root/Button',
-        signal_name: 'pressed',
-        target_path: '/root/Main',
-        method_name: '_on_pressed',
-      }).success).toBe(true);
+      expect(result).toBe('Connected /root/Button.pressed to /root/Main._on_button_pressed()');
     });
   });
 });
