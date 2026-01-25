@@ -20,6 +20,7 @@ Inject input into a running Godot game for testing. Use get_map to discover avai
 | `inputs` | object[] | sequence | Array of inputs to execute |
 | `text` | string | type_text | Text to type |
 | `delay_ms` | integer | No | Delay between keystrokes in milliseconds (type_text only, default 50) |
+| `submit` | boolean | No | Press Enter after typing to submit (type_text only, for LineEdit text_submitted) |
 
 ### Actions
 
@@ -55,7 +56,8 @@ Parameters: `text`*
 {
   "action": "type_text",
   "text": "example",
-  "delay_ms": null
+  "delay_ms": null,
+  "submit": false
 }
 ```
 

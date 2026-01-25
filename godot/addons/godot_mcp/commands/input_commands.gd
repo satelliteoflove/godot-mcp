@@ -153,6 +153,7 @@ func _on_sequence_completed(result: Dictionary) -> void:
 func type_text(params: Dictionary) -> Dictionary:
 	var text: String = params.get("text", "")
 	var delay_ms: int = int(params.get("delay_ms", 50))
+	var submit: bool = params.get("submit", false)
 
 	if text.is_empty():
 		return _error("INVALID_PARAMS", "text is required and must not be empty")
@@ -170,7 +171,7 @@ func type_text(params: Dictionary) -> Dictionary:
 	_type_text_result = {}
 
 	debugger_plugin.type_text_completed.connect(_on_type_text_completed, CONNECT_ONE_SHOT)
-	debugger_plugin.request_type_text(text, delay_ms)
+	debugger_plugin.request_type_text(text, delay_ms, submit)
 
 	var start_time := Time.get_ticks_msec()
 	while _type_text_pending:

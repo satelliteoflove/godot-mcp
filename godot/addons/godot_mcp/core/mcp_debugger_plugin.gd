@@ -212,14 +212,14 @@ func _handle_input_sequence_result(data: Array) -> void:
 	input_sequence_completed.emit(result)
 
 
-func request_type_text(text: String, delay_ms: int) -> void:
+func request_type_text(text: String, delay_ms: int, submit: bool) -> void:
 	if _active_session_id < 0:
 		type_text_completed.emit({"error": "No active game session"})
 		return
 	_pending_type_text = true
 	var session := get_session(_active_session_id)
 	if session:
-		session.send_message("godot_mcp:type_text", [text, delay_ms])
+		session.send_message("godot_mcp:type_text", [text, delay_ms, submit])
 	else:
 		_pending_type_text = false
 		type_text_completed.emit({"error": "Could not get debugger session"})

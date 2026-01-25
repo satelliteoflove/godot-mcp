@@ -333,6 +333,7 @@ func _handle_execute_input_sequence(data: Array) -> void:
 func _handle_type_text(data: Array) -> void:
 	var text: String = data[0] if data.size() > 0 else ""
 	var delay_ms: int = int(data[1]) if data.size() > 1 else 50
+	var submit: bool = data[2] if data.size() > 2 else false
 
 	if text.is_empty():
 		EngineDebugger.send_message("godot_mcp:type_text_result", [{
@@ -340,10 +341,10 @@ func _handle_type_text(data: Array) -> void:
 		}])
 		return
 
-	_type_text_async(text, delay_ms)
+	_type_text_async(text, delay_ms, submit)
 
 
-func _type_text_async(text: String, delay_ms: int) -> void:
+func _type_text_async(text: String, delay_ms: int, submit: bool) -> void:
 	for i in text.length():
 		var char_code := text.unicode_at(i)
 
@@ -362,7 +363,24 @@ func _type_text_async(text: String, delay_ms: int) -> void:
 		if delay_ms > 0 and i < text.length() - 1:
 			await get_tree().create_timer(delay_ms / 1000.0).timeout
 
+	if submit:
+		if delay_ms > 0:
+			await get_tree().create_timer(delay_ms / 1000.0).timeout
+
+		var enter_press := InputEventKey.new()
+		enter_press.keycode = KEY_ENTER
+		enter_press.physical_keycode = KEY_ENTER
+		enter_press.pressed = true
+		Input.parse_input_event(enter_press)
+
+		var enter_release := InputEventKey.new()
+		enter_release.keycode = KEY_ENTER
+		enter_release.physical_keycode = KEY_ENTER
+		enter_release.pressed = false
+		Input.parse_input_event(enter_release)
+
 	EngineDebugger.send_message("godot_mcp:type_text_result", [{
 		"completed": true,
 		"chars_typed": text.length(),
+		"submitted": submit,
 	}])

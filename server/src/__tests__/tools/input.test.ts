@@ -49,7 +49,7 @@ describe('input tool', () => {
       });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map', delay_ms: 50 }, ctx);
+      const result = await input.execute({ action: 'get_map', delay_ms: 50, submit: false }, ctx);
       expect(result).toContain('jump: Space, Joypad Button 0');
       expect(result).toContain('move_left: A, Left');
       expect(result).toContain('source: game');
@@ -59,7 +59,7 @@ describe('input tool', () => {
       mock.mockResponse({ actions: [], source: 'editor' });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map', delay_ms: 50 }, ctx);
+      const result = await input.execute({ action: 'get_map', delay_ms: 50, submit: false }, ctx);
       expect(result).toContain('No custom input actions defined');
     });
   });
@@ -73,6 +73,7 @@ describe('input tool', () => {
         action: 'sequence',
         inputs: [{ action_name: 'jump', start_ms: 0, duration_ms: 0 }],
         delay_ms: 50,
+        submit: false,
       }, ctx);
 
       expect(result).toContain('1 action(s) executed');
@@ -91,6 +92,7 @@ describe('input tool', () => {
           { action_name: 'jump', start_ms: 500, duration_ms: 250 },
         ],
         delay_ms: 50,
+        submit: false,
       }, ctx);
 
       expect(result).toContain('2 action(s) executed');
@@ -106,34 +108,53 @@ describe('input tool', () => {
         action: 'sequence',
         inputs: [{ action_name: 'invalid', start_ms: 0, duration_ms: 0 }],
         delay_ms: 50,
+        submit: false,
       }, ctx)).rejects.toThrow('Unknown action: invalid');
     });
   });
 
   describe('type_text', () => {
     it('types text and returns character count', async () => {
-      mock.mockResponse({ completed: true, chars_typed: 5 });
+      mock.mockResponse({ completed: true, chars_typed: 5, submitted: false });
       const ctx = createToolContext(mock);
 
       const result = await input.execute({
         action: 'type_text',
         text: 'Hello',
         delay_ms: 50,
+        submit: false,
       }, ctx);
 
       expect(result).toContain('5 character(s)');
+      expect(result).not.toContain('submitted');
       expect(mock.calls[0].params.text).toBe('Hello');
-      expect(mock.calls[0].params.delay_ms).toBe(50);
+    });
+
+    it('types text with submit sends Enter and indicates submission', async () => {
+      mock.mockResponse({ completed: true, chars_typed: 5, submitted: true });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'type_text',
+        text: 'Hello',
+        delay_ms: 50,
+        submit: true,
+      }, ctx);
+
+      expect(result).toContain('5 character(s)');
+      expect(result).toContain('submitted');
+      expect(mock.calls[0].params.submit).toBe(true);
     });
 
     it('throws on error response', async () => {
-      mock.mockResponse({ completed: false, chars_typed: 0, error: 'No focused element' });
+      mock.mockResponse({ completed: false, chars_typed: 0, submitted: false, error: 'No focused element' });
       const ctx = createToolContext(mock);
 
       await expect(input.execute({
         action: 'type_text',
         text: 'Test',
         delay_ms: 50,
+        submit: false,
       }, ctx)).rejects.toThrow('No focused element');
     });
   });

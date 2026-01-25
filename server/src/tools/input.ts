@@ -30,6 +30,11 @@ const InputSchema = z
       .optional()
       .default(50)
       .describe('Delay between keystrokes in milliseconds (type_text only, default 50)'),
+    submit: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Press Enter after typing to submit (type_text only, for LineEdit text_submitted)'),
   })
   .refine(
     (data) => {
@@ -98,14 +103,16 @@ export const input = defineTool({
         const result = await godot.sendCommand<{
           completed: boolean;
           chars_typed: number;
+          submitted: boolean;
           error?: string;
-        }>('type_text', { text: args.text, delay_ms: args.delay_ms });
+        }>('type_text', { text: args.text, delay_ms: args.delay_ms, submit: args.submit });
 
         if (result.error) {
           throw new Error(result.error);
         }
 
-        return `Typed ${result.chars_typed} character(s)`;
+        const submitMsg = result.submitted ? ' and submitted' : '';
+        return `Typed ${result.chars_typed} character(s)${submitMsg}`;
       }
     }
   },
