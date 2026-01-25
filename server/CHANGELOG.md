@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.9.0...godot-mcp-v2.10.0) (2026-01-25)
+
+
+### Features
+
+* add input injection tool for testing running games ([#102](https://github.com/satelliteoflove/godot-mcp/issues/102)) ([7444f23](https://github.com/satelliteoflove/godot-mcp/commit/7444f23c39dffd505f63495494dc566c91457007))
+
 ## [2.9.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.8.0...godot-mcp-v2.9.0) (2026-01-24)
 
 
