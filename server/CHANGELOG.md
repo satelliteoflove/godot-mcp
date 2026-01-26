@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.10.0...godot-mcp-v2.10.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* document clear parameter support for get_errors action ([#105](https://github.com/satelliteoflove/godot-mcp/issues/105)) ([2303f05](https://github.com/satelliteoflove/godot-mcp/commit/2303f05d380c3548bb7ff3df8f19629159315a74))
+
 ## [2.10.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.9.0...godot-mcp-v2.10.0) (2026-01-25)
 
 
