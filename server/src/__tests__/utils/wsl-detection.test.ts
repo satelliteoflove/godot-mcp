@@ -40,9 +40,17 @@ describe('wsl-detection', () => {
     });
 
     describe('on Linux platform', () => {
+      let originalPlatform: PropertyDescriptor | undefined;
+
       beforeEach(() => {
-        const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+        originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
         Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+      });
+
+      afterEach(() => {
+        if (originalPlatform) {
+          Object.defineProperty(process, 'platform', originalPlatform);
+        }
       });
 
       it('returns true when WSL_DISTRO_NAME env var is set', () => {

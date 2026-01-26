@@ -14,12 +14,21 @@ vi.mock('../../utils/logger.js', () => ({
 }));
 
 describe('host-ip-resolver', () => {
+  let originalGodotHost: string | undefined;
+
   beforeEach(() => {
+    originalGodotHost = process.env.GODOT_HOST;
+    delete process.env.GODOT_HOST;
     _clearHostIpCache();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    if (originalGodotHost !== undefined) {
+      process.env.GODOT_HOST = originalGodotHost;
+    } else {
+      delete process.env.GODOT_HOST;
+    }
     _clearHostIpCache();
     vi.clearAllMocks();
   });
