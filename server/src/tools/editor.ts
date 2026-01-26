@@ -36,8 +36,8 @@ function toImageContent(base64: string): ImageContent {
 const EditorSchema = z
   .object({
     action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_errors', 'get_stack_trace', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_errors, get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
+      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_log_messages', 'get_errors', 'get_stack_trace', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
+      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_log_messages (errors/warnings with filtering), get_errors (deprecated alias), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
     node_path: z
       .string()
       .optional()
@@ -49,7 +49,17 @@ const EditorSchema = z
     clear: z
       .boolean()
       .optional()
-      .describe('Clear buffer after reading (get_debug_output, get_errors)'),
+      .describe('Clear buffer after reading (get_debug_output, get_log_messages, get_errors)'),
+    filter: z
+      .enum(['all', 'errors', 'warnings'])
+      .optional()
+      .describe('Filter log messages by type (get_log_messages only, default: all)'),
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Maximum number of messages to return (get_log_messages only, default: 50)'),
     source: z
       .enum(['editor', 'game'])
       .optional()
@@ -92,10 +102,28 @@ const EditorSchema = z
 
 type EditorArgs = z.infer<typeof EditorSchema>;
 
+interface LogMessage {
+  timestamp: number;
+  type: string;
+  message: string;
+  file: string;
+  line: number;
+  function: string;
+  error_type: number;
+  frames: Array<{ file: string; line: number; function: string }>;
+}
+
+interface LogMessagesResponse {
+  total_count: number;
+  returned_count: number;
+  filter: string;
+  messages: LogMessage[];
+}
+
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_errors (structured errors with file:line), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom',
+    'Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_log_messages (errors/warnings with filter/limit), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -149,24 +177,38 @@ export const editor = defineTool({
         return `${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
       }
 
-      case 'get_errors': {
-        const result = await godot.sendCommand<{
-          error_count: number;
-          errors: Array<{
-            timestamp: number;
-            type: string;
-            message: string;
-            file: string;
-            line: number;
-            function: string;
-            error_type: number;
-            frames: Array<{ file: string; line: number; function: string }>;
-          }>;
-        }>('get_errors', { clear: args.clear ?? false });
-        if (result.error_count === 0) {
-          return 'No errors';
+      case 'get_log_messages': {
+        const result = await godot.sendCommand<LogMessagesResponse>(
+          'get_log_messages',
+          {
+            clear: args.clear ?? false,
+            filter: args.filter ?? 'all',
+            limit: args.limit ?? 50,
+          }
+        );
+        if (result.returned_count === 0) {
+          const filterLabel = args.filter === 'warnings' ? 'warnings' : args.filter === 'errors' ? 'errors' : 'log messages';
+          return `No ${filterLabel}`;
         }
         return JSON.stringify(result, null, 2);
+      }
+
+      case 'get_errors': {
+        const result = await godot.sendCommand<LogMessagesResponse>(
+          'get_log_messages',
+          {
+            clear: args.clear ?? false,
+            filter: args.filter ?? 'all',
+            limit: args.limit ?? 50,
+          }
+        );
+        if (result.returned_count === 0) {
+          return 'No errors';
+        }
+        return JSON.stringify({
+          error_count: result.returned_count,
+          errors: result.messages,
+        }, null, 2);
       }
 
       case 'get_stack_trace': {

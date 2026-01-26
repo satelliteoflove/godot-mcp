@@ -73,7 +73,7 @@ Open your Godot project (with addon enabled), restart your AI assistant, and sta
 |------|-------------|
 | `scene` | Manage scenes: open, save, or create scenes |
 | `node` | Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals |
-| `editor` | Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_errors (structured errors with file:line), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom |
+| `editor` | Control the Godot editor: get state (includes viewport/camera info), manage selection, run/stop project, get debug output, get_log_messages (errors/warnings with filter/limit), get_stack_trace (backtrace from last error), get performance metrics, capture screenshots, set 2D viewport position/zoom |
 | `project` | Get project information and settings |
 | `animation` | Query, control, and edit animations |
 | `tilemap` | Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates |
