@@ -148,6 +148,10 @@ func _get_wsl_vethernet_ipv4() -> String:
 	var output := []
 	# Use ErrorAction Stop + catch so failures return an empty string and don't emit noisy errors.
 	# Match any adapter alias that contains "WSL" to be resilient to name variations.
+	# SECURITY NOTE: Keep this PowerShell command as a fixed string literal. Do NOT concatenate
+	# user input, project settings, environment variables, or any other external data into it,
+	# as that could introduce command injection vulnerabilities. If dynamic behavior is needed,
+	# implement strict validation and avoid direct string interpolation into PowerShell.
 	var cmd := "try { $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.InterfaceAlias -like 'vEthernet*WSL*' } | Select-Object -First 1 -ExpandProperty IPAddress); if ($ip) { $ip } else { '' } } catch { '' }"
 	var args := ["-NoProfile", "-Command", cmd]
 	var code := OS.execute("powershell", args, output, false)
