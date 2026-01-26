@@ -49,7 +49,7 @@ const EditorSchema = z
     clear: z
       .boolean()
       .optional()
-      .describe('Clear output buffer after reading (get_debug_output only)'),
+      .describe('Clear buffer after reading (get_debug_output, get_errors)'),
     source: z
       .enum(['editor', 'game'])
       .optional()

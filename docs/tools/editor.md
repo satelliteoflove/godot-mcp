@@ -19,7 +19,7 @@ Control the Godot editor: get state (includes viewport/camera info), manage sele
 | `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, get_errors, get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
-| `clear` | boolean | get_debug_output | Clear output buffer after reading |
+| `clear` | boolean | get_debug_output, get_errors | Clear buffer after reading |
 | `source` | `editor`, `game` | No | Output source: "editor" for editor panel messages (script errors, loading failures), "game" for running game output. If omitted, returns game output when running, else editor output. |
 | `viewport` | `2d`, `3d` | screenshot_editor | Which editor viewport to capture |
 | `max_width` | number | screenshot_game, screenshot_editor | Maximum width in pixels for screenshot |
@@ -43,9 +43,11 @@ Parameters: `node_path`*
 
 #### `get_debug_output`
 
-Parameters: `clear`*
+Parameters: `clear`
 
 #### `get_errors`
+
+Parameters: `clear`
 
 #### `get_stack_trace`
 
