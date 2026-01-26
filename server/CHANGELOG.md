@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+
+### Features
+
+* **WSL Support**: Add complete Windows Subsystem for Linux support
+  - Auto-detect when running in WSL environment
+  - Auto-discover Windows host IP from WSL
+  - Dynamic binding: `0.0.0.0` in WSL vs `127.0.0.1` natively
+  - Environment variable override: `GODOT_HOST`
+  - The Godot plugin now displays the connection source (host:port) and offers options to select network binding or manually configure IP and port addresses.
+  - Full test coverage for all WSL detection and configuration
+
 ## [2.11.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.10.1...godot-mcp-v2.11.0) (2026-01-26)
 
 
