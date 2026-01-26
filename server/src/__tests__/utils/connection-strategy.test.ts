@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { getBindAddress, getTargetHost, getBindingStrategy } from '../../utils/binding-strategy.js';
+import { getTargetHost, getConnectionStrategy } from '../../utils/connection-strategy.js';
 import * as wslDetection from '../../utils/wsl-detection.js';
 import * as hostIpResolver from '../../utils/host-ip-resolver.js';
 
@@ -13,7 +13,7 @@ vi.mock('../../utils/logger.js', () => ({
   },
 }));
 
-describe('binding-strategy', () => {
+describe('connection-strategy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.GODOT_HOST;
@@ -21,19 +21,6 @@ describe('binding-strategy', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('getBindAddress()', () => {
-    it('returns 0.0.0.0 when in WSL', () => {
-      vi.mocked(wslDetection.isWSL).mockReturnValue(true);
-      expect(getBindAddress()).toBe('0.0.0.0');
-    });
-
-    it('returns 127.0.0.1 when not in WSL', () => {
-      vi.mocked(wslDetection.isWSL).mockReturnValue(false);
-      expect(getBindAddress()).toBe('127.0.0.1');
-    });
-
   });
 
   describe('getTargetHost()', () => {
@@ -92,15 +79,14 @@ describe('binding-strategy', () => {
     });
   });
 
-  describe('getBindingStrategy()', () => {
+  describe('getConnectionStrategy()', () => {
     it('returns WSL environment info when in WSL', () => {
       vi.mocked(wslDetection.isWSL).mockReturnValue(true);
       vi.mocked(hostIpResolver.getHostIpInWSL).mockReturnValue('192.168.1.1');
 
-      const strategy = getBindingStrategy(6550);
+      const strategy = getConnectionStrategy(6550);
 
       expect(strategy.environment).toBe('wsl');
-      expect(strategy.bindAddress).toBe('0.0.0.0');
       expect(strategy.targetHost).toBe('192.168.1.1');
       expect(strategy.wsUrl).toBe('ws://192.168.1.1:6550');
     });
@@ -108,10 +94,9 @@ describe('binding-strategy', () => {
     it('returns native environment info when not in WSL', () => {
       vi.mocked(wslDetection.isWSL).mockReturnValue(false);
 
-      const strategy = getBindingStrategy(6550);
+      const strategy = getConnectionStrategy(6550);
 
       expect(strategy.environment).toBe('native');
-      expect(strategy.bindAddress).toBe('127.0.0.1');
       expect(strategy.targetHost).toBe('127.0.0.1');
       expect(strategy.wsUrl).toBe('ws://127.0.0.1:6550');
     });
@@ -119,16 +104,15 @@ describe('binding-strategy', () => {
     it('includes correct port in wsUrl', () => {
       vi.mocked(wslDetection.isWSL).mockReturnValue(false);
 
-      const strategy = getBindingStrategy(9999);
+      const strategy = getConnectionStrategy(9999);
       expect(strategy.wsUrl).toBe('ws://127.0.0.1:9999');
     });
 
-    it('uses targetHost for wsUrl, not bindAddress', () => {
+    it('uses targetHost for wsUrl', () => {
       process.env.GODOT_HOST = '10.0.0.1';
 
-      const strategy = getBindingStrategy(6550);
+      const strategy = getConnectionStrategy(6550);
 
-      expect(strategy.bindAddress).toBe('127.0.0.1');
       expect(strategy.targetHost).toBe('10.0.0.1');
       expect(strategy.wsUrl).toBe('ws://10.0.0.1:6550');
     });
@@ -137,9 +121,8 @@ describe('binding-strategy', () => {
       process.env.GODOT_HOST = '192.168.1.2';
       vi.mocked(wslDetection.isWSL).mockReturnValue(true);
 
-      const strategy = getBindingStrategy(6550);
+      const strategy = getConnectionStrategy(6550);
 
-      expect(strategy.bindAddress).toBe('0.0.0.0');
       expect(strategy.targetHost).toBe('192.168.1.2');
     });
 
@@ -147,7 +130,7 @@ describe('binding-strategy', () => {
       vi.mocked(wslDetection.isWSL).mockReturnValue(false);
 
       for (const port of [80, 3000, 6550, 65535]) {
-        const strategy = getBindingStrategy(port);
+        const strategy = getConnectionStrategy(port);
         expect(strategy.wsUrl).toBe(`ws://127.0.0.1:${port}`);
       }
     });

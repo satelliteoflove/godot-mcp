@@ -77,10 +77,9 @@ Open your Godot project, restart your AI assistant, and start building.
 The MCP server has built-in support for Windows Subsystem for Linux (WSL2):
 
 - **Auto-detection**: MCP server automatically detects WSL environment via environment variables and `/proc/version`
-- **Host IP discovery**: Auto-discovers Windows host IP from WSL
-- **Dynamic binding**: Binds to `0.0.0.0` in WSL (vs `127.0.0.1` natively) to allow external connections
+- **Host IP discovery**: Auto-discovers Windows host IP from WSL to connect to Godot running on Windows
 - **Configuration**:
-  - `GODOT_HOST` overrides the Godot addon host
+  - `GODOT_HOST` overrides the Godot addon host (auto-detected in WSL)
   - `GODOT_PORT` overrides the Godot addon port (default `6550`)
 
 **Security note:** the Godot addon binds to `127.0.0.1` by default.

@@ -8,7 +8,7 @@ import {
 } from '../utils/errors.js';
 import { getServerVersion } from '../version.js';
 import { logger } from '../utils/logger.js';
-import { getTargetHost, getBindingStrategy } from '../utils/binding-strategy.js';
+import { getTargetHost, getConnectionStrategy } from '../utils/connection-strategy.js';
 
 const DEFAULT_PORT = 6550;
 const DEFAULT_HOST = 'localhost';
@@ -76,13 +76,13 @@ export class GodotConnection extends EventEmitter {
   private currentState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
 
   private readonly host: string;
-  private readonly port: number;
+  private readonly _port: number;
   private readonly autoReconnect: boolean;
 
   constructor(options: GodotConnectionOptions = {}) {
     super();
     this.host = options.host ?? DEFAULT_HOST;
-    this.port = options.port ?? DEFAULT_PORT;
+    this._port = options.port ?? DEFAULT_PORT;
     this.autoReconnect = options.autoReconnect ?? true;
   }
 
@@ -91,7 +91,11 @@ export class GodotConnection extends EventEmitter {
   }
 
   get url(): string {
-    return `ws://${this.host}:${this.port}`;
+    return `ws://${this.host}:${this._port}`;
+  }
+
+  get port(): number {
+    return this._port;
   }
 
   get addonVersion(): string | null {
@@ -120,7 +124,7 @@ export class GodotConnection extends EventEmitter {
   }
 
   getDiagnostics(): ConnectionDiagnostics {
-    const strategy = getBindingStrategy(this.port);
+    const strategy = getConnectionStrategy(this._port);
     return {
       currentState: this.currentState,
       lastDisconnectReason: this.lastDisconnectReason,
@@ -491,12 +495,11 @@ export function getGodotConnection(): GodotConnection {
 
 export async function initializeConnection(): Promise<void> {
   const connection = getGodotConnection();
-  const strategy = getBindingStrategy(connection['port'] ?? 6550);
+  const strategy = getConnectionStrategy(connection.port);
 
-  // Log binding strategy at startup
+  // Log connection strategy at startup
   logger.info('Godot connection strategy', {
     environment: strategy.environment,
-    bindAddress: strategy.bindAddress,
     targetHost: strategy.targetHost,
     wsUrl: strategy.wsUrl,
   });

@@ -7,8 +7,7 @@
 
 * **WSL Support**: Add complete Windows Subsystem for Linux support
   - Auto-detect when running in WSL environment
-  - Auto-discover Windows host IP from WSL
-  - Dynamic binding: `0.0.0.0` in WSL vs `127.0.0.1` natively
+  - Auto-discover Windows host IP from WSL for connecting to Godot on Windows
   - Environment variable override: `GODOT_HOST`
   - The Godot plugin now displays the connection source (host:port) and offers options to select network binding or manually configure IP and port addresses.
   - Full test coverage for all WSL detection and configuration

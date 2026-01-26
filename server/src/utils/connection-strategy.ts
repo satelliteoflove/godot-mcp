@@ -3,23 +3,6 @@ import { getHostIpInWSL } from './host-ip-resolver.js';
 import { logger } from './logger.js';
 
 /**
- * Determines the IP address the MCP server's WebSocket server should bind to.
- *
- * Strategy:
- * - '0.0.0.0' if running in WSL (allows Windows host connections)
- * - '127.0.0.1' if running natively (localhost only)
- */
-export function getBindAddress(): string {
-  if (isWSL()) {
-    logger.debug('WSL detected, binding to 0.0.0.0 for external access');
-    return '0.0.0.0';
-  }
-
-  logger.debug('Native environment detected, binding to 127.0.0.1 for local access');
-  return '127.0.0.1';
-}
-
-/**
  * Determines the target host for Godot connections.
  *
  * Priority:
@@ -55,28 +38,23 @@ export function getTargetHost(): string {
 }
 
 /**
- * Gets comprehensive binding strategy information for diagnostics/logging.
+ * Gets comprehensive connection strategy information for diagnostics/logging.
  *
- * @returns Object containing current binding configuration
+ * @returns Object containing current connection configuration
  */
-export interface BindingStrategy {
+export interface ConnectionStrategy {
   environment: 'wsl' | 'native';
-  bindAddress: string;
   targetHost: string;
   wsUrl: string;
 }
 
-export function getBindingStrategy(port: number): BindingStrategy {
+export function getConnectionStrategy(port: number): ConnectionStrategy {
   const environment = isWSL() ? 'wsl' : 'native';
-  const bindAddress = getBindAddress();
   const targetHost = getTargetHost();
-
-  // Note: WebSocket URL always uses targetHost, not bindAddress
   const wsUrl = `ws://${targetHost}:${port}`;
 
   return {
     environment,
-    bindAddress,
     targetHost,
     wsUrl,
   };
