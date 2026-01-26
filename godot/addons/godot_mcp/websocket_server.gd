@@ -17,6 +17,8 @@ var _is_connected := false
 var _rejected_connections := 0
 var _pending_rejection: WebSocketPeer = null
 var _pending_rejection_peer: StreamPeerTCP = null
+var _connected_host: String = ""
+var _connected_port: int = 0
 
 
 func _process(_delta: float) -> void:
@@ -33,14 +35,14 @@ func _process(_delta: float) -> void:
 	_process_pending_rejection()
 
 
-func start_server(port: int = DEFAULT_PORT) -> Error:
+func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") -> Error:
 	_server = TCPServer.new()
-	var err := _server.listen(port)
+	var err := _server.listen(port, bind_address)
 	if err != OK:
-		MCPLog.error("Failed to start server on port %d: %s" % [port, error_string(err)])
+		MCPLog.error("Failed to start server on %s:%d: %s" % [bind_address, port, error_string(err)])
 		return err
 
-	MCPLog.info("Server listening on port %d" % port)
+	MCPLog.info("Server listening on %s:%d" % [bind_address, port])
 	return OK
 
 
@@ -66,6 +68,22 @@ func stop_server() -> void:
 
 	_is_connected = false
 	_rejected_connections = 0
+	_connected_host = ""
+	_connected_port = 0
+
+
+func get_rejected_connection_count() -> int:
+	return _rejected_connections
+
+
+func get_connected_host() -> String:
+	"""Returns the remote host IP address of the connected client."""
+	return _connected_host
+
+
+func get_connected_port() -> int:
+	"""Returns the remote port of the connected client."""
+	return _connected_port
 
 
 func send_response(response: Dictionary) -> void:
@@ -97,7 +115,11 @@ func _accept_connection() -> void:
 		_peer = null
 		return
 
-	MCPLog.info("TCP connection received, awaiting WebSocket handshake...")
+	# Capture connection information
+	_connected_host = _peer.get_connected_host()
+	_connected_port = _peer.get_connected_port()
+	
+	MCPLog.info("TCP connection received from %s:%d, awaiting WebSocket handshake..." % [_connected_host, _connected_port])
 
 
 func _reject_connection(incoming: StreamPeerTCP) -> void:
