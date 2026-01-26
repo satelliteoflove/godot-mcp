@@ -50,10 +50,6 @@ const EditorSchema = z
       .boolean()
       .optional()
       .describe('Clear buffer after reading (get_debug_output, get_log_messages, get_errors)'),
-    filter: z
-      .enum(['all', 'errors', 'warnings'])
-      .optional()
-      .describe('Filter log messages by type (get_log_messages only, default: all)'),
     limit: z
       .number()
       .int()
@@ -109,14 +105,13 @@ interface LogMessage {
   file: string;
   line: number;
   function: string;
-  error_type: number;
+  error_type: number; // 0=error, 1=warning (push_warning), 2=script, 3=shader
   frames: Array<{ file: string; line: number; function: string }>;
 }
 
 interface LogMessagesResponse {
   total_count: number;
   returned_count: number;
-  filter: string;
   messages: LogMessage[];
 }
 
@@ -182,13 +177,11 @@ export const editor = defineTool({
           'get_log_messages',
           {
             clear: args.clear ?? false,
-            filter: args.filter ?? 'all',
             limit: args.limit ?? 50,
           }
         );
         if (result.returned_count === 0) {
-          const filterLabel = args.filter === 'warnings' ? 'warnings' : args.filter === 'errors' ? 'errors' : 'log messages';
-          return `No ${filterLabel}`;
+          return 'No log messages';
         }
         return JSON.stringify(result, null, 2);
       }
@@ -198,7 +191,6 @@ export const editor = defineTool({
           'get_log_messages',
           {
             clear: args.clear ?? false,
-            filter: args.filter ?? 'all',
             limit: args.limit ?? 50,
           }
         );

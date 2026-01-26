@@ -133,26 +133,15 @@ func _on_performance_metrics_received(metrics: Dictionary) -> void:
 
 func get_log_messages(params: Dictionary) -> Dictionary:
 	var clear: bool = params.get("clear", false)
-	var filter: String = params.get("filter", "all")
 	var limit: int = params.get("limit", 50)
 
 	var all_messages := MCPLogger.get_errors()
-	var filtered: Array[Dictionary] = []
+	var total_count := all_messages.size()
 
-	for msg in all_messages:
-		var error_type: int = msg.get("error_type", 0)
-		var is_warning := error_type == 1
-		if filter == "all":
-			filtered.append(msg)
-		elif filter == "warnings" and is_warning:
-			filtered.append(msg)
-		elif filter == "errors" and not is_warning:
-			filtered.append(msg)
-
-	var total_count := filtered.size()
 	var limited: Array[Dictionary] = []
-	for i in mini(limit, filtered.size()):
-		limited.append(filtered[i])
+	var start_index := maxi(0, total_count - limit)
+	for i in range(start_index, total_count):
+		limited.append(all_messages[i])
 
 	if clear:
 		MCPLogger.clear_errors()
@@ -160,7 +149,6 @@ func get_log_messages(params: Dictionary) -> Dictionary:
 	return _success({
 		"total_count": total_count,
 		"returned_count": limited.size(),
-		"filter": filter,
 		"messages": limited,
 	})
 

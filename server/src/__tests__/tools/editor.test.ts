@@ -92,17 +92,8 @@ describe('editor tool', () => {
   describe('get_log_messages', () => {
     it('returns "No log messages" when empty', async () => {
       const ctx = createToolContext(mock);
-      mock.mockResponse({ total_count: 0, returned_count: 0, filter: 'all', messages: [] });
+      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
       expect(await editor.execute({ action: 'get_log_messages' }, ctx)).toBe('No log messages');
-    });
-
-    it('returns filtered label when using filter', async () => {
-      const ctx = createToolContext(mock);
-      mock.mockResponse({ total_count: 0, returned_count: 0, filter: 'warnings', messages: [] });
-      expect(await editor.execute({ action: 'get_log_messages', filter: 'warnings' }, ctx)).toBe('No warnings');
-
-      mock.mockResponse({ total_count: 0, returned_count: 0, filter: 'errors', messages: [] });
-      expect(await editor.execute({ action: 'get_log_messages', filter: 'errors' }, ctx)).toBe('No errors');
     });
 
     it('returns JSON with messages when present', async () => {
@@ -110,10 +101,9 @@ describe('editor tool', () => {
       const responseData = {
         total_count: 2,
         returned_count: 2,
-        filter: 'all',
         messages: [
           { timestamp: 12345, type: 'Parser Error', message: 'Could not find type', file: 'res://test.gd', line: 10, error_type: 0, frames: [] },
-          { timestamp: 12346, type: 'Warning', message: 'Unused variable', file: 'res://test.gd', line: 15, error_type: 1, frames: [] },
+          { timestamp: 12346, type: 'Script Error', message: 'Type mismatch', file: 'res://test.gd', line: 15, error_type: 2, frames: [] },
         ],
       };
       mock.mockResponse(responseData);
@@ -121,11 +111,10 @@ describe('editor tool', () => {
       expect(JSON.parse(result as string)).toEqual(responseData);
     });
 
-    it('passes filter and limit params to Godot', async () => {
+    it('passes limit param to Godot', async () => {
       const ctx = createToolContext(mock);
-      mock.mockResponse({ total_count: 0, returned_count: 0, filter: 'warnings', messages: [] });
-      await editor.execute({ action: 'get_log_messages', filter: 'warnings', limit: 10 }, ctx);
-      expect(mock.calls[0].params.filter).toBe('warnings');
+      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
+      await editor.execute({ action: 'get_log_messages', limit: 10 }, ctx);
       expect(mock.calls[0].params.limit).toBe(10);
     });
   });
@@ -134,13 +123,12 @@ describe('editor tool', () => {
     it('returns "No errors" when empty, JSON when present', async () => {
       const ctx = createToolContext(mock);
 
-      mock.mockResponse({ total_count: 0, returned_count: 0, filter: 'all', messages: [] });
+      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
       expect(await editor.execute({ action: 'get_errors' }, ctx)).toBe('No errors');
 
       const responseData = {
         total_count: 1,
         returned_count: 1,
-        filter: 'all',
         messages: [{
           timestamp: 12345,
           type: 'Parser Error',

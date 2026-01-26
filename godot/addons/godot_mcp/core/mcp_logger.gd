@@ -49,10 +49,21 @@ func _log_error(function: String, file: String, line: int, code: String,
 		"error_type": error_type,
 		"frames": frames,
 	}
-	_errors.append(error_entry)
-	if _errors.size() > _max_errors:
-		_errors.remove_at(0)
+	if not _is_duplicate(error_entry):
+		_errors.append(error_entry)
+		if _errors.size() > _max_errors:
+			_errors.remove_at(0)
 	_mutex.unlock()
+
+
+static func _is_duplicate(entry: Dictionary) -> bool:
+	if _errors.is_empty():
+		return false
+	var last := _errors[-1]
+	return (last.get("file") == entry.get("file")
+		and last.get("line") == entry.get("line")
+		and last.get("message") == entry.get("message")
+		and last.get("type") == entry.get("type"))
 
 
 static func get_output() -> PackedStringArray:
