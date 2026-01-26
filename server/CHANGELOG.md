@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.10.1...godot-mcp-v2.11.0) (2026-01-26)
+
+
+### Features
+
+* add get_log_messages action with filter and limit support ([#108](https://github.com/satelliteoflove/godot-mcp/issues/108)) ([107ad19](https://github.com/satelliteoflove/godot-mcp/commit/107ad1903e3819c9d3dde206125e2fd076221b57))
+
 ## [2.10.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.10.0...godot-mcp-v2.10.1) (2026-01-26)
 
 
