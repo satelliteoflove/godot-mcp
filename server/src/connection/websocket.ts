@@ -8,6 +8,7 @@ import {
 } from '../utils/errors.js';
 import { getServerVersion } from '../version.js';
 import { logger } from '../utils/logger.js';
+import { getTargetHost, getBindingStrategy } from '../utils/binding-strategy.js';
 
 const DEFAULT_PORT = 6550;
 const DEFAULT_HOST = 'localhost';
@@ -34,6 +35,7 @@ export interface ConnectionDiagnostics {
   reconnectAttempts: number;
   lastErrorMessage: string | null;
   url: string;
+  environment: 'wsl' | 'native';
 }
 
 export type HandshakeStatus = 'pending' | 'success' | 'failed' | 'timeout';
@@ -118,6 +120,7 @@ export class GodotConnection extends EventEmitter {
   }
 
   getDiagnostics(): ConnectionDiagnostics {
+    const strategy = getBindingStrategy(this.port);
     return {
       currentState: this.currentState,
       lastDisconnectReason: this.lastDisconnectReason,
@@ -125,6 +128,7 @@ export class GodotConnection extends EventEmitter {
       reconnectAttempts: this.reconnectAttempt,
       lastErrorMessage: this.lastErrorMessage,
       url: this.url,
+      environment: strategy.environment,
     };
   }
 
@@ -475,9 +479,11 @@ function parseHostEnv(value: string | undefined): string | undefined {
 
 export function getGodotConnection(): GodotConnection {
   if (!globalConnection) {
+    const host = parseHostEnv(process.env.GODOT_HOST) ?? getTargetHost();
+    const port = parsePortEnv(process.env.GODOT_PORT);
     globalConnection = new GodotConnection({
-      host: parseHostEnv(process.env.GODOT_HOST),
-      port: parsePortEnv(process.env.GODOT_PORT),
+      host,
+      port,
     });
   }
   return globalConnection;
@@ -485,6 +491,15 @@ export function getGodotConnection(): GodotConnection {
 
 export async function initializeConnection(): Promise<void> {
   const connection = getGodotConnection();
+  const strategy = getBindingStrategy(connection['port'] ?? 6550);
+
+  // Log binding strategy at startup
+  logger.info('Godot connection strategy', {
+    environment: strategy.environment,
+    bindAddress: strategy.bindAddress,
+    targetHost: strategy.targetHost,
+    wsUrl: strategy.wsUrl,
+  });
 
   connection.on('connected', () => {
     logger.info('Connected to Godot');
