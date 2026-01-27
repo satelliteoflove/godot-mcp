@@ -43,15 +43,15 @@ func _ready() -> void:
 	_for_control_focus(apply_button)
 
 	# Set up focus chain: each control points to the next in sequence
-	if bind_mode_option:
+	if bind_mode_option and (custom_ip_edit or apply_button):
 		bind_mode_option.focus_next = custom_ip_edit.get_path() if custom_ip_edit else apply_button.get_path()
-	if custom_ip_edit:
+	if custom_ip_edit and (port_override_enabled or apply_button):
 		custom_ip_edit.focus_next = port_override_enabled.get_path() if port_override_enabled else apply_button.get_path()
-	if port_override_enabled:
+	if port_override_enabled and (port_override_spin or apply_button):
 		port_override_enabled.focus_next = port_override_spin.get_path() if port_override_spin else apply_button.get_path()
-	if port_override_spin:
+	if port_override_spin and (apply_button or bind_mode_option):
 		port_override_spin.focus_next = apply_button.get_path() if apply_button else bind_mode_option.get_path()
-	if apply_button:
+	if apply_button and (bind_mode_option or apply_button):
 		apply_button.focus_next = bind_mode_option.get_path() if bind_mode_option else apply_button.get_path()
 
 	_update_controls_enabled()
