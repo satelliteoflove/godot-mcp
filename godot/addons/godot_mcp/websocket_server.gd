@@ -42,7 +42,6 @@ func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") 
 		MCPLog.error("Failed to start server on %s:%d: %s" % [bind_address, port, error_string(err)])
 		return err
 
-	MCPLog.info("Server listening on %s:%d" % [bind_address, port])
 	return OK
 
 

@@ -190,7 +190,7 @@ func _restart_server() -> void:
 			_update_status("Failed to bind %s:%d [%s]" % [bind, port, mode_name])
 			return
 	_update_status("Waiting for connection... (bind %s:%d [%s])" % [bind, port, mode_name])
-	MCPLog.info("Server bind set to %s:%d [%s]" % [bind, port, mode_name])
+	MCPLog.info("Server listening on %s:%d [%s]" % [bind, port, mode_name])
 
 
 func _apply_bind_settings(restart: bool) -> void:
