@@ -20,6 +20,7 @@ var _status_panel: Control
 var _debugger_plugin: MCPDebuggerPlugin
 
 var _current_bind_address := MCPConstants.LOCALHOST_BIND_ADDRESS
+var _current_bind_mode: MCPEnums.BindMode = MCPEnums.BindMode.LOCALHOST
 
 
 func _enter_tree() -> void:
@@ -178,22 +179,25 @@ func _restart_server() -> void:
 		_websocket_server.stop_server()
 	var bind := _resolve_bind_address()
 	var port := _get_listen_port()
+	var mode_name := MCPEnums.get_mode_name(_current_bind_mode)
 	_current_bind_address = bind
+	_current_bind_mode = _get_bind_mode()
 	if _websocket_server:
 		var err := _websocket_server.start_server(port, bind)
 		if err != OK:
-			_update_status("Failed to bind %s:%d" % [bind, port])
+			_update_status("Failed to bind %s:%d [%s]" % [bind, port, mode_name])
 			return
-	_update_status("Waiting for connection... (bind %s:%d)" % [bind, port])
-	MCPLog.info("Server bind set to %s:%d" % [bind, port])
+	_update_status("Waiting for connection... (bind %s:%d [%s])" % [bind, port, mode_name])
+	MCPLog.info("Server bind set to %s:%d [%s]" % [bind, port, mode_name])
 
 
 func _apply_bind_settings(restart: bool) -> void:
 	_current_bind_address = _resolve_bind_address()
+	_current_bind_mode = _get_bind_mode()
 	if restart:
 		_restart_server()
 	else:
-		_update_status("Waiting for connection... (bind %s:%d)" % [_current_bind_address, _get_listen_port()])
+		_update_status("Waiting for connection... (bind %s:%d [%s])" % [_current_bind_address, _get_listen_port(), MCPEnums.get_mode_name(_current_bind_mode)])
 
 
 func _on_config_applied(config: Dictionary) -> void:
@@ -226,8 +230,9 @@ func _on_client_connected() -> void:
 	var host_info := ""
 	if _websocket_server.get_connected_host():
 		host_info = " from %s:%d" % [_websocket_server.get_connected_host(), _websocket_server.get_connected_port()]
-	_update_status("Connected%s (bind %s)" % [host_info, _current_bind_address])
-	MCPLog.info("Client connected%s (bind %s)" % [host_info, _current_bind_address])
+	var bind_info := "(%s: %s:%d)" % [MCPEnums.get_mode_name(_current_bind_mode), _current_bind_address, _get_listen_port()]
+	_update_status("Connected%s %s" % [host_info, bind_info])
+	MCPLog.info("Client connected%s %s" % [host_info, bind_info])
 
 
 func _on_client_disconnected() -> void:
