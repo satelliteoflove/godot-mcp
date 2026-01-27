@@ -14,16 +14,12 @@ const SETTING_CUSTOM_BIND_IP := "godot_mcp/custom_bind_ip"
 const SETTING_PORT_OVERRIDE_ENABLED := "godot_mcp/port_override_enabled"
 const SETTING_PORT_OVERRIDE := "godot_mcp/port_override"
 
-const BIND_MODE_LOCALHOST := "localhost"
-const BIND_MODE_WSL := "wsl"
-const BIND_MODE_CUSTOM := "custom"
-
 var _websocket_server: WebSocketServer
 var _command_router: CommandRouter
 var _status_panel: Control
 var _debugger_plugin: MCPDebuggerPlugin
 
-var _current_bind_address := "127.0.0.1"
+var _current_bind_address := MCPConstants.LOCALHOST_BIND_ADDRESS
 
 
 func _enter_tree() -> void:
@@ -70,7 +66,7 @@ func _exit_tree() -> void:
 
 func _ensure_bind_settings() -> void:
 	if not ProjectSettings.has_setting(SETTING_BIND_MODE):
-		ProjectSettings.set_setting(SETTING_BIND_MODE, BIND_MODE_LOCALHOST)
+		ProjectSettings.set_setting(SETTING_BIND_MODE, MCPEnums.BindMode.LOCALHOST)
 	if not ProjectSettings.has_setting(SETTING_CUSTOM_BIND_IP):
 		ProjectSettings.set_setting(SETTING_CUSTOM_BIND_IP, "")
 	if not ProjectSettings.has_setting(SETTING_PORT_OVERRIDE_ENABLED):
@@ -89,8 +85,8 @@ func _setup_bind_ui() -> void:
 		_status_panel.config_applied.connect(_on_config_applied)
 
 
-func _get_bind_mode() -> String:
-	return str(ProjectSettings.get_setting(SETTING_BIND_MODE, BIND_MODE_LOCALHOST))
+func _get_bind_mode() -> MCPEnums.BindMode:
+	return ProjectSettings.get_setting(SETTING_BIND_MODE, MCPEnums.BindMode.LOCALHOST) as MCPEnums.BindMode
 
 
 func _get_custom_bind_ip() -> String:
@@ -102,7 +98,12 @@ func _get_port_override_enabled() -> bool:
 
 
 func _get_port_override() -> int:
-	return int(ProjectSettings.get_setting(SETTING_PORT_OVERRIDE, WebSocketServer.DEFAULT_PORT))
+	var raw_value := ProjectSettings.get_setting(SETTING_PORT_OVERRIDE, WebSocketServer.DEFAULT_PORT)
+	var port := int(raw_value)
+	if port < MCPConstants.PORT_MIN or port > MCPConstants.PORT_MAX:
+		MCPLog.warn("Invalid port override '%s'; falling back to default port %d" % [str(raw_value), WebSocketServer.DEFAULT_PORT])
+		return WebSocketServer.DEFAULT_PORT
+	return port
 
 
 func _get_listen_port() -> int:
@@ -111,17 +112,23 @@ func _get_listen_port() -> int:
 
 func _resolve_bind_address() -> String:
 	match _get_bind_mode():
-		BIND_MODE_WSL:
+		MCPEnums.BindMode.WSL:
 			var ip := _get_wsl_vethernet_ipv4()
 			if ip.is_empty():
-				MCPLog.warn("WSL bind mode selected but vEthernet (WSL) IPv4 was not found; falling back to 127.0.0.1")
-				return "127.0.0.1"
+				MCPLog.warn("WSL bind mode selected but vEthernet (WSL) IPv4 was not found; falling back to %s" % MCPConstants.LOCALHOST_BIND_ADDRESS)
+				return MCPConstants.LOCALHOST_BIND_ADDRESS
 			return ip
-		BIND_MODE_CUSTOM:
+		MCPEnums.BindMode.CUSTOM:
 			var ip := _get_custom_bind_ip().strip_edges()
-			return ip if not ip.is_empty() else "127.0.0.1"
+			if ip.is_empty():
+				MCPLog.warn("Custom bind mode selected but no IP was configured; falling back to %s" % MCPConstants.LOCALHOST_BIND_ADDRESS)
+				return MCPConstants.LOCALHOST_BIND_ADDRESS
+			if not _is_valid_ipv4(ip):
+				MCPLog.warn("Custom bind mode selected but IP '%s' is not a valid IPv4 address; falling back to %s" % [ip, MCPConstants.LOCALHOST_BIND_ADDRESS])
+				return MCPConstants.LOCALHOST_BIND_ADDRESS
+			return ip
 		_:
-			return "127.0.0.1"
+			return MCPConstants.LOCALHOST_BIND_ADDRESS
 
 
 func _is_valid_ipv4(ip: String) -> bool:
@@ -190,7 +197,7 @@ func _apply_bind_settings(restart: bool) -> void:
 
 
 func _on_config_applied(config: Dictionary) -> void:
-	ProjectSettings.set_setting(SETTING_BIND_MODE, str(config.get("bind_mode", BIND_MODE_LOCALHOST)))
+	ProjectSettings.set_setting(SETTING_BIND_MODE, config.get("bind_mode", MCPEnums.BindMode.LOCALHOST))
 	ProjectSettings.set_setting(SETTING_CUSTOM_BIND_IP, str(config.get("custom_ip", "")))
 	ProjectSettings.set_setting(SETTING_PORT_OVERRIDE_ENABLED, bool(config.get("port_override_enabled", false)))
 	ProjectSettings.set_setting(SETTING_PORT_OVERRIDE, int(config.get("port_override", WebSocketServer.DEFAULT_PORT)))

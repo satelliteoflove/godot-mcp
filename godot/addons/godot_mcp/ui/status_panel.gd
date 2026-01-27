@@ -3,10 +3,6 @@ extends Control
 
 signal config_applied(config: Dictionary)
 
-const BIND_MODE_LOCALHOST := "localhost"
-const BIND_MODE_WSL := "wsl"
-const BIND_MODE_CUSTOM := "custom"
-
 @onready var status_label: Label = $MarginContainer/VBoxContainer/StatusRow/StatusLabel
 @onready var status_icon: ColorRect = $MarginContainer/VBoxContainer/StatusRow/StatusIcon
 @onready var bind_mode_option: OptionButton = $MarginContainer/VBoxContainer/SettingsGrid/BindModeOption
@@ -72,14 +68,14 @@ func set_status(status: String) -> void:
 			status_icon.color = Color.GRAY
 
 
-func set_bind_mode(mode: String) -> void:
+func set_bind_mode(mode: MCPEnums.BindMode) -> void:
 	if not bind_mode_option:
 		return
 	_updating_ui = true
 	match mode:
-		BIND_MODE_WSL:
+		MCPEnums.BindMode.WSL:
 			bind_mode_option.select(1)
-		BIND_MODE_CUSTOM:
+		MCPEnums.BindMode.CUSTOM:
 			bind_mode_option.select(2)
 		_:
 			bind_mode_option.select(0)
@@ -87,16 +83,16 @@ func set_bind_mode(mode: String) -> void:
 	_update_controls_enabled()
 
 
-func get_bind_mode() -> String:
+func get_bind_mode() -> MCPEnums.BindMode:
 	if not bind_mode_option:
-		return BIND_MODE_LOCALHOST
+		return MCPEnums.BindMode.LOCALHOST
 	match bind_mode_option.selected:
 		1:
-			return BIND_MODE_WSL
+			return MCPEnums.BindMode.WSL
 		2:
-			return BIND_MODE_CUSTOM
+			return MCPEnums.BindMode.CUSTOM
 		_:
-			return BIND_MODE_LOCALHOST
+			return MCPEnums.BindMode.LOCALHOST
 
 
 func set_custom_ip(ip: String) -> void:
@@ -136,7 +132,7 @@ func get_config() -> Dictionary:
 	}
 
 
-func set_config(bind_mode: String, custom_ip: String, port_enabled: bool, port_value: int) -> void:
+func set_config(bind_mode: MCPEnums.BindMode, custom_ip: String, port_enabled: bool, port_value: int) -> void:
 	set_bind_mode(bind_mode)
 	set_custom_ip(custom_ip)
 	if port_override_enabled:
@@ -170,12 +166,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _update_controls_enabled() -> void:
 	# Custom IP only editable in Custom mode
+	var custom_ip_enabled := get_bind_mode() == MCPEnums.BindMode.CUSTOM
 	if custom_ip_edit:
-		var enabled := get_bind_mode() == BIND_MODE_CUSTOM
-		custom_ip_edit.editable = enabled
-		custom_ip_edit.modulate.a = 1.0 if enabled else 0.5
+		custom_ip_edit.editable = custom_ip_enabled
+		custom_ip_edit.modulate.a = 1.0 if custom_ip_enabled else 0.5
 	if custom_ip_label:
-		custom_ip_label.modulate.a = 1.0 if (custom_ip_edit and custom_ip_edit.editable) else 0.5
+		custom_ip_label.modulate.a = 1.0 if custom_ip_enabled else 0.5
 
 	# Port override controls
 	var port_enabled := port_override_enabled and port_override_enabled.button_pressed
@@ -183,4 +179,4 @@ func _update_controls_enabled() -> void:
 		port_override_spin.editable = port_enabled
 		port_override_spin.modulate.a = 1.0 if port_enabled else 0.5
 	if port_override_label:
-		port_override_label.modulate.a = 1.0
+		port_override_label.modulate.a = 1.0 if port_enabled else 0.5

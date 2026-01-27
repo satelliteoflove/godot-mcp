@@ -22,10 +22,10 @@ export function getTargetHost(): string {
 
   // Try to auto-detect Windows host in WSL
   if (isWSL()) {
-    const wsLHostIp = getHostIpInWSL();
-    if (wsLHostIp) {
-      logger.debug('Using auto-detected Windows host IP', { host: wsLHostIp });
-      return wsLHostIp;
+    const wslHostIp = getHostIpInWSL();
+    if (wslHostIp) {
+      logger.debug('Using auto-detected Windows host IP', { host: wslHostIp });
+      return wslHostIp;
     }
     logger.warning(
       'WSL detected but could not auto-detect Windows host IP, falling back to localhost'
