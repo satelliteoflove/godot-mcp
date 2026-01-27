@@ -156,6 +156,8 @@ func _get_wsl_vethernet_ipv4() -> String:
 	var output := []
 	# Use ErrorAction Stop + catch so failures return an empty string and don't emit noisy errors.
 	# Match any adapter alias that contains "WSL" to be resilient to name variations.
+	# Note: The wildcard pattern 'vEthernet*WSL*' provides flexibility but may match
+	# unexpected adapters in custom network configurations. Document expected adapter names.
 	# SECURITY NOTE: Keep this PowerShell command as a fixed string literal. Do NOT concatenate
 	# user input, project settings, environment variables, or any other external data into it,
 	# as that could introduce command injection vulnerabilities. If dynamic behavior is needed,
@@ -179,9 +181,9 @@ func _restart_server() -> void:
 		_websocket_server.stop_server()
 	var bind := _resolve_bind_address()
 	var port := _get_listen_port()
-	var mode_name := MCPEnums.get_mode_name(_current_bind_mode)
 	_current_bind_address = bind
 	_current_bind_mode = _get_bind_mode()
+	var mode_name := MCPEnums.get_mode_name(_current_bind_mode)
 	if _websocket_server:
 		var err := _websocket_server.start_server(port, bind)
 		if err != OK:

@@ -476,14 +476,9 @@ function parsePortEnv(value: string | undefined): number | undefined {
   return port;
 }
 
-function parseHostEnv(value: string | undefined): string | undefined {
-  if (!value || value.trim() === '') return undefined;
-  return value.trim();
-}
-
 export function getGodotConnection(): GodotConnection {
   if (!globalConnection) {
-    const host = parseHostEnv(process.env.GODOT_HOST) ?? getTargetHost();
+    const host = getTargetHost();
     const port = parsePortEnv(process.env.GODOT_PORT);
     globalConnection = new GodotConnection({
       host,

@@ -1,20 +1,6 @@
-import { execSync } from 'child_process';
 import { isWSL } from './wsl-detection.js';
+import { resolveGateway } from './gateway-resolver.js';
 import { logger } from './logger.js';
-
-/**
- * Regex to match valid IPv4 addresses
- */
-const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-/**
- * Validates if a string is a valid IPv4 address
- */
-function isValidIPv4(ip: string): boolean {
-  if (!IPV4_REGEX.test(ip)) return false;
-  const parts = ip.split('.').map(Number);
-  return parts.every((part) => part >= 0 && part <= 255);
-}
 
 /**
  * Cache for resolved Windows host IP (resolved during session)
@@ -27,10 +13,10 @@ let cachedHostIp: string | null | undefined;
  *
  * Priority:
  * 1. GODOT_HOST env var (user-provided override)
- * 2. Auto-detect via 'ip route' command (WSL only)
+ * 2. Auto-detect gateway IP from /etc/resolv.conf (WSL2 only)
  * 3. Returns null if not in WSL or detection fails
  *
- * Result is cached to avoid repeated command execution.
+ * Result is cached to avoid repeated resolution attempts.
  *
  * @returns The Windows host IP address, or null if not found
  */
@@ -47,30 +33,19 @@ export function getHostIpInWSL(): string | null {
     return cachedHostIp;
   }
 
-
   // Only auto-detect in WSL environment
   if (!isWSL()) {
     cachedHostIp = null;
     return null;
   }
 
-  // Auto-detect Windows host IP from ip route
+  // Auto-detect Windows host IP using gateway resolver
   try {
-    const routeOutput = execSync("ip route | awk '/default/ {print $3}'", {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-    }).trim();
-
-    if (routeOutput && isValidIPv4(routeOutput)) {
-      cachedHostIp = routeOutput;
-      logger.debug('Auto-detected Windows host IP', { ip: cachedHostIp });
+    const gateway = resolveGateway();
+    if (gateway.gatewayIp) {
+      cachedHostIp = gateway.gatewayIp;
+      logger.debug('Auto-detected Windows host IP from gateway', { ip: cachedHostIp });
       return cachedHostIp;
-    }
-
-    if (routeOutput) {
-      logger.warning('Auto-detected host IP is not a valid IPv4 address', {
-        value: routeOutput,
-      });
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

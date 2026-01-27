@@ -94,7 +94,7 @@ If you enable **Port override**, set `GODOT_PORT` on the server to match.
 
 ## CLI smoke test (paste-ready JSON-RPC)
 
-If you run the server manually with cli you can paste these **stdio JSON-RPC frames** to verify it responds and can reach Godot:
+If you run the server manually via CLI (for example: `npx -y @satelliteoflove/godot-mcp`), you can paste these **stdio JSON-RPC frames** to verify it responds and can reach Godot:
 
 1) Write in CLI
 
@@ -105,7 +105,7 @@ If you run the server manually with cli you can paste these **stdio JSON-RPC fra
 2) Response
 
 ```json
-{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"logging":{}},"serverInfo":{"name":"godot-mcp","version":"0.1.0"}},"jsonrpc":"2.0","id":1}
+{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"logging":{}},"serverInfo":{"name":"godot-mcp","version":"2.11.0"}},"jsonrpc":"2.0","id":1}
 ```
 
 3) Call a tool
@@ -121,7 +121,7 @@ If you run the server manually with cli you can paste these **stdio JSON-RPC fra
 ```
 
 Tip: If you enabled **Port override** in the Godot MCP panel, start the server with matching env vars (or export as environment variable):
-`GODOT_HOST=... GODOT_PORT=... npx -y @satelliteoflove/godot-mcp`
+`GODOT_HOST=... GODOT_PORT=... npm run start` or `GODOT_HOST=... GODOT_PORT=... npx -y @satelliteoflove/godot-mcp`
 
 ## Development
 
