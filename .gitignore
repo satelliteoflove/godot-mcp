@@ -44,3 +44,4 @@ coverage/
 ai/
 .copilot/
 CLAUDE.md
+*.backup
