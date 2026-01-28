@@ -60,11 +60,11 @@ Open your Godot project, restart your AI assistant, and start building.
 
 ## Documentation
 
-- [Claude Code Setup Guide](docs/claude-code-setup.md) - CLAUDE.md templates and workflows
-- [Tools Reference](docs/tools/README.md) - All 11 tools with full API docs
-- [Resources Reference](docs/resources.md) - MCP resources for reading project data
-- [Contributing](CONTRIBUTING.md) - Dev setup, adding tools, release process
-- [Changelog](server/CHANGELOG.md) - Release history
+- [Claude Code Setup Guide](../docs/claude-code-setup.md) - CLAUDE.md templates and workflows
+- [Tools Reference](../docs/tools/README.md) - All 11 tools with full API docs
+- [Resources Reference](../docs/resources.md) - MCP resources for reading project data
+- [Contributing](../CONTRIBUTING.md) - Dev setup, adding tools, release process
+- [Changelog](CHANGELOG.md) - Release history
 
 ## Architecture
 

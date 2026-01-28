@@ -398,31 +398,6 @@ function generateResourcesDoc(): string {
   return md;
 }
 
-function analyzeCapabilities(): string[] {
-  const capabilities: string[] = [];
-  const allTools = categories.flatMap(c => c.tools);
-
-  const hasScreenshot = allTools.some(t =>
-    t.description.toLowerCase().includes('screenshot'));
-  const hasAnimation = allTools.some(t =>
-    t.description.toLowerCase().includes('animation'));
-  const hasTilemap = allTools.some(t =>
-    t.description.toLowerCase().includes('tilemap') ||
-    t.description.toLowerCase().includes('gridmap'));
-  const hasResource = allTools.some(t =>
-    t.description.toLowerCase().includes('resource'));
-  const hasDebug = allTools.some(t =>
-    t.description.toLowerCase().includes('debug'));
-
-  if (hasScreenshot) capabilities.push('Screenshot capture from editor viewports and running games');
-  if (hasAnimation) capabilities.push('Full animation support (query, playback, editing)');
-  if (hasTilemap) capabilities.push('TileMapLayer and GridMap editing');
-  if (hasResource) capabilities.push('Resource inspection for SpriteFrames, TileSets, Materials, and Textures');
-  if (hasDebug) capabilities.push('Debug output capture from running games');
-
-  return capabilities;
-}
-
 function generateMainReadme(): string {
   const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
 
@@ -472,90 +447,13 @@ Add to your MCP configuration:
 `;
 }
 
-function generateRootReadme(): string {
-  return `# godot-mcp
+function generateNpmReadme(): string {
+  const rootReadme = readFileSync(ROOT_README, 'utf-8');
 
-MCP server that connects Claude to your Godot editor. Less copy-paste, more creating.
-
-## Why This Exists
-
-Using AI assistants for game dev means a lot of back-and-forth: copying error messages, describing what's on screen, pasting debug output, manually applying suggested changes. It works, but it's tedious.
-
-This MCP gives Claude direct access to your Godot editor. It can see your scene tree, capture screenshots, read errors, and make changes directly. You stay focused on the creative work while the mechanical relay disappears. Faster iterations, less busywork, more time building the game you actually want to make.
-
-## Quick Start
-
-### 1. Configure your AI assistant
-
-**Claude Desktop** (\`~/Library/Application Support/Claude/claude_desktop_config.json\` on macOS):
-
-\`\`\`json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-\`\`\`
-
-**Claude Code** (\`.mcp.json\` in your project):
-
-\`\`\`json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-\`\`\`
-
-### 2. Install the Godot addon
-
-\`\`\`bash
-npx @satelliteoflove/godot-mcp --install-addon /path/to/your/godot/project
-\`\`\`
-
-Enable in Godot: **Project Settings > Plugins > Godot MCP**
-
-### 3. Go
-
-Open your Godot project, restart your AI assistant, and start building.
-
-## What Claude Can Do
-
-- **See** your editor, scenes, running game, errors, and performance
-- **Inspect** nodes, resources, animations, tilemaps, 3D spatial data
-- **Modify** scenes, nodes, scripts, animations, tilemaps directly
-- **Test** by running the game and injecting input
-- **Learn** by fetching Godot docs on demand
-
-## Documentation
-
-- [Claude Code Setup Guide](docs/claude-code-setup.md) - CLAUDE.md templates and workflows
-- [Tools Reference](docs/tools/README.md) - All 11 tools with full API docs
-- [Resources Reference](docs/resources.md) - MCP resources for reading project data
-- [Contributing](CONTRIBUTING.md) - Dev setup, adding tools, release process
-- [Changelog](server/CHANGELOG.md) - Release history
-
-## Architecture
-
-\`\`\`
-[Claude] <--stdio--> [MCP Server] <--WebSocket:6550--> [Godot Addon]
-\`\`\`
-
-## Requirements
-
-- Node.js 20+
-- Godot 4.5+
-
-## License
-
-MIT
-`;
+  return rootReadme
+    .replace(/\]\(docs\//g, '](../docs/')
+    .replace(/\]\(CONTRIBUTING\.md\)/g, '](../CONTRIBUTING.md)')
+    .replace(/\]\(server\/CHANGELOG\.md\)/g, '](CHANGELOG.md)');
 }
 
 
@@ -582,12 +480,8 @@ function main(): void {
   writeFileSync(join(DOCS_DIR, 'resources.md'), generateResourcesDoc());
   console.log('  Created docs/resources.md');
 
-  const readme = generateRootReadme();
-  writeFileSync(ROOT_README, readme);
-  console.log('  Created README.md');
-
-  writeFileSync(NPM_README, readme);
-  console.log('  Created server/README.md (copy of root)');
+  writeFileSync(NPM_README, generateNpmReadme());
+  console.log('  Created server/README.md (synced from root with adjusted paths)');
 
   console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools and ${allResources.length} resources.`);
 }
