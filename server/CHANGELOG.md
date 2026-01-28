@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.12.1...godot-mcp-v2.12.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* add explicit timeout error formatting and remove last-release-sha ([#136](https://github.com/satelliteoflove/godot-mcp/issues/136)) ([75ba4ec](https://github.com/satelliteoflove/godot-mcp/commit/75ba4ec402724028f77dec6afeadf27f28947336))
+
 ## [2.12.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.12.0...godot-mcp-v2.12.1) (2026-01-28)
 
 
