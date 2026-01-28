@@ -31,6 +31,9 @@ export function formatError(error: unknown): string {
   if (error instanceof GodotCommandError) {
     return `[${error.code}] ${error.message}`;
   }
+  if (error instanceof GodotTimeoutError) {
+    return `[TIMEOUT] ${error.message}`;
+  }
   if (error instanceof Error) {
     return error.message;
   }
