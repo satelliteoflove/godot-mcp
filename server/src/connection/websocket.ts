@@ -200,13 +200,15 @@ export class GodotConnection extends EventEmitter {
 
         try {
           await this.performHandshake();
-          this.currentState = 'connected';
         } catch (error) {
-          this.currentState = 'connected';
           const errorMessage = error instanceof Error ? error.message : String(error);
           logger.error('Handshake failed (addon may be outdated)', { error: errorMessage });
           this.emit('handshake_failed', { error: errorMessage });
         }
+
+        // Connection is valid regardless of handshake outcome - handshake provides
+        // version metadata but isn't required for operation (backwards compatibility)
+        this.currentState = 'connected';
 
         this.emit('connected');
         resolve();
