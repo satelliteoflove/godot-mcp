@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.11.1...godot-mcp-v2.12.0) (2026-01-28)
+
+
+### Features
+
+* Add Windows Subsystem for Linux (WSL) support with smart network binding ([#111](https://github.com/satelliteoflove/godot-mcp/issues/111)) ([129205e](https://github.com/satelliteoflove/godot-mcp/commit/129205eca12365cc61f9ad9acf5becf27f5f0e79))
+
 ## [2.11.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.11.0...godot-mcp-v2.11.1) (2026-01-28)
 
 
