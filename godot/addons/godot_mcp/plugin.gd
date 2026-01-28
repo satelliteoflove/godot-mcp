@@ -18,6 +18,7 @@ var _websocket_server: WebSocketServer
 var _command_router: CommandRouter
 var _status_panel: Control
 var _debugger_plugin: MCPDebuggerPlugin
+var _restart_timer: Timer
 
 var _current_bind_address := MCPConstants.LOCALHOST_BIND_ADDRESS
 var _current_bind_mode: MCPEnums.BindMode = MCPEnums.BindMode.LOCALHOST
@@ -39,6 +40,11 @@ func _enter_tree() -> void:
 	_debugger_plugin = MCPDebuggerPlugin.new()
 	add_debugger_plugin(_debugger_plugin)
 
+	_restart_timer = Timer.new()
+	_restart_timer.one_shot = true
+	_restart_timer.timeout.connect(_do_restart_server)
+	add_child(_restart_timer)
+
 	_ensure_game_bridge_autoload()
 	_ensure_bind_settings()
 	_setup_bind_ui()
@@ -48,6 +54,10 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if _restart_timer:
+		_restart_timer.stop()
+		_restart_timer.queue_free()
+
 	if _status_panel:
 		remove_control_from_bottom_panel(_status_panel)
 		_status_panel.queue_free()
@@ -149,6 +159,14 @@ func _is_valid_ipv4(ip: String) -> bool:
 	return true
 
 
+func _is_valid_bind_address(ip: String) -> bool:
+	if ip == "0.0.0.0" or ip == "127.0.0.1" or ip == "::" or ip == "::1":
+		return true
+
+	var local_ips := IP.get_local_addresses()
+	return ip in local_ips
+
+
 func _get_wsl_vethernet_ipv4() -> String:
 	# Autodetect "vEthernet (WSL)" IPv4 via PowerShell (Windows only).
 	if OS.get_name() != "Windows":
@@ -178,18 +196,35 @@ func _get_wsl_vethernet_ipv4() -> String:
 
 
 func _restart_server() -> void:
+	# Debounce: stop any pending restart and schedule a new one
 	if _websocket_server:
 		_websocket_server.stop_server()
+	_restart_timer.start(0.1)
+
+
+func _do_restart_server() -> void:
+	if not is_inside_tree() or not _websocket_server:
+		return
+
 	var bind := _resolve_bind_address()
+
+	# Verify IP is local
+	if not _is_valid_bind_address(bind):
+		MCPLog.error("IP '%s' is not assigned to any local network interface. Aborting bind." % bind)
+		MCPLog.warn("Please check your IP configuration and local network interfaces.")
+		_update_status("Error: IP %s not found on this machine" % bind)
+		return
+
 	var port := _get_listen_port()
 	_current_bind_address = bind
 	_current_bind_mode = _get_bind_mode()
 	var mode_name := MCPEnums.get_mode_name(_current_bind_mode)
-	if _websocket_server:
-		var err := _websocket_server.start_server(port, bind)
-		if err != OK:
-			_update_status("Failed to bind %s:%d [%s]" % [bind, port, mode_name])
-			return
+
+	var err := _websocket_server.start_server(port, bind)
+	if err != OK:
+		_update_status("Failed to bind %s:%d (%s)" % [bind, port, error_string(err)])
+		return
+
 	_update_status("Waiting for connection... (bind %s:%d [%s])" % [bind, port, mode_name])
 	MCPLog.info("Server listening on %s:%d [%s]" % [bind, port, mode_name])
 

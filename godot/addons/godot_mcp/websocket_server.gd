@@ -39,6 +39,7 @@ func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") 
 	_server = TCPServer.new()
 	var err := _server.listen(port, bind_address)
 	if err != OK:
+		_server = null
 		MCPLog.error("Failed to start server on %s:%d: %s" % [bind_address, port, error_string(err)])
 		return err
 
@@ -64,6 +65,7 @@ func stop_server() -> void:
 
 	if _server:
 		_server.stop()
+		_server = null
 
 	_is_connected = false
 	_rejected_connections = 0
