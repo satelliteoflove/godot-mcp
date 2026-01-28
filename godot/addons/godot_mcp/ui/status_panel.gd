@@ -3,6 +3,10 @@ extends Control
 
 signal config_applied(config: Dictionary)
 
+
+func _get_minimum_size() -> Vector2:
+	return Vector2.ZERO
+
 @onready var status_label: Label = $MarginContainer/VBoxContainer/StatusRow/StatusLabel
 @onready var status_icon: ColorRect = $MarginContainer/VBoxContainer/StatusRow/StatusIcon
 @onready var bind_mode_option: OptionButton = $MarginContainer/VBoxContainer/SettingsGrid/BindModeOption
@@ -11,7 +15,7 @@ signal config_applied(config: Dictionary)
 @onready var port_override_label: Label = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideLabel
 @onready var port_override_enabled: CheckBox = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/PortOverrideEnabled
 @onready var port_override_spin: SpinBox = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/PortOverrideSpin
-@onready var apply_button: Button = $MarginContainer/VBoxContainer/ApplyRow/ApplyButton
+@onready var apply_button: Button = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/ApplyButton
 
 var _updating_ui := false
 
