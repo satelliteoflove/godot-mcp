@@ -250,6 +250,9 @@ func reparent_node(params: Dictionary) -> Dictionary:
 	if node == root:
 		return _error("CANNOT_REPARENT_ROOT", "Cannot reparent the root node")
 
+	if new_parent == node or node.is_ancestor_of(new_parent):
+		return _error("INVALID_REPARENT", "Cannot reparent a node to itself or its descendant")
+
 	node.reparent(new_parent)
 
 	return _success({"new_path": str(root.get_path_to(node))})
