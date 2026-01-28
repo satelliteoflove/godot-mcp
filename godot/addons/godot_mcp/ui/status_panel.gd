@@ -9,13 +9,16 @@ func _get_minimum_size() -> Vector2:
 
 @onready var status_label: Label = $MarginContainer/VBoxContainer/StatusRow/StatusLabel
 @onready var status_icon: ColorRect = $MarginContainer/VBoxContainer/StatusRow/StatusIcon
+@onready var version_label: Label = $MarginContainer/VBoxContainer/StatusRow/VersionLabel
 @onready var bind_mode_option: OptionButton = $MarginContainer/VBoxContainer/SettingsGrid/BindModeOption
 @onready var custom_ip_label: Label = $MarginContainer/VBoxContainer/SettingsGrid/CustomIpLabel
-@onready var custom_ip_edit: LineEdit = $MarginContainer/VBoxContainer/SettingsGrid/CustomIpControls/CustomIpEdit
+@onready var custom_ip_edit: LineEdit = $MarginContainer/VBoxContainer/SettingsGrid/CustomIpEdit
 @onready var port_override_label: Label = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideLabel
 @onready var port_override_enabled: CheckBox = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/PortOverrideEnabled
 @onready var port_override_spin: SpinBox = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/PortOverrideSpin
 @onready var apply_button: Button = $MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls/ApplyButton
+
+var _addon_version: String = ""
 
 var _updating_ui := false
 
@@ -187,3 +190,37 @@ func _update_controls_enabled() -> void:
 		port_override_spin.modulate.a = 1.0 if port_enabled else 0.5
 	if port_override_label:
 		port_override_label.modulate.a = 1.0 if port_enabled else 0.5
+
+
+func set_addon_version(version: String) -> void:
+	_addon_version = version
+	_update_version_label()
+
+
+func set_server_version(version: String) -> void:
+	if not version_label:
+		return
+	if version.is_empty():
+		_update_version_label()
+	elif _addon_version.is_empty():
+		version_label.text = "Server: %s" % version
+	elif version == _addon_version:
+		version_label.text = "v%s" % version
+	else:
+		version_label.text = "Addon: %s | Server: %s" % [_addon_version, version]
+		version_label.add_theme_color_override("font_color", Color.ORANGE)
+
+
+func clear_server_version() -> void:
+	_update_version_label()
+	if version_label:
+		version_label.remove_theme_color_override("font_color")
+
+
+func _update_version_label() -> void:
+	if not version_label:
+		return
+	if _addon_version.is_empty():
+		version_label.text = ""
+	else:
+		version_label.text = "v%s" % _addon_version

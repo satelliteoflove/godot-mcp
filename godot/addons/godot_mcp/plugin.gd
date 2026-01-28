@@ -42,6 +42,7 @@ func _enter_tree() -> void:
 	_ensure_game_bridge_autoload()
 	_ensure_bind_settings()
 	_setup_bind_ui()
+	_setup_version_display()
 	_apply_bind_settings(true)
 	MCPLog.info("Plugin initialized")
 
@@ -239,9 +240,29 @@ func _on_client_connected() -> void:
 
 func _on_client_disconnected() -> void:
 	_update_status("Disconnected")
+	if _status_panel and _status_panel.has_method("clear_server_version"):
+		_status_panel.clear_server_version()
 	MCPLog.info("Client disconnected")
 
 
 func _update_status(status: String) -> void:
 	if _status_panel and _status_panel.has_method("set_status"):
 		_status_panel.set_status(status)
+
+
+func _setup_version_display() -> void:
+	if _status_panel and _status_panel.has_method("set_addon_version"):
+		_status_panel.set_addon_version(_get_addon_version())
+
+
+func _get_addon_version() -> String:
+	var config := ConfigFile.new()
+	var err := config.load("res://addons/godot_mcp/plugin.cfg")
+	if err == OK:
+		return config.get_value("plugin", "version", "")
+	return ""
+
+
+func on_server_version_received(version: String) -> void:
+	if _status_panel and _status_panel.has_method("set_server_version"):
+		_status_panel.set_server_version(version)

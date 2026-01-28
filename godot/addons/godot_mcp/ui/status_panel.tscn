@@ -39,6 +39,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Initializing..."
 
+[node name="VersionLabel" type="Label" parent="MarginContainer/VBoxContainer/StatusRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+text = ""
+
 [node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 
@@ -53,22 +58,16 @@ layout_mode = 2
 text = "Bind mode"
 
 [node name="BindModeOption" type="OptionButton" parent="MarginContainer/VBoxContainer/SettingsGrid"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-size_flags_horizontal = 3
 
 [node name="CustomIpLabel" type="Label" parent="MarginContainer/VBoxContainer/SettingsGrid"]
 layout_mode = 2
 text = "Custom bind IP"
 
-[node name="CustomIpControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="CustomIpEdit" type="LineEdit" parent="MarginContainer/VBoxContainer/SettingsGrid"]
+custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-theme_override_constants/separation = 8
-size_flags_horizontal = 3
-
-[node name="CustomIpEdit" type="LineEdit" parent="MarginContainer/VBoxContainer/SettingsGrid/CustomIpControls"]
-custom_minimum_size = Vector2(220, 0)
-layout_mode = 2
-size_flags_horizontal = 3
 placeholder_text = "e.g. 127.0.0.1"
 
 [node name="PortOverrideLabel" type="Label" parent="MarginContainer/VBoxContainer/SettingsGrid"]
@@ -78,7 +77,6 @@ text = "Port override"
 [node name="PortOverrideControls" type="HBoxContainer" parent="MarginContainer/VBoxContainer/SettingsGrid"]
 layout_mode = 2
 theme_override_constants/separation = 8
-size_flags_horizontal = 3
 
 [node name="PortOverrideEnabled" type="CheckBox" parent="MarginContainer/VBoxContainer/SettingsGrid/PortOverrideControls"]
 layout_mode = 2
