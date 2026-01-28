@@ -42,4 +42,5 @@ coverage/
 
 # AI assistant working files
 ai/
+.copilot/
 CLAUDE.md
