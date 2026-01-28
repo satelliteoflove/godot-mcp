@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.11.0...godot-mcp-v2.11.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* sync npm README from root instead of hardcoded template ([6b4a099](https://github.com/satelliteoflove/godot-mcp/commit/6b4a099bfa295dbc246dd406d1af13167d964904))
+* sync npm README from root instead of hardcoded template ([5dd01a2](https://github.com/satelliteoflove/godot-mcp/commit/5dd01a2810809f0b631ec0d04f98136cbea9d67e))
+
 ## [2.11.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.10.1...godot-mcp-v2.11.0) (2026-01-26)
 
 
