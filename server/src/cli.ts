@@ -6,6 +6,7 @@ import { getServerVersion } from './version.js';
 const { values, positionals } = parseArgs({
   options: {
     'install-addon': { type: 'boolean', short: 'i' },
+    force: { type: 'boolean', short: 'f' },
     version: { type: 'boolean', short: 'v' },
     help: { type: 'boolean', short: 'h' },
   },
@@ -23,6 +24,7 @@ Usage:
 
 Options:
   -i, --install-addon    Install the Godot addon to the specified project path
+  -f, --force            Force install even if it would downgrade the addon
   -v, --version          Show version number
   -h, --help             Show help
 `);
@@ -42,14 +44,16 @@ if (values['install-addon']) {
     process.exit(1);
   }
 
-  const result = await installAddon(projectPath);
+  const result = await installAddon(projectPath, { force: values.force });
   if (result.success) {
     console.log(result.message);
-    console.log('\nNext steps:');
-    console.log('  1. Open the Godot project');
-    console.log('  2. Go to Project > Project Settings > Plugins');
-    console.log('  3. Enable "Godot MCP"');
-    console.log('  4. Restart your AI assistant to reconnect');
+    if (!result.skipped) {
+      console.log('\nNext steps:');
+      console.log('  1. Open the Godot project');
+      console.log('  2. Go to Project > Project Settings > Plugins');
+      console.log('  3. Enable "Godot MCP"');
+      console.log('  4. Restart your AI assistant to reconnect');
+    }
     process.exit(0);
   } else {
     console.error('Error:', result.message);
