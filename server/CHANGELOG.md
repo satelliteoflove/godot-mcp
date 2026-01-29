@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.12.2...godot-mcp-v2.13.0) (2026-01-29)
+
+
+### Features
+
+* add local usage logging for tool analytics ([#139](https://github.com/satelliteoflove/godot-mcp/issues/139)) ([ce54957](https://github.com/satelliteoflove/godot-mcp/commit/ce54957598a923d43a4453db392163f650acc5c7))
+
 ## [2.12.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.12.1...godot-mcp-v2.12.2) (2026-01-28)
 
 
