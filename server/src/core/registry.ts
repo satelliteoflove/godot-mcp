@@ -6,6 +6,7 @@ import {
   GodotConnectionError,
   GodotTimeoutError,
 } from '../utils/errors.js';
+import { logToolUsage, categorizeError } from '../utils/usage-logger.js';
 
 class ToolRegistry {
   private tools: Map<string, AnyToolDefinition> = new Map();
@@ -66,10 +67,22 @@ class ToolRegistry {
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);
     }
+
+    const startTime = performance.now();
+    let success = false;
+    let responseBytes = 0;
+    let errorType: string | undefined;
+
     try {
       const validated = tool.schema.parse(args);
-      return await tool.execute(validated, ctx);
+      const result = await tool.execute(validated, ctx);
+      success = true;
+      responseBytes = typeof result === 'string'
+        ? Buffer.byteLength(result, 'utf-8')
+        : Buffer.byteLength(JSON.stringify(result), 'utf-8');
+      return result;
     } catch (error) {
+      errorType = categorizeError(error);
       if (
         error instanceof GodotCommandError ||
         error instanceof GodotConnectionError ||
@@ -78,6 +91,9 @@ class ToolRegistry {
         throw error;
       }
       throw new Error(formatError(error));
+    } finally {
+      const durationMs = performance.now() - startTime;
+      logToolUsage(name, args, success, durationMs, responseBytes, errorType);
     }
   }
 
