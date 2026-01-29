@@ -1,5 +1,11 @@
 # Contributing to godot-mcp
 
+## Before You Start
+
+Usually, the best tools are built to solve real problems encountered when working and playing. godot-mcp was born from the desire to accelerate Godot game development when being aided by an AI agent. This MCP is focused on saving time and reducing development costs, and that has driven the development of each tool in the kit. This same focus will likely lead to some removals, in time. There is no room for tools that gather dust.
+
+This project is looking for solutions to real-world problems that wasted your time, cost you (in tokens and real-world money), or frustrated you to no end. If you're not sure whether something's worth building, open an issue describing the problem first. We can figure out together if it's a good fit before you put in the work.
+
 ## Dev Setup
 
 ```bash
@@ -38,16 +44,33 @@ Examples:
 - `fix: return newest messages instead of oldest`
 - `docs: update Claude Code setup guide`
 
-## Adding a New Tool
+## Adding New Functionality
 
-1. Create the tool definition in `server/src/tools/<category>.ts` using `defineTool()`
-2. Export it from the category's tools array
-3. Add the corresponding GDScript handler in `godot/addons/godot_mcp/commands/`
-4. Register the command in `command_router.gd`
-5. Add tests in `server/src/__tests__/tools/`
-6. Run `npm run generate-docs` to update API docs
+This project keeps the tool count intentionally low. Think of single-action tools like single-purpose kitchen gadgets - they take up space and rarely get used. Before proposing a new tool, consider whether the functionality belongs as an action within an existing tool.
 
-See existing tools for the pattern. The `defineTool()` helper handles schema validation via Zod.
+**Prefer extending over adding:**
+- New scene operations? Add an action to the existing scene tool.
+- New node manipulation? Extend the node tool.
+- Genuinely new domain with multiple related operations? Maybe a new tool makes sense.
+
+If you're unsure, open an issue first. We can figure out the right home for the functionality together.
+
+**When adding an action to an existing tool:**
+1. Add the action handler in `server/src/tools/<category>.ts`
+2. Add the corresponding GDScript handler in `godot/addons/godot_mcp/commands/`
+3. Update the command routing in `command_router.gd` if needed
+4. Add tests in `server/src/__tests__/tools/`
+5. Run `npm run generate-docs` to update API docs
+
+**Note:** Once telemetry is in place, tools and actions that see little use will be candidates for removal. Every piece of this codebase needs to earn its keep.
+
+## Updating Documentation
+
+This repo has two READMEs:
+- `README.md` (repo root) - What GitHub visitors see
+- `server/README.md` - What npm package users see
+
+If your change affects how users install or configure godot-mcp, update both. Keep them in sync.
 
 ## Releases
 
