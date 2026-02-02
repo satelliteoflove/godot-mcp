@@ -20,7 +20,7 @@ Fetch Godot Engine documentation. Use fetch_class for class references (e.g. Cha
 | `class_name` | string | fetch_class | Class name to fetch, e.g. "CharacterBody2D" |
 | `path` | string | fetch_page | Documentation path, e.g. "/tutorials/2d/2d_movement.html" |
 | `version` | `stable`, `latest`, `4.5`, `4.4`, `4.3`, `4.2` | No | Godot docs version. If omitted, auto-detects from connected Godot editor or defaults to "stable" |
-| `section` | `full`, `description`, `properties`, `methods`, `signals` | No | Which section to return (default: full). Use specific sections to reduce token usage. |
+| `section` | `full`, `description`, `properties`, `methods`, `signals` | Yes | Which section to return (default: full). Use specific sections to reduce token usage. |
 
 ### Actions
 
@@ -38,7 +38,8 @@ Parameters: `path`*
 // fetch_class
 {
   "action": "fetch_class",
-  "class_name": "example"
+  "class_name": "example",
+  "section": "full"
 }
 ```
 
@@ -46,7 +47,8 @@ Parameters: `path`*
 // fetch_page
 {
   "action": "fetch_page",
-  "path": "example"
+  "path": "example",
+  "section": "full"
 }
 ```
 

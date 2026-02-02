@@ -19,8 +19,8 @@ Inject input into a running Godot game for testing. Use get_map to discover avai
 | `action` | `get_map`, `sequence`, `type_text` | Yes | Action: get_map (list available input actions), sequence (execute input timeline), type_text (type text into focused UI element) |
 | `inputs` | object[] | sequence | Array of inputs to execute |
 | `text` | string | type_text | Text to type |
-| `delay_ms` | integer | No | Delay between keystrokes in milliseconds (type_text only, default 50) |
-| `submit` | boolean | No | Press Enter after typing to submit (type_text only, for LineEdit text_submitted) |
+| `delay_ms` | integer | Yes | Delay between keystrokes in milliseconds (type_text only, default 50) |
+| `submit` | boolean | Yes | Press Enter after typing to submit (type_text only, for LineEdit text_submitted) |
 
 ### Actions
 
@@ -39,7 +39,9 @@ Parameters: `text`*
 ```json
 // get_map
 {
-  "action": "get_map"
+  "action": "get_map",
+  "delay_ms": null,
+  "submit": false
 }
 ```
 
@@ -47,7 +49,9 @@ Parameters: `text`*
 // sequence
 {
   "action": "sequence",
-  "inputs": []
+  "inputs": [],
+  "delay_ms": null,
+  "submit": false
 }
 ```
 
