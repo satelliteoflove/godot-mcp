@@ -86,15 +86,21 @@ export function logToolUsage(
   writeEntry(entry);
 }
 
+function isZodError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  return 'issues' in err && Array.isArray((err as { issues: unknown }).issues);
+}
+
 export function categorizeError(error: unknown): string {
   if (!error) return 'unknown';
+
+  if (isZodError(error)) return 'validation';
 
   if (error instanceof Error) {
     const name = error.name;
     if (name === 'GodotConnectionError') return 'connection';
     if (name === 'GodotTimeoutError') return 'timeout';
     if (name === 'GodotCommandError') return 'command';
-    if (name === 'ZodError') return 'validation';
     return 'error';
   }
 

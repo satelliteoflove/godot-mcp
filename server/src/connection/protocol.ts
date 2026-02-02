@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const RequestSchema = z.object({
   id: z.string(),
   command: z.string(),
-  params: z.record(z.unknown()).optional().default({}),
+  params: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
 export type Request = z.infer<typeof RequestSchema>;

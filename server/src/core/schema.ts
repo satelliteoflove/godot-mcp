@@ -1,10 +1,8 @@
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { z } from 'zod';
+import { z, type ZodType } from 'zod';
 
-export function toInputSchema(schema: z.ZodType): object {
-  const jsonSchema = zodToJsonSchema(schema, {
-    $refStrategy: 'none',
-    target: 'jsonSchema7',
+export function toInputSchema(schema: ZodType): object {
+  const jsonSchema = z.toJSONSchema(schema, {
+    target: 'draft-07',
   });
   const { $schema, ...rest } = jsonSchema as Record<string, unknown>;
   return rest;
