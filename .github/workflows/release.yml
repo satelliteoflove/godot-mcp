@@ -47,7 +47,7 @@ jobs:
         if: ${{ steps.check-pr.outputs.branch }}
         with:
           ref: ${{ steps.check-pr.outputs.branch }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: ${{ steps.check-pr.outputs.branch }}
         with:
           node-version: '22'
@@ -80,7 +80,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
