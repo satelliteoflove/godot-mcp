@@ -43,7 +43,7 @@ jobs:
         run: |
           PR_BRANCH=$(gh pr list --repo ${{ github.repository }} --head "release-please--branches--main--components--godot-mcp" --json headRefName --jq '.[0].headRefName // empty')
           echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ steps.check-pr.outputs.branch }}
         with:
           ref: ${{ steps.check-pr.outputs.branch }}
@@ -79,7 +79,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Create addon zip
         run: |
           cd godot/addons
