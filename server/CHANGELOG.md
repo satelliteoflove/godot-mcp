@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.13.0...godot-mcp-v2.14.0) (2026-02-02)
+
+
+### Features
+
+* migrate to Zod v4 ([#147](https://github.com/satelliteoflove/godot-mcp/issues/147)) ([04864ef](https://github.com/satelliteoflove/godot-mcp/commit/04864ef76f7eca1bd953cc9d76933dd00e089edb))
+
 ## [2.13.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.12.2...godot-mcp-v2.13.0) (2026-01-29)
 
 
