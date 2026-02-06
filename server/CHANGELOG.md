@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.14.0...godot-mcp-v2.15.0) (2026-02-06)
+
+
+### Features
+
+* deprecate get_debug_output in favor of minimal-godot-mcp ([#149](https://github.com/satelliteoflove/godot-mcp/issues/149)) ([684ce7b](https://github.com/satelliteoflove/godot-mcp/commit/684ce7be4731c09e437e74dc7fa97f5e11d1669e))
+
 ## [2.14.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.13.0...godot-mcp-v2.14.0) (2026-02-02)
 
 
