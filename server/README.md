@@ -58,6 +58,12 @@ Open your Godot project, restart your AI assistant, and start building.
 - **Test** by running the game and injecting input
 - **Learn** by fetching Godot docs on demand
 
+## Works Well With
+
+[minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) by [@ryanmazzolini](https://github.com/ryanmazzolini) is another MCP server for Godot. It focuses on language server diagnostics and console output via DAP, with no addon required. This project focuses on runtime control, scene manipulation, and everything that needs a direct line into the editor.
+
+They don't overlap much, and they don't conflict. Run them side by side for the best coverage.
+
 ## Documentation
 
 - [Claude Code Setup Guide](../docs/claude-code-setup.md) - CLAUDE.md templates and workflows

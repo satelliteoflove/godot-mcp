@@ -37,7 +37,7 @@ const EditorSchema = z
   .object({
     action: z
       .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_log_messages', 'get_errors', 'get_stack_trace', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output, get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
+      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output (deprecated - use minimal-godot-mcp), get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
     node_path: z
       .string()
       .optional()
@@ -118,7 +118,7 @@ interface LogMessagesResponse {
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output/errors/stack traces, get performance metrics, control 2D viewport',
+    'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output (deprecated - use minimal-godot-mcp)/errors/stack traces, get performance metrics, control 2D viewport',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -161,15 +161,16 @@ export const editor = defineTool({
       }
 
       case 'get_debug_output': {
+        const deprecation = '[DEPRECATED] get_debug_output is deprecated. Use minimal-godot-mcp\'s get_console_output tool instead (no addon required).\n\n';
         const result = await godot.sendCommand<{ output: string; source: string }>(
           'get_debug_output',
           { clear: args.clear ?? false, source: args.source }
         );
         if (!result.output || result.output.trim() === '') {
-          return `No ${result.source ?? 'debug'} output`;
+          return `${deprecation}No ${result.source ?? 'debug'} output`;
         }
         const label = result.source === 'editor' ? 'Editor' : result.source === 'game' ? 'Game' : 'Debug';
-        return `${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
+        return `${deprecation}${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
       }
 
       case 'get_log_messages': {

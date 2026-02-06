@@ -18,7 +18,7 @@ This project uses godot-mcp for AI-assisted development. The MCP provides real-t
 **Use MCP tools for:**
 - Running and stopping the game (`editor` run/stop)
 - Capturing screenshots of game or editor (`editor` screenshot_game/screenshot_editor)
-- Reading debug output from running games (`editor` get_debug_output)
+- Reading debug output from running games (`editor` get_debug_output) - deprecated, use minimal-godot-mcp's get_console_output instead
 - Getting structured errors with file:line (`editor` get_log_messages, get_stack_trace)
 - Inspecting node properties at runtime (`node` get_properties)
 - Finding nodes by pattern (`node` find)
@@ -54,7 +54,7 @@ When debugging issues:
 2. Use `editor` screenshot_game to see what's happening visually
 3. Use `editor` get_log_messages to get structured errors with file:line
 4. Use `editor` get_stack_trace for the backtrace of the last error
-5. Use `editor` get_debug_output for print statements and raw console output
+5. For print statements and raw console output, use minimal-godot-mcp's get_console_output tool
 6. Use `editor` get_performance to check FPS and resource usage
 7. Use `node` find to locate nodes in the running scene
 8. Use `input` to inject test inputs and reproduce issues
@@ -89,7 +89,7 @@ Claude Code reads CLAUDE.md at the start of each conversation. By documenting wh
 | Stop game | `editor` | stop |
 | Game screenshot | `editor` | screenshot_game |
 | Editor screenshot | `editor` | screenshot_editor |
-| Console output | `editor` | get_debug_output |
+| Console output (deprecated) | `editor` | get_debug_output - use minimal-godot-mcp |
 | Structured errors | `editor` | get_log_messages |
 | Error backtrace | `editor` | get_stack_trace |
 | FPS/memory stats | `editor` | get_performance |

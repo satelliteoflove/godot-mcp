@@ -66,16 +66,19 @@ describe('editor tool', () => {
     });
   });
 
-  describe('get_debug_output', () => {
-    it('returns labeled output based on source', async () => {
+  describe('get_debug_output (deprecated)', () => {
+    it('returns deprecation notice with labeled output based on source', async () => {
       const ctx = createToolContext(mock);
+      const deprecation = '[DEPRECATED] get_debug_output is deprecated. Use minimal-godot-mcp\'s get_console_output tool instead (no addon required).';
 
       mock.mockResponse({ output: '', source: 'editor' });
-      expect(await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx))
-        .toBe('No editor output');
+      const emptyResult = await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx);
+      expect(emptyResult).toContain(deprecation);
+      expect(emptyResult).toContain('No editor output');
 
       mock.mockResponse({ output: 'Player spawned', source: 'game' });
       const result = await editor.execute({ action: 'get_debug_output', source: 'game' }, ctx);
+      expect(result).toContain(deprecation);
       expect(result).toContain('Game output:');
       expect(result).toContain('Player spawned');
     });

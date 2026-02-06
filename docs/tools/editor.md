@@ -10,13 +10,13 @@ Editor control, debugging, and screenshot tools
 
 ## editor
 
-Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output/errors/stack traces, get performance metrics, control 2D viewport
+Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output (deprecated - use minimal-godot-mcp)/errors/stack traces, get performance metrics, control 2D viewport
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_log_messages`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output, get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
+| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_log_messages`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output (deprecated - use minimal-godot-mcp), get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
 | `clear` | boolean | get_debug_output, get_log_messages, get_errors | Clear buffer after reading |
