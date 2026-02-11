@@ -114,7 +114,22 @@ Example with environment variables:
 GODOT_HOST=192.168.1.100 GODOT_PORT=7000 npx -y @satelliteoflove/godot-mcp
 ```
 
-For WSL2 setups where Godot runs on Windows and the MCP server runs in WSL, see the [WSL Support](README.md#wsl-support) section in the main README.
+## WSL Support
+
+The MCP server has built-in support for Windows Subsystem for Linux (WSL2):
+
+- **Auto-detection**: MCP server automatically detects WSL environment via environment variables and `/proc/version`
+- **Host IP discovery**: Auto-discovers Windows host IP from WSL to connect to Godot running on Windows
+
+**Security note:** the Godot addon binds to `127.0.0.1` by default.
+
+In the Godot Editor bottom panel (**MCP**), you can configure what the addon listens on:
+- **Bind mode: Localhost** (default) - `127.0.0.1`
+- **Bind mode: WSL** - Windows `vEthernet (WSL)` IPv4 (required for Windows Godot + WSL2 server)
+- **Bind mode: Custom** - bind to a specific IP
+- **Port override** - change the listen port from `6550`
+
+If you enable **Port override**, set `GODOT_PORT` on the server to match.
 
 ## Don't see your client?
 

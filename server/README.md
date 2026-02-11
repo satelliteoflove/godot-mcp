@@ -55,25 +55,7 @@ They don't overlap much, and they don't conflict. Run them side by side for the 
 [Claude/AI Assistant/MCP Client] <--stdio--> [MCP Server] <--WebSocket:6550--> [Godot MCP Bridge Addon]
 ```
 
-### WSL Support
-
-The MCP server has built-in support for Windows Subsystem for Linux (WSL2):
-
-- **Auto-detection**: MCP server automatically detects WSL environment via environment variables and `/proc/version`
-- **Host IP discovery**: Auto-discovers Windows host IP from WSL to connect to Godot running on Windows
-- **Configuration**:
-  - `GODOT_HOST` overrides the Godot addon host (auto-detected in WSL)
-  - `GODOT_PORT` overrides the Godot addon port (default `6550`)
-
-**Security note:** the Godot addon binds to `127.0.0.1` by default.
-
-In the Godot Editor bottom panel (**MCP**), you can configure what the addon listens on:
-- **Bind mode: Localhost** (default) → `127.0.0.1`
-- **Bind mode: WSL** → Windows `vEthernet (WSL)` IPv4 (required for Windows Godot + WSL2 server)
-- **Bind mode: Custom** → bind to a specific IP
-- **Port override** → change the listen port from `6550`
-
-If you enable **Port override**, set `GODOT_PORT` on the server to match.
+WSL2 is supported (auto-detection, host IP discovery, configurable bind modes). See the [Installation Guide](../INSTALL.md#wsl-support) for setup details.
 
 ## CLI smoke test (paste-ready JSON-RPC)
 
