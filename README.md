@@ -12,31 +12,7 @@ This MCP gives Claude direct access to your Godot editor. It can see your scene 
 
 ### 1. Configure your AI assistant
 
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-```
-
-**Claude Code** (`.mcp.json` in your project):
-
-```json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-```
+Add godot-mcp to your MCP client. See the [Installation Guide](INSTALL.md) for config examples (Claude Desktop, Claude Code, VSCode/Copilot, and more).
 
 ### 2. Install the Godot addon
 
@@ -66,6 +42,7 @@ They don't overlap much, and they don't conflict. Run them side by side for the 
 
 ## Documentation
 
+- [Installation Guide](INSTALL.md) - MCP client configs for Claude Desktop, Claude Code, VSCode/Copilot, and more
 - [Claude Code Setup Guide](docs/claude-code-setup.md) - CLAUDE.md templates and workflows
 - [Tools Reference](docs/tools/README.md) - All 11 tools with full API docs
 - [Resources Reference](docs/resources.md) - MCP resources for reading project data

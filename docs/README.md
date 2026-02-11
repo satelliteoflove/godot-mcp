@@ -29,18 +29,7 @@ This server provides **11 tools** and **3 resources** for AI-assisted Godot deve
 
 ## Installation
 
-Add to your MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "godot-mcp": {
-      "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
-    }
-  }
-}
-```
+See the [Installation Guide](../INSTALL.md) for config examples for Claude Desktop, Claude Code, VSCode/Copilot, and other MCP clients.
 
 ## Requirements
 
