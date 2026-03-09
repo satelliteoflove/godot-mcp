@@ -69,6 +69,7 @@ export class GodotConnection extends EventEmitter {
   private pingInterval: NodeJS.Timeout | null = null;
   private pongTimeout: NodeJS.Timeout | null = null;
   private isClosing = false;
+  private heartbeatPending = false;
   private handshakeResult: HandshakeResult | null = null;
 
   private lastDisconnectReason: DisconnectReason = 'never_connected';
@@ -416,9 +417,14 @@ export class GodotConnection extends EventEmitter {
 
         // Send application-level heartbeat so Godot can track activity
         // and detect stale connections from its side too
-        this.sendCommand('heartbeat').catch(() => {
-          // Heartbeat failures are expected during disconnect - ignore
-        });
+        if (!this.heartbeatPending) {
+          this.heartbeatPending = true;
+          this.sendCommand('heartbeat').catch(() => {
+            // Heartbeat failures are expected during disconnect - ignore
+          }).finally(() => {
+            this.heartbeatPending = false;
+          });
+        }
       }
     }, PING_INTERVAL_MS);
   }

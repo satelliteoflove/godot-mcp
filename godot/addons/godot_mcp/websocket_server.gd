@@ -23,6 +23,7 @@ var _pending_rejection_peer: StreamPeerTCP = null
 var _connected_host: String = ""
 var _connected_port: int = 0
 var _last_activity_msec: int = 0
+var _stale_reason: String = ""
 
 
 func _process(_delta: float) -> void:
@@ -108,7 +109,7 @@ func _accept_connection() -> void:
 
 	if _ws_peer != null:
 		if _is_stale_connection():
-			MCPLog.warn("Replacing stale connection with new client")
+			MCPLog.warn("Replacing stale connection with new client (%s)" % _stale_reason)
 			_force_close_connection()
 		else:
 			_reject_connection(incoming)
@@ -124,10 +125,11 @@ func _accept_connection() -> void:
 		_peer = null
 		return
 
-	# Capture connection information
+	# Capture connection information and start activity tracking
 	_connected_host = _peer.get_connected_host()
 	_connected_port = _peer.get_connected_port()
-	
+	_last_activity_msec = Time.get_ticks_msec()
+
 	MCPLog.info("TCP connection received from %s:%d, awaiting WebSocket handshake..." % [_connected_host, _connected_port])
 
 
@@ -199,7 +201,7 @@ func _process_websocket() -> void:
 				MCPLog.info("WebSocket handshake complete")
 
 			if _is_stale_connection():
-				MCPLog.warn("Closing stale connection (no activity for %ds)" % (STALE_CONNECTION_TIMEOUT_MSEC / 1000))
+				MCPLog.warn("Closing stale connection (%s)" % _stale_reason)
 				_ws_peer.close(CLOSE_CODE_STALE, CLOSE_REASON_STALE)
 				return
 
@@ -230,6 +232,7 @@ func _force_close_connection() -> void:
 		_is_connected = false
 		client_disconnected.emit()
 	_last_activity_msec = 0
+	_rejected_connections = 0
 	_connected_host = ""
 	_connected_port = 0
 
@@ -238,9 +241,12 @@ func _is_stale_connection() -> bool:
 	if _last_activity_msec == 0:
 		return false
 	if _peer and _peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
-		MCPLog.info("TCP peer status: disconnected")
+		_stale_reason = "TCP peer disconnected"
 		return true
-	return Time.get_ticks_msec() - _last_activity_msec > STALE_CONNECTION_TIMEOUT_MSEC
+	if Time.get_ticks_msec() - _last_activity_msec > STALE_CONNECTION_TIMEOUT_MSEC:
+		_stale_reason = "no activity for %ds" % (STALE_CONNECTION_TIMEOUT_MSEC / 1000)
+		return true
+	return false
 
 
 func _handle_packet(packet: PackedByteArray) -> void:
