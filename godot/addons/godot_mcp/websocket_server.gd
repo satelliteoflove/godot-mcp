@@ -9,6 +9,9 @@ signal client_disconnected()
 const DEFAULT_PORT := 6550
 const CLOSE_CODE_ALREADY_CONNECTED := 4001
 const CLOSE_REASON_ALREADY_CONNECTED := "Another client is already connected"
+const STALE_CONNECTION_TIMEOUT_MSEC := 60000
+const CLOSE_CODE_STALE := 4002
+const CLOSE_REASON_STALE := "Connection timed out (no activity)"
 
 var _server: TCPServer
 var _peer: StreamPeerTCP
@@ -19,6 +22,7 @@ var _pending_rejection: WebSocketPeer = null
 var _pending_rejection_peer: StreamPeerTCP = null
 var _connected_host: String = ""
 var _connected_port: int = 0
+var _last_activity_msec: int = 0
 
 
 func _process(_delta: float) -> void:
@@ -71,6 +75,7 @@ func stop_server() -> void:
 	_rejected_connections = 0
 	_connected_host = ""
 	_connected_port = 0
+	_last_activity_msec = 0
 
 
 func get_rejected_connection_count() -> int:
@@ -186,10 +191,17 @@ func _process_websocket() -> void:
 		WebSocketPeer.STATE_OPEN:
 			if not _is_connected:
 				_is_connected = true
+				_last_activity_msec = Time.get_ticks_msec()
 				client_connected.emit()
 				MCPLog.info("WebSocket handshake complete")
 
+			if _is_stale_connection():
+				MCPLog.warn("Closing stale connection (no activity for %ds)" % (STALE_CONNECTION_TIMEOUT_MSEC / 1000))
+				_ws_peer.close(CLOSE_CODE_STALE, CLOSE_REASON_STALE)
+				return
+
 			while _ws_peer.get_available_packet_count() > 0:
+				_last_activity_msec = Time.get_ticks_msec()
 				var packet := _ws_peer.get_packet()
 				_handle_packet(packet)
 
@@ -202,6 +214,15 @@ func _process_websocket() -> void:
 				client_disconnected.emit()
 			_ws_peer = null
 			_peer = null
+
+
+func _is_stale_connection() -> bool:
+	if _last_activity_msec == 0:
+		return false
+	if _peer and _peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+		MCPLog.info("TCP peer status: disconnected")
+		return true
+	return Time.get_ticks_msec() - _last_activity_msec > STALE_CONNECTION_TIMEOUT_MSEC
 
 
 func _handle_packet(packet: PackedByteArray) -> void:

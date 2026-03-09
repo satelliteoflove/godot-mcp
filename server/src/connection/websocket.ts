@@ -19,6 +19,7 @@ const PING_INTERVAL_MS = 30000;
 const PONG_TIMEOUT_MS = 10000;
 
 const CLOSE_CODE_ALREADY_CONNECTED = 4001;
+const CLOSE_CODE_STALE = 4002;
 
 export type DisconnectReason =
   | 'never_connected'
@@ -238,6 +239,12 @@ export class GodotConnection extends EventEmitter {
               windows: 'Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"',
             },
           });
+        } else if (code === CLOSE_CODE_STALE) {
+          this.lastDisconnectReason = 'connection_lost';
+          const reasonStr = reason?.toString() || 'Connection timed out (no activity)';
+          logger.warning('Godot closed stale connection, will reconnect', {
+            reason: reasonStr,
+          });
         } else if (wasConnected) {
           this.lastDisconnectReason = 'connection_lost';
         } else if (this.lastDisconnectReason === 'never_connected') {
@@ -406,6 +413,12 @@ export class GodotConnection extends EventEmitter {
           this.emit('error', new Error('Pong timeout - connection may be dead'));
           this.ws?.terminate();
         }, PONG_TIMEOUT_MS);
+
+        // Send application-level heartbeat so Godot can track activity
+        // and detect stale connections from its side too
+        this.sendCommand('heartbeat').catch(() => {
+          // Heartbeat failures are expected during disconnect - ignore
+        });
       }
     }, PING_INTERVAL_MS);
   }

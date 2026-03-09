@@ -6,6 +6,7 @@ class_name MCPSystemCommands
 func get_commands() -> Dictionary:
 	return {
 		"mcp_handshake": mcp_handshake,
+		"heartbeat": heartbeat,
 	}
 
 
@@ -22,6 +23,10 @@ func mcp_handshake(params: Dictionary) -> Dictionary:
 		"project_name": ProjectSettings.get_setting("application/config/name", ""),
 		"server_version_received": server_version
 	})
+
+
+func heartbeat(_params: Dictionary) -> Dictionary:
+	return _success({"status": "ok"})
 
 
 func _get_addon_version() -> String:
