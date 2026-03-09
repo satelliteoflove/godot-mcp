@@ -12,7 +12,7 @@ This MCP gives Claude direct access to your Godot editor. It can see your scene 
 
 ### 1. Configure your AI assistant
 
-Add godot-mcp to your MCP client. See the [Installation Guide](../INSTALL.md) for config examples (Claude Desktop, Claude Code, VSCode/Copilot, and more).
+Add godot-mcp to your MCP client. See the [Installation Guide](INSTALL.md) for config examples (Claude Desktop, Claude Code, VSCode/Copilot, and more).
 
 ### 2. Install the Godot addon
 
@@ -42,7 +42,7 @@ They don't overlap much, and they don't conflict. Run them side by side for the 
 
 ## Documentation
 
-- [Installation Guide](../INSTALL.md) - MCP client configs for Claude Desktop, Claude Code, VSCode/Copilot, and more
+- [Installation Guide](INSTALL.md) - MCP client configs for Claude Desktop, Claude Code, VSCode/Copilot, and more
 - [Claude Code Setup Guide](../docs/claude-code-setup.md) - CLAUDE.md template for Godot projects
 - [Tools Reference](../docs/tools/README.md) - All 11 tools with full API docs
 - [Resources Reference](../docs/resources.md) - MCP resources for reading project data
@@ -55,7 +55,7 @@ They don't overlap much, and they don't conflict. Run them side by side for the 
 [Claude/AI Assistant/MCP Client] <--stdio--> [MCP Server] <--WebSocket:6550--> [Godot MCP Bridge Addon]
 ```
 
-WSL2 is supported (auto-detection, host IP discovery, configurable bind modes). See the [Installation Guide](../INSTALL.md#wsl-support) for setup details.
+WSL2 is supported (auto-detection, host IP discovery, configurable bind modes). See the [Installation Guide](INSTALL.md#wsl-support) for setup details.
 
 ## CLI smoke test (paste-ready JSON-RPC)
 
