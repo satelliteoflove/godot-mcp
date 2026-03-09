@@ -4,6 +4,7 @@ class_name MCPGameBridge
 const DEFAULT_MAX_WIDTH := 1920
 
 var _logger: _MCPGameLogger
+var _profiler: MCPFrameProfiler
 
 
 func _ready() -> void:
@@ -11,6 +12,8 @@ func _ready() -> void:
 		return
 	_logger = _MCPGameLogger.new()
 	OS.add_logger(_logger)
+	_profiler = MCPFrameProfiler.new()
+	EngineDebugger.register_profiler("mcp_frame_profiler", _profiler)
 	EngineDebugger.register_message_capture("godot_mcp", _on_debugger_message)
 	MCPLog.info("Game bridge initialized")
 
@@ -18,6 +21,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if EngineDebugger.is_active():
 		EngineDebugger.unregister_message_capture("godot_mcp")
+		if _profiler:
+			EngineDebugger.unregister_profiler("mcp_frame_profiler")
 
 
 func _process(_delta: float) -> void:
@@ -74,6 +79,18 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"type_text":
 			_handle_type_text(data)
+			return true
+		"get_profiler_data":
+			_handle_get_profiler_data()
+			return true
+		"get_profiler_status":
+			_handle_get_profiler_status()
+			return true
+		"get_active_processes":
+			_handle_get_active_processes()
+			return true
+		"get_signal_connections":
+			_handle_get_signal_connections(data)
 			return true
 	return false
 
@@ -191,17 +208,178 @@ func _handle_get_performance_metrics() -> void:
 		"render_objects": int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
 		"render_draw_calls": int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
 		"render_primitives": int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+		"render_video_mem": int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED)),
+		"render_texture_mem": int(Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)),
+		"render_buffer_mem": int(Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED)),
 		"physics_2d_active_objects": int(Performance.get_monitor(Performance.PHYSICS_2D_ACTIVE_OBJECTS)),
 		"physics_2d_collision_pairs": int(Performance.get_monitor(Performance.PHYSICS_2D_COLLISION_PAIRS)),
 		"physics_2d_island_count": int(Performance.get_monitor(Performance.PHYSICS_2D_ISLAND_COUNT)),
+		"physics_3d_active_objects": int(Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS)),
+		"physics_3d_collision_pairs": int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS)),
+		"physics_3d_island_count": int(Performance.get_monitor(Performance.PHYSICS_3D_ISLAND_COUNT)),
+		"audio_output_latency": Performance.get_monitor(Performance.AUDIO_OUTPUT_LATENCY),
 		"object_count": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
 		"object_resource_count": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
 		"object_node_count": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
 		"object_orphan_node_count": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
 		"memory_static": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
 		"memory_static_max": int(Performance.get_monitor(Performance.MEMORY_STATIC_MAX)),
+		"memory_msg_buffer_max": int(Performance.get_monitor(Performance.MEMORY_MESSAGE_BUFFER_MAX)),
+		"navigation_active_maps": int(Performance.get_monitor(Performance.NAVIGATION_ACTIVE_MAPS)),
+		"navigation_region_count": int(Performance.get_monitor(Performance.NAVIGATION_REGION_COUNT)),
+		"navigation_agent_count": int(Performance.get_monitor(Performance.NAVIGATION_AGENT_COUNT)),
+		"navigation_link_count": int(Performance.get_monitor(Performance.NAVIGATION_LINK_COUNT)),
+		"navigation_polygon_count": int(Performance.get_monitor(Performance.NAVIGATION_POLYGON_COUNT)),
+		"navigation_edge_count": int(Performance.get_monitor(Performance.NAVIGATION_EDGE_COUNT)),
+		"navigation_edge_merge_count": int(Performance.get_monitor(Performance.NAVIGATION_EDGE_MERGE_COUNT)),
+		"navigation_edge_connection_count": int(Performance.get_monitor(Performance.NAVIGATION_EDGE_CONNECTION_COUNT)),
+		"navigation_edge_free_count": int(Performance.get_monitor(Performance.NAVIGATION_EDGE_FREE_COUNT)),
+		"navigation_obstacle_count": int(Performance.get_monitor(Performance.NAVIGATION_OBSTACLE_COUNT)),
+		"pipeline_compilations_canvas": int(Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_CANVAS)),
+		"pipeline_compilations_mesh": int(Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_MESH)),
+		"pipeline_compilations_surface": int(Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_SURFACE)),
+		"pipeline_compilations_draw": int(Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_DRAW)),
+		"pipeline_compilations_specialization": int(Performance.get_monitor(Performance.PIPELINE_COMPILATIONS_SPECIALIZATION)),
 	}
+
+	var rid := get_viewport().get_viewport_rid()
+	metrics["viewport_render_cpu_ms"] = RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.viewport_get_measured_render_time_gpu(rid)
+	metrics["viewport_render_gpu_ms"] = RenderingServer.viewport_get_measured_render_time_gpu(rid)
+
 	EngineDebugger.send_message("godot_mcp:performance_metrics_result", [metrics])
+
+
+func _handle_get_profiler_data() -> void:
+	var data := _profiler.get_buffer_data() if _profiler else {}
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_profiler_data", data])
+
+
+func _handle_get_profiler_status() -> void:
+	var status := _profiler.get_status() if _profiler else {}
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_profiler_status", status])
+
+
+func _handle_get_active_processes() -> void:
+	var tree := get_tree()
+	var scene_root := tree.current_scene if tree else null
+	if not scene_root:
+		EngineDebugger.send_message("godot_mcp:game_response", ["get_active_processes", {"processes": []}])
+		return
+
+	var script_map: Dictionary = {}
+	_collect_processes(scene_root, scene_root, script_map)
+
+	var processes: Array = []
+	for script_path in script_map:
+		processes.append(script_map[script_path])
+
+	processes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.instance_count > b.instance_count
+	)
+
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_active_processes", {"processes": processes}])
+
+
+func _collect_processes(node: Node, scene_root: Node, script_map: Dictionary) -> void:
+	var is_proc := node.is_processing()
+	var is_phys := node.is_physics_processing()
+
+	if is_proc or is_phys:
+		var script_path := ""
+		var script := node.get_script()
+		if script and script is Script:
+			script_path = script.resource_path
+		if script_path.is_empty():
+			script_path = node.get_class()
+
+		if not script_map.has(script_path):
+			script_map[script_path] = {
+				"script_path": script_path,
+				"has_process": false,
+				"has_physics_process": false,
+				"instance_count": 0,
+				"example_paths": [],
+			}
+
+		var entry: Dictionary = script_map[script_path]
+		if is_proc:
+			entry.has_process = true
+		if is_phys:
+			entry.has_physics_process = true
+		entry.instance_count += 1
+		if entry.example_paths.size() < 3:
+			var path := "/root/" + scene_root.name
+			var relative := scene_root.get_path_to(node)
+			if relative != NodePath("."):
+				path += "/" + str(relative)
+			entry.example_paths.append(path)
+
+	for child in node.get_children():
+		_collect_processes(child, scene_root, script_map)
+
+
+func _handle_get_signal_connections(data: Array) -> void:
+	var node_path: String = data[0] if data.size() > 0 else ""
+
+	var tree := get_tree()
+	var scene_root := tree.current_scene if tree else null
+	if not scene_root:
+		EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": []}])
+		return
+
+	var search_root: Node = scene_root
+	if not node_path.is_empty():
+		search_root = _get_node_from_path(node_path, scene_root)
+		if not search_root:
+			EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": [], "error": "Node not found: " + node_path}])
+			return
+
+	var connections: Array = []
+	_collect_signal_connections(search_root, scene_root, connections, 0)
+
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": connections}])
+
+
+const MAX_SIGNAL_CONNECTIONS := 200
+const MAX_SIGNAL_DEPTH := 20
+
+
+func _collect_signal_connections(node: Node, scene_root: Node, connections: Array, depth: int) -> void:
+	if connections.size() >= MAX_SIGNAL_CONNECTIONS or depth > MAX_SIGNAL_DEPTH:
+		return
+
+	var source_path := _node_path_string(node, scene_root)
+
+	for sig_info in node.get_signal_list():
+		var sig_name: String = sig_info.name
+		for conn in node.get_signal_connection_list(sig_name):
+			if connections.size() >= MAX_SIGNAL_CONNECTIONS:
+				return
+			var target: Object = conn.callable.get_object()
+			var target_path := ""
+			if target is Node:
+				target_path = _node_path_string(target as Node, scene_root)
+			else:
+				target_path = str(target)
+			connections.append({
+				"source_path": source_path,
+				"signal_name": sig_name,
+				"target_path": target_path,
+				"method_name": conn.callable.get_method(),
+			})
+
+	for child in node.get_children():
+		if connections.size() >= MAX_SIGNAL_CONNECTIONS:
+			return
+		_collect_signal_connections(child, scene_root, connections, depth + 1)
+
+
+func _node_path_string(node: Node, scene_root: Node) -> String:
+	var path := "/root/" + scene_root.name
+	var relative := scene_root.get_path_to(node)
+	if relative != NodePath("."):
+		path += "/" + str(relative)
+	return path
 
 
 class _MCPGameLogger extends Logger:

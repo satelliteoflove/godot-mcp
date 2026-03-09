@@ -219,25 +219,9 @@ export const editor = defineTool({
       }
 
       case 'get_performance': {
-        const result = await godot.sendCommand<{
-          fps: number;
-          frame_time_ms: number;
-          physics_time_ms: number;
-          navigation_time_ms: number;
-          render_objects: number;
-          render_draw_calls: number;
-          render_primitives: number;
-          physics_2d_active_objects: number;
-          physics_2d_collision_pairs: number;
-          physics_2d_island_count: number;
-          object_count: number;
-          object_resource_count: number;
-          object_node_count: number;
-          object_orphan_node_count: number;
-          memory_static: number;
-          memory_static_max: number;
-        }>('get_performance_metrics');
-        return JSON.stringify(result, null, 2);
+        const deprecation = '[DEPRECATED] get_performance is deprecated. Use profiler > snapshot instead for all 59 monitors + render timing.\n\n';
+        const result = await godot.sendCommand<Record<string, number>>('get_performance_metrics');
+        return deprecation + JSON.stringify(result, null, 2);
       }
 
       case 'screenshot_game': {

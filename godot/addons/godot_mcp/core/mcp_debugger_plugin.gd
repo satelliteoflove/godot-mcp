@@ -9,6 +9,7 @@ signal find_nodes_received(matches: Array, count: int, error: String)
 signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
 signal type_text_completed(result: Dictionary)
+signal game_response(message_type: String, data: Variant)
 
 var _active_session_id: int = -1
 var _pending_screenshot: bool = false
@@ -18,6 +19,8 @@ var _pending_find_nodes: bool = false
 var _pending_input_map: bool = false
 var _pending_input_sequence: bool = false
 var _pending_type_text: bool = false
+var _pending_requests: Dictionary = {}
+var _responses: Dictionary = {}
 
 
 func _has_capture(prefix: String) -> bool:
@@ -46,6 +49,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:type_text_result":
 			_handle_type_text_result(data)
+			return true
+		"godot_mcp:game_response":
+			_handle_game_response(data)
 			return true
 	return false
 
@@ -77,6 +83,9 @@ func _session_stopped() -> void:
 	if _pending_type_text:
 		_pending_type_text = false
 		type_text_completed.emit({"error": "Game session ended"})
+	for msg_type in _pending_requests:
+		_responses[msg_type] = {}
+	_pending_requests.clear()
 
 
 func has_active_session() -> bool:
@@ -229,3 +238,46 @@ func _handle_type_text_result(data: Array) -> void:
 	_pending_type_text = false
 	var result: Dictionary = data[0] if data.size() > 0 else {}
 	type_text_completed.emit(result)
+
+
+func send_game_message(msg_type: String, args: Array = []) -> bool:
+	if _active_session_id < 0:
+		return false
+	var session := get_session(_active_session_id)
+	if not session:
+		return false
+	_pending_requests[msg_type] = true
+	_responses.erase(msg_type)
+	session.send_message("godot_mcp:" + msg_type, args)
+	return true
+
+
+func has_response(msg_type: String) -> bool:
+	return _responses.has(msg_type)
+
+
+func get_response(msg_type: String) -> Variant:
+	return _responses.get(msg_type)
+
+
+func clear_response(msg_type: String) -> void:
+	_responses.erase(msg_type)
+	_pending_requests.erase(msg_type)
+
+
+func _handle_game_response(data: Array) -> void:
+	if data.size() < 2:
+		return
+	var msg_type: String = data[0]
+	var response_data: Variant = data[1]
+	_pending_requests.erase(msg_type)
+	_responses[msg_type] = response_data
+	game_response.emit(msg_type, response_data)
+
+
+func toggle_frame_profiler(enable: bool) -> void:
+	if _active_session_id < 0:
+		return
+	var session := get_session(_active_session_id)
+	if session:
+		session.toggle_profiler("mcp_frame_profiler", enable)
