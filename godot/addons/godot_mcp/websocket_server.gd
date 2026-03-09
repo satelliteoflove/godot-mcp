@@ -9,7 +9,7 @@ signal client_disconnected()
 const DEFAULT_PORT := 6550
 const CLOSE_CODE_ALREADY_CONNECTED := 4001
 const CLOSE_REASON_ALREADY_CONNECTED := "Another client is already connected"
-const STALE_CONNECTION_TIMEOUT_MSEC := 60000
+const STALE_CONNECTION_TIMEOUT_MSEC := 45000
 const CLOSE_CODE_STALE := 4002
 const CLOSE_REASON_STALE := "Connection timed out (no activity)"
 
@@ -106,10 +106,13 @@ func _accept_connection() -> void:
 	if not incoming:
 		return
 
-	# Reject if we already have an active or pending connection
 	if _ws_peer != null:
-		_reject_connection(incoming)
-		return
+		if _is_stale_connection():
+			MCPLog.warn("Replacing stale connection with new client")
+			_force_close_connection()
+		else:
+			_reject_connection(incoming)
+			return
 
 	_peer = incoming
 	_ws_peer = WebSocketPeer.new()
@@ -214,6 +217,21 @@ func _process_websocket() -> void:
 				client_disconnected.emit()
 			_ws_peer = null
 			_peer = null
+
+
+func _force_close_connection() -> void:
+	if _ws_peer:
+		_ws_peer.close(CLOSE_CODE_STALE, CLOSE_REASON_STALE)
+		_ws_peer = null
+	if _peer:
+		_peer.disconnect_from_host()
+		_peer = null
+	if _is_connected:
+		_is_connected = false
+		client_disconnected.emit()
+	_last_activity_msec = 0
+	_connected_host = ""
+	_connected_port = 0
 
 
 func _is_stale_connection() -> bool:
