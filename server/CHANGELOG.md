@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.15.0...godot-mcp-v2.16.0) (2026-03-09)
+
+
+### Features
+
+* detect and clean up stale WebSocket connections ([#158](https://github.com/satelliteoflove/godot-mcp/issues/158)) ([a0e7809](https://github.com/satelliteoflove/godot-mcp/commit/a0e7809c3ffc9fb01e29eec4bbf35fa491d30a92))
+
 ## [2.15.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.14.0...godot-mcp-v2.15.0) (2026-02-06)
 
 
