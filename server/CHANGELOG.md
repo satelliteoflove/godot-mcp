@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.16.0...godot-mcp-v2.16.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* graceful shutdown and connection replacement for zombie server processes ([#161](https://github.com/satelliteoflove/godot-mcp/issues/161)) ([dd1abe1](https://github.com/satelliteoflove/godot-mcp/commit/dd1abe182d194599295ca954fb2722d31ee7adc9)), closes [#157](https://github.com/satelliteoflove/godot-mcp/issues/157)
+
 ## [2.16.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.15.0...godot-mcp-v2.16.0) (2026-03-09)
 
 
