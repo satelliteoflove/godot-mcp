@@ -7,19 +7,16 @@ signal client_connected()
 signal client_disconnected()
 
 const DEFAULT_PORT := 6550
-const CLOSE_CODE_ALREADY_CONNECTED := 4001
-const CLOSE_REASON_ALREADY_CONNECTED := "Another client is already connected"
 const STALE_CONNECTION_TIMEOUT_MSEC := 45000
 const CLOSE_CODE_STALE := 4002
 const CLOSE_REASON_STALE := "Connection timed out (no activity)"
+const CLOSE_CODE_REPLACED := 4003
+const CLOSE_REASON_REPLACED := "Replaced by new client"
 
 var _server: TCPServer
 var _peer: StreamPeerTCP
 var _ws_peer: WebSocketPeer
 var _is_connected := false
-var _rejected_connections := 0
-var _pending_rejection: WebSocketPeer = null
-var _pending_rejection_peer: StreamPeerTCP = null
 var _connected_host: String = ""
 var _connected_port: int = 0
 var _last_activity_msec: int = 0
@@ -37,8 +34,6 @@ func _process(_delta: float) -> void:
 		_ws_peer.poll()
 		_process_websocket()
 
-	_process_pending_rejection()
-
 
 func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") -> Error:
 	_server = TCPServer.new()
@@ -52,14 +47,6 @@ func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") 
 
 
 func stop_server() -> void:
-	if _pending_rejection:
-		_pending_rejection.close()
-		_pending_rejection = null
-
-	if _pending_rejection_peer:
-		_pending_rejection_peer.disconnect_from_host()
-		_pending_rejection_peer = null
-
 	if _ws_peer:
 		_ws_peer.close()
 		_ws_peer = null
@@ -73,23 +60,16 @@ func stop_server() -> void:
 		_server = null
 
 	_is_connected = false
-	_rejected_connections = 0
 	_connected_host = ""
 	_connected_port = 0
 	_last_activity_msec = 0
 
 
-func get_rejected_connection_count() -> int:
-	return _rejected_connections
-
-
 func get_connected_host() -> String:
-	"""Returns the remote host IP address of the connected client."""
 	return _connected_host
 
 
 func get_connected_port() -> int:
-	"""Returns the remote port of the connected client."""
 	return _connected_port
 
 
@@ -112,8 +92,8 @@ func _accept_connection() -> void:
 			MCPLog.warn("Replacing stale connection with new client (%s)" % _stale_reason)
 			_force_close_connection()
 		else:
-			_reject_connection(incoming)
-			return
+			MCPLog.warn("Replacing active connection with new client (previous server likely exited without closing)")
+			_force_close_connection(CLOSE_CODE_REPLACED, CLOSE_REASON_REPLACED)
 
 	_peer = incoming
 	_ws_peer = WebSocketPeer.new()
@@ -125,62 +105,11 @@ func _accept_connection() -> void:
 		_peer = null
 		return
 
-	# Capture connection information and start activity tracking
 	_connected_host = _peer.get_connected_host()
 	_connected_port = _peer.get_connected_port()
 	_last_activity_msec = Time.get_ticks_msec()
 
 	MCPLog.info("TCP connection received from %s:%d, awaiting WebSocket handshake..." % [_connected_host, _connected_port])
-
-
-func _reject_connection(incoming: StreamPeerTCP) -> void:
-	_rejected_connections += 1
-
-	# If we're already processing a rejection, just drop this one at TCP level
-	if _pending_rejection != null:
-		incoming.disconnect_from_host()
-		MCPLog.info("Rejected connection at TCP level (busy processing previous rejection) - total rejections: %d" % _rejected_connections)
-		return
-
-	# Accept WebSocket to send proper close code with reason
-	_pending_rejection_peer = incoming
-	_pending_rejection = WebSocketPeer.new()
-	var err := _pending_rejection.accept_stream(_pending_rejection_peer)
-	if err != OK:
-		# Fall back to TCP disconnect
-		incoming.disconnect_from_host()
-		_pending_rejection = null
-		_pending_rejection_peer = null
-		MCPLog.info("Rejected connection at TCP level (WebSocket accept failed) - total rejections: %d" % _rejected_connections)
-		return
-
-	MCPLog.info("Rejecting connection (another client already connected) - total rejections: %d" % _rejected_connections)
-
-
-func _process_pending_rejection() -> void:
-	if _pending_rejection == null:
-		return
-
-	_pending_rejection.poll()
-	var state := _pending_rejection.get_ready_state()
-
-	match state:
-		WebSocketPeer.STATE_CONNECTING:
-			# Still waiting for handshake, will send close once ready
-			pass
-
-		WebSocketPeer.STATE_OPEN:
-			# Handshake complete, now send close with our custom code
-			_pending_rejection.close(CLOSE_CODE_ALREADY_CONNECTED, CLOSE_REASON_ALREADY_CONNECTED)
-
-		WebSocketPeer.STATE_CLOSING:
-			# Waiting for close to complete
-			pass
-
-		WebSocketPeer.STATE_CLOSED:
-			# Done, clean up
-			_pending_rejection = null
-			_pending_rejection_peer = null
 
 
 func _process_websocket() -> void:
@@ -221,9 +150,9 @@ func _process_websocket() -> void:
 			_peer = null
 
 
-func _force_close_connection() -> void:
+func _force_close_connection(close_code: int = CLOSE_CODE_STALE, close_reason: String = CLOSE_REASON_STALE) -> void:
 	if _ws_peer:
-		_ws_peer.close(CLOSE_CODE_STALE, CLOSE_REASON_STALE)
+		_ws_peer.close(close_code, close_reason)
 		_ws_peer = null
 	if _peer:
 		_peer.disconnect_from_host()
@@ -232,7 +161,6 @@ func _force_close_connection() -> void:
 		_is_connected = false
 		client_disconnected.emit()
 	_last_activity_msec = 0
-	_rejected_connections = 0
 	_connected_host = ""
 	_connected_port = 0
 
