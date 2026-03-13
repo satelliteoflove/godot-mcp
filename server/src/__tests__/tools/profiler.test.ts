@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
-import { profiler, computePercentiles, detectSpikes, computeMonitorTrends } from '../../tools/profiler.js';
+import { profiler, computePercentiles, detectSpikes, computeMonitorTrends, computeFrameBudget } from '../../tools/profiler.js';
 
 describe('profiler tool', () => {
   let mock: MockGodotConnection;
@@ -82,7 +82,11 @@ describe('profiler tool', () => {
       const result = await profiler.execute({ action: 'get_data' }, ctx);
       const parsed = JSON.parse(result as string);
       expect(parsed.statistics.frame_time).toBeDefined();
-      expect(parsed.statistics.frame_time.avg).toBeGreaterThan(0);
+      expect(parsed.statistics.frame_time.avg_ms).toBeGreaterThan(0);
+      expect(parsed.frame_budget).toBeDefined();
+      expect(parsed.frame_budget.target_fps).toBeGreaterThan(0);
+      expect(parsed.frame_budget.budget_usage_percent).toBeGreaterThan(0);
+      expect(parsed.physics_tick_ms).toBeDefined();
       expect(parsed.spikes).toBeDefined();
       expect(parsed.spikes.count).toBe(1);
       expect(parsed.monitor_trends).toBeDefined();
@@ -94,27 +98,26 @@ describe('profiler statistics', () => {
   describe('computePercentiles', () => {
     it('returns zeros for empty array', () => {
       const stats = computePercentiles([]);
-      expect(stats.avg).toBe(0);
-      expect(stats.min).toBe(0);
-      expect(stats.max).toBe(0);
+      expect(stats.avg_ms).toBe(0);
+      expect(stats.min_ms).toBe(0);
+      expect(stats.max_ms).toBe(0);
     });
 
     it('computes correct values for single element', () => {
-      const stats = computePercentiles([5]);
-      expect(stats.avg).toBe(5);
-      expect(stats.min).toBe(5);
-      expect(stats.max).toBe(5);
-      expect(stats.p50).toBe(5);
+      const stats = computePercentiles([0.016]);
+      expect(stats.avg_ms).toBe(16);
+      expect(stats.min_ms).toBe(16);
+      expect(stats.max_ms).toBe(16);
+      expect(stats.p50_ms).toBe(16);
     });
 
     it('computes correct percentiles for multiple values', () => {
-      const values = Array.from({ length: 100 }, (_, i) => i + 1);
+      const values = [0.010, 0.016, 0.017, 0.020, 0.050];
       const stats = computePercentiles(values);
-      expect(stats.avg).toBeCloseTo(50.5);
-      expect(stats.min).toBe(1);
-      expect(stats.max).toBe(100);
-      expect(stats.p50).toBeCloseTo(50.5, 0);
-      expect(stats.p95).toBeCloseTo(95.5, 0);
+      expect(stats.avg_ms).toBeGreaterThan(0);
+      expect(stats.min_ms).toBe(10);
+      expect(stats.max_ms).toBe(50);
+      expect(stats.p50_ms).toBe(17);
     });
   });
 
@@ -139,13 +142,39 @@ describe('profiler statistics', () => {
     });
   });
 
+  describe('computeFrameBudget', () => {
+    it('computes budget stats for 60fps target', () => {
+      const frameTime = { avg_ms: 8, min_ms: 7, max_ms: 10, p50_ms: 8, p95_ms: 9, p99_ms: 10 };
+      const result = computeFrameBudget(frameTime, 60);
+      expect(result.target_fps).toBe(60);
+      expect(result.frame_budget_ms).toBeCloseTo(16.7, 1);
+      expect(result.actual_fps).toBe(125);
+      expect(result.budget_usage_percent).toBeCloseTo(47.9, 0);
+    });
+
+    it('handles 30fps target', () => {
+      const frameTime = { avg_ms: 30, min_ms: 28, max_ms: 35, p50_ms: 30, p95_ms: 33, p99_ms: 35 };
+      const result = computeFrameBudget(frameTime, 30);
+      expect(result.target_fps).toBe(30);
+      expect(result.frame_budget_ms).toBeCloseTo(33.3, 1);
+      expect(result.actual_fps).toBe(33);
+    });
+
+    it('handles 120fps target', () => {
+      const frameTime = { avg_ms: 7, min_ms: 6, max_ms: 9, p50_ms: 7, p95_ms: 8, p99_ms: 9 };
+      const result = computeFrameBudget(frameTime, 120);
+      expect(result.target_fps).toBe(120);
+      expect(result.frame_budget_ms).toBeCloseTo(8.3, 1);
+    });
+  });
+
   describe('computeMonitorTrends', () => {
     it('returns empty for frames without monitors', () => {
       const frames = [{ ft: 0.016, pt: 0.008, pht: 0.004, pft: 0.004, i: 0 }];
       expect(computeMonitorTrends(frames)).toEqual({});
     });
 
-    it('computes start/end/avg/max for monitor values', () => {
+    it('computes start/end/avg/max/change_percent for monitor values', () => {
       const frames = [
         { ft: 0.016, pt: 0.008, pht: 0.004, pft: 0.004, i: 0, m: { fps: 60, node_count: 100 } },
         { ft: 0.016, pt: 0.008, pht: 0.004, pft: 0.004, i: 10, m: { fps: 30, node_count: 200 } },
@@ -155,8 +184,10 @@ describe('profiler statistics', () => {
       expect(trends.fps.end).toBe(30);
       expect(trends.fps.avg).toBe(45);
       expect(trends.fps.max).toBe(60);
+      expect(trends.fps.change_percent).toBe(-50);
       expect(trends.node_count.start).toBe(100);
       expect(trends.node_count.end).toBe(200);
+      expect(trends.node_count.change_percent).toBe(100);
     });
   });
 });

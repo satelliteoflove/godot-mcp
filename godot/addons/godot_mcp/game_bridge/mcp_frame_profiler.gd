@@ -43,6 +43,7 @@ func get_buffer_data() -> Dictionary:
 		"active": _active,
 		"frame_count": _buffer.size(),
 		"total_frames_collected": _frame_index,
+		"max_fps": Engine.max_fps,
 		"frames": _buffer.duplicate(),
 	}
 

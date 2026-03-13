@@ -77,41 +77,80 @@ func stop_profiler(_params: Dictionary) -> Dictionary:
 
 
 func get_profiler_data(_params: Dictionary) -> Dictionary:
-	return await _generic_request("get_profiler_data")
+	var result = await _send_and_wait("get_profiler_data")
+	if result == null:
+		return _last_error
+	var result_dict: Dictionary
+	if result is Dictionary:
+		result_dict = result
+	else:
+		result_dict = {"data": result}
+	return _success(result_dict)
 
 
 func get_profiler_status(_params: Dictionary) -> Dictionary:
-	return await _generic_request("get_profiler_status")
+	var result = await _send_and_wait("get_profiler_status")
+	if result == null:
+		return _last_error
+	var result_dict: Dictionary
+	if result is Dictionary:
+		result_dict = result
+	else:
+		result_dict = {"data": result}
+	return _success(result_dict)
 
 
 func get_active_processes(_params: Dictionary) -> Dictionary:
-	return await _generic_request("get_active_processes")
+	var result = await _send_and_wait("get_active_processes")
+	if result == null:
+		return _last_error
+	var result_dict: Dictionary
+	if result is Dictionary:
+		result_dict = result
+	else:
+		result_dict = {"data": result}
+	return _success(result_dict)
 
 
 func get_signal_connections(params: Dictionary) -> Dictionary:
 	var node_path: String = params.get("node_path", "")
-	return await _generic_request("get_signal_connections", [node_path])
+	var result = await _send_and_wait("get_signal_connections", [node_path])
+	if result == null:
+		return _last_error
+	var result_dict: Dictionary
+	if result is Dictionary:
+		result_dict = result
+	else:
+		result_dict = {"data": result}
+	return _success(result_dict)
 
 
-func _generic_request(msg_type: String, args: Array = []) -> Dictionary:
+var _last_error: Dictionary = {}
+
+
+func _send_and_wait(msg_type: String, args: Array = []):
 	if not EditorInterface.is_playing_scene():
-		return _error("NOT_RUNNING", "No game is currently running")
+		_last_error = _error("NOT_RUNNING", "No game is currently running")
+		return null
 
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
-		return _error("NO_SESSION", "No active debug session")
+		_last_error = _error("NO_SESSION", "No active debug session")
+		return null
 
-	var sent := debugger_plugin.send_game_message(msg_type, args)
+	var sent: bool = debugger_plugin.send_game_message(msg_type, args)
 	if not sent:
-		return _error("SEND_FAILED", "Failed to send message to game")
+		_last_error = _error("SEND_FAILED", "Failed to send message to game")
+		return null
 
 	var start_time := Time.get_ticks_msec()
 	while not debugger_plugin.has_response(msg_type):
 		await Engine.get_main_loop().process_frame
 		if (Time.get_ticks_msec() - start_time) / 1000.0 > GENERIC_TIMEOUT:
 			debugger_plugin.clear_response(msg_type)
-			return _error("TIMEOUT", "Timed out waiting for %s response" % msg_type)
+			_last_error = _error("TIMEOUT", "Timed out waiting for %s response" % msg_type)
+			return null
 
 	var response = debugger_plugin.get_response(msg_type)
 	debugger_plugin.clear_response(msg_type)
-	return _success(response if response is Dictionary else {"data": response})
+	return response
