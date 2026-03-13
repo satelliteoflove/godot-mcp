@@ -20,10 +20,12 @@ const PONG_TIMEOUT_MS = 10000;
 
 const CLOSE_CODE_ALREADY_CONNECTED = 4001;
 const CLOSE_CODE_STALE = 4002;
+const CLOSE_CODE_REPLACED = 4003;
 
 export type DisconnectReason =
   | 'never_connected'
   | 'rejected_another_client'
+  | 'replaced_by_new_client'
   | 'connection_refused'
   | 'connection_lost'
   | 'closed_normally'
@@ -154,6 +156,11 @@ export class GodotConnection extends EventEmitter {
         lines.push('  Fix: Kill all godot-mcp processes and restart your MCP client');
         break;
 
+      case 'replaced_by_new_client':
+        lines.push('Status: Another MCP server connected and replaced this one');
+        lines.push('Suggestion: This server is no longer active. Restart it or close this session.');
+        break;
+
       case 'connection_refused':
         lines.push(`Status: Cannot reach Godot at ${diag.url}`);
         lines.push('Suggestion: Ensure Godot is running with the MCP addon enabled.');
@@ -239,6 +246,14 @@ export class GodotConnection extends EventEmitter {
               macLinux: 'ps aux | grep godot-mcp',
               windows: 'Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"',
             },
+          });
+        } else if (code === CLOSE_CODE_REPLACED) {
+          this.lastDisconnectReason = 'replaced_by_new_client';
+          this.isClosing = true;
+          const reasonStr = reason?.toString() || 'Replaced by new client';
+          logger.warning('Another MCP server connected to Godot, this server will not reconnect', {
+            reason: reasonStr,
+            suggestion: 'This is normal when reconnecting. If unexpected, check for duplicate MCP server configurations.',
           });
         } else if (code === CLOSE_CODE_STALE) {
           this.lastDisconnectReason = 'connection_lost';

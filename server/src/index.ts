@@ -94,5 +94,23 @@ export async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
+  let isShuttingDown = false;
+  const gracefulShutdown = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    logger.info('Shutting down');
+    try {
+      getGodotConnection().disconnect();
+    } catch {
+      // Connection may not exist yet
+    }
+    setTimeout(() => process.exit(0), 500);
+  };
+
+  process.stdin.on('end', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+  server.onclose = gracefulShutdown;
+
   logger.info('Server started');
 }
