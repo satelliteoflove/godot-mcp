@@ -48,15 +48,6 @@ func get_buffer_data() -> Dictionary:
 	}
 
 
-func get_status() -> Dictionary:
-	return {
-		"active": _active,
-		"frame_count": _buffer.size(),
-		"total_frames_collected": _frame_index,
-		"max_frames": MAX_FRAMES,
-	}
-
-
 func _snapshot_monitors() -> Dictionary:
 	return {
 		"fps": Performance.get_monitor(Performance.TIME_FPS),

@@ -19,13 +19,6 @@ interface ProfilerDataResponse {
   frames: FrameEntry[];
 }
 
-interface ProfilerStatusResponse {
-  active: boolean;
-  frame_count: number;
-  total_frames_collected: number;
-  max_frames: number;
-}
-
 interface ProcessEntry {
   script_path: string;
   has_process: boolean;
@@ -178,12 +171,11 @@ const ProfilerSchema = z
         'snapshot',
         'start',
         'stop',
-        'status',
         'get_data',
         'get_active_processes',
         'get_signal_connections',
       ])
-      .describe('Action: snapshot (full perf snapshot), start/stop/status/get_data (time series profiling), get_active_processes, get_signal_connections'),
+      .describe('Action: snapshot (full perf snapshot), start/stop/get_data (time series profiling), get_active_processes, get_signal_connections'),
     node_path: z
       .string()
       .optional()
@@ -223,11 +215,6 @@ export const profiler = defineTool({
       case 'stop': {
         const result = await godot.sendCommand<{ message: string }>('stop_profiler');
         return result.message;
-      }
-
-      case 'status': {
-        const result = await godot.sendCommand<ProfilerStatusResponse>('get_profiler_status');
-        return JSON.stringify(result, null, 2);
       }
 
       case 'get_data': {

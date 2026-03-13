@@ -15,7 +15,6 @@ func get_commands() -> Dictionary:
 		"start_profiler": start_profiler,
 		"stop_profiler": stop_profiler,
 		"get_profiler_data": get_profiler_data,
-		"get_profiler_status": get_profiler_status,
 		"get_active_processes": get_active_processes,
 		"get_signal_connections": get_signal_connections,
 	}
@@ -78,18 +77,6 @@ func stop_profiler(_params: Dictionary) -> Dictionary:
 
 func get_profiler_data(_params: Dictionary) -> Dictionary:
 	var result = await _send_and_wait("get_profiler_data")
-	if result == null:
-		return _last_error
-	var result_dict: Dictionary
-	if result is Dictionary:
-		result_dict = result
-	else:
-		result_dict = {"data": result}
-	return _success(result_dict)
-
-
-func get_profiler_status(_params: Dictionary) -> Dictionary:
-	var result = await _send_and_wait("get_profiler_status")
 	if result == null:
 		return _last_error
 	var result_dict: Dictionary

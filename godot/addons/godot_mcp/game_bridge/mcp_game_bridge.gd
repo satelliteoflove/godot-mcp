@@ -83,9 +83,6 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"get_profiler_data":
 			_handle_get_profiler_data()
 			return true
-		"get_profiler_status":
-			_handle_get_profiler_status()
-			return true
 		"get_active_processes":
 			_handle_get_active_processes()
 			return true
@@ -252,11 +249,6 @@ func _handle_get_performance_metrics() -> void:
 func _handle_get_profiler_data() -> void:
 	var data := _profiler.get_buffer_data() if _profiler else {}
 	EngineDebugger.send_message("godot_mcp:game_response", ["get_profiler_data", data])
-
-
-func _handle_get_profiler_status() -> void:
-	var status := _profiler.get_status() if _profiler else {}
-	EngineDebugger.send_message("godot_mcp:game_response", ["get_profiler_status", status])
 
 
 func _handle_get_active_processes() -> void:

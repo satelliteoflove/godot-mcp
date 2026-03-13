@@ -14,7 +14,6 @@ describe('profiler tool', () => {
       expect(profiler.schema.safeParse({ action: 'snapshot' }).success).toBe(true);
       expect(profiler.schema.safeParse({ action: 'start' }).success).toBe(true);
       expect(profiler.schema.safeParse({ action: 'stop' }).success).toBe(true);
-      expect(profiler.schema.safeParse({ action: 'status' }).success).toBe(true);
       expect(profiler.schema.safeParse({ action: 'get_data' }).success).toBe(true);
       expect(profiler.schema.safeParse({ action: 'get_active_processes' }).success).toBe(true);
     });
@@ -48,16 +47,6 @@ describe('profiler tool', () => {
 
       mock.mockResponse({ message: 'Frame profiler stopped' });
       expect(await profiler.execute({ action: 'stop' }, ctx)).toBe('Frame profiler stopped');
-    });
-  });
-
-  describe('status', () => {
-    it('returns profiler status JSON', async () => {
-      const status = { active: true, frame_count: 50, total_frames_collected: 50, max_frames: 300 };
-      mock.mockResponse(status);
-      const ctx = createToolContext(mock);
-      const result = await profiler.execute({ action: 'status' }, ctx);
-      expect(JSON.parse(result as string)).toEqual(status);
     });
   });
 
