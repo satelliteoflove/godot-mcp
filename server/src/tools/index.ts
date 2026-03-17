@@ -2,6 +2,7 @@ import { registry } from '../core/registry.js';
 import { sceneTools } from './scene.js';
 import { nodeTools } from './node.js';
 import { editorTools } from './editor.js';
+import { editorScriptTools } from './editor_script.js';
 import { projectTools } from './project.js';
 import { animationTools } from './animation.js';
 import { tilemapTools } from './tilemap.js';
@@ -14,6 +15,7 @@ export function registerAllTools(): void {
   registry.registerTools(sceneTools);
   registry.registerTools(nodeTools);
   registry.registerTools(editorTools);
+  registry.registerTools(editorScriptTools);
   registry.registerTools(projectTools);
   registry.registerTools(animationTools);
   registry.registerTools(tilemapTools);
@@ -26,6 +28,7 @@ export function registerAllTools(): void {
 export { sceneTools } from './scene.js';
 export { nodeTools } from './node.js';
 export { editorTools } from './editor.js';
+export { editorScriptTools } from './editor_script.js';
 export { projectTools } from './project.js';
 export { animationTools } from './animation.js';
 export { tilemapTools } from './tilemap.js';

@@ -172,6 +172,20 @@ func create_node(params: Dictionary) -> Dictionary:
 	var scene_root := EditorInterface.get_edited_scene_root()
 	_set_owner_recursive(node, scene_root)
 
+	# Re-apply spatial transforms after add_child: the editor viewport may
+	# snap newly added Node3D nodes to the current 3D cursor position,
+	# overriding properties set before add_child.
+	if node is Node3D:
+		var n3d := node as Node3D
+		if "position" in properties:
+			n3d.position = MCPUtils.deserialize_value(properties["position"])
+		else:
+			n3d.position = Vector3.ZERO
+		if "rotation" in properties:
+			n3d.rotation = MCPUtils.deserialize_value(properties["rotation"])
+		if "scale" in properties:
+			n3d.scale = MCPUtils.deserialize_value(properties["scale"])
+
 	return _success({"node_path": str(scene_root.get_path_to(node))})
 
 

@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **11 tools** and **3 resources** for AI-assisted Godot development.
+This server provides **12 tools** and **3 resources** for AI-assisted Godot development.
 
 ## Quick Links
 
@@ -19,6 +19,7 @@ This server provides **11 tools** and **3 resources** for AI-assisted Godot deve
 | [Scene](tools/scene.md) | 1 | Scene management tools |
 | [Node](tools/node.md) | 1 | Node manipulation and script attachment tools |
 | [Editor](tools/editor.md) | 1 | Editor control, debugging, and screenshot tools |
+| [EditorScript](tools/editor_script.md) | 1 | Run arbitrary GDScript in the editor context |
 | [Project](tools/project.md) | 1 | Project information tools |
 | [Animation](tools/animation.md) | 1 | Animation query, playback, and editing tools |
 | [TileMapLayer/GridMap](tools/tilemap.md) | 2 | TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap) |

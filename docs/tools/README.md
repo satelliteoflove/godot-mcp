@@ -20,6 +20,12 @@ Editor control, debugging, and screenshot tools
 
 - `editor` - Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output (deprecated - use minimal-godot-mcp)/errors/stack traces, get performance metrics, control 2D viewport
 
+## [EditorScript](editor_script.md)
+
+Run arbitrary GDScript in the editor context
+
+- `editor_script` - Run arbitrary GDScript in the Godot editor context (equivalent to Ctrl+Shift+X in the Script editor). Use this to assign inline resources like BoxMesh, BoxShape3D, or StandardMaterial3D to node properties — operations that create_node/update_node cannot do directly because they only accept serialisable property values.
+
 ## [Project](project.md)
 
 Project information tools

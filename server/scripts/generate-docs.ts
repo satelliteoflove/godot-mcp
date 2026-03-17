@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { sceneTools } from '../src/tools/scene.js';
 import { nodeTools } from '../src/tools/node.js';
 import { editorTools } from '../src/tools/editor.js';
+import { editorScriptTools } from '../src/tools/editor_script.js';
 import { projectTools } from '../src/tools/project.js';
 import { animationTools } from '../src/tools/animation.js';
 import { tilemapTools } from '../src/tools/tilemap.js';
@@ -34,6 +35,7 @@ const categories: ToolCategory[] = [
   { name: 'Scene', filename: 'scene', description: 'Scene management tools', tools: sceneTools },
   { name: 'Node', filename: 'node', description: 'Node manipulation and script attachment tools', tools: nodeTools },
   { name: 'Editor', filename: 'editor', description: 'Editor control, debugging, and screenshot tools', tools: editorTools },
+  { name: 'EditorScript', filename: 'editor_script', description: 'Run arbitrary GDScript in the editor context', tools: editorScriptTools },
   { name: 'Project', filename: 'project', description: 'Project information tools', tools: projectTools },
   { name: 'Animation', filename: 'animation', description: 'Animation query, playback, and editing tools', tools: animationTools },
   { name: 'TileMapLayer/GridMap', filename: 'tilemap', description: 'TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap)', tools: tilemapTools },
