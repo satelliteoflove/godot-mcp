@@ -50,7 +50,14 @@ const NodeSchema = z
     properties: z
       .record(z.string(), z.unknown())
       .optional()
-      .describe('Properties to set (create, update)'),
+      .describe(
+        'Properties to set (create, update). ' +
+          'Supports: plain values, Vector2/3 as {x,y[,z]}, Color as {r,g,b[,a]}, ' +
+          'resource paths as "res://path/to/file.tres", ' +
+          'and inline resources as {"_resource": "ClassName", ...props}. ' +
+          'Example: {"mesh": {"_resource": "BoxMesh", "size": {"x": 4, "y": 0.5, "z": 15}}, ' +
+          '"position": {"x": 0, "y": 1, "z": 0}}'
+      ),
     new_parent_path: z
       .string()
       .optional()

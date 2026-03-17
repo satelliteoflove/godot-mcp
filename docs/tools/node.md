@@ -25,7 +25,7 @@ Manage scene nodes: get properties, find, create, update, delete, reparent, atta
 | `node_type` | string | No | Type of node to create, e.g. "Sprite2D" (create only, use this OR scene_path) |
 | `scene_path` | string | No | Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (create only, use this OR node_type) |
 | `node_name` | string | create | Name for the new node |
-| `properties` | Record<string, unknown> | create, update | Properties to set |
+| `properties` | Record<string, unknown> | No | Properties to set (create, update). Supports: plain values, Vector2/3 as {x,y[,z]}, Color as {r,g,b[,a]}, resource paths as "res://path/to/file.tres", and inline resources as {"_resource": "ClassName", ...props}. Example: {"mesh": {"_resource": "BoxMesh", "size": {"x": 4, "y": 0.5, "z": 15}}, "position": {"x": 0, "y": 1, "z": 0}} |
 | `new_parent_path` | string | reparent | Path to the new parent node |
 | `script_path` | string | attach_script | Path to the script file |
 | `signal_name` | string | connect_signal | Name of the signal to connect, e.g. "pressed", "body_entered" |
@@ -44,11 +44,11 @@ Parameters: `name_pattern`*, `type`*
 
 #### `create`
 
-Parameters: `parent_path`*, `node_name`*, `properties`
+Parameters: `parent_path`*, `node_name`*
 
 #### `update`
 
-Parameters: `node_path`*, `properties`
+Parameters: `node_path`*
 
 #### `delete`
 

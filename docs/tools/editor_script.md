@@ -10,7 +10,7 @@ Run arbitrary GDScript in the editor context
 
 ## editor_script
 
-Run arbitrary GDScript in the Godot editor context (equivalent to Ctrl+Shift+X in the Script editor). Use this to assign inline resources like BoxMesh, BoxShape3D, or StandardMaterial3D to node properties — operations that create_node/update_node cannot do directly because they only accept serialisable property values.
+Run arbitrary GDScript in the Godot editor context (equivalent to Ctrl+Shift+X in the Script editor). Use for complex multi-step operations, batch edits, or anything that requires full API access. For simply assigning resources to node properties prefer create_node/update_node with the {"_resource": "ClassName", ...props} inline syntax.
 
 ### Parameters
 

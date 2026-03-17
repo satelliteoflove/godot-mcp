@@ -22,9 +22,9 @@ export const editorScript = defineTool({
   name: 'editor_script',
   description:
     'Run arbitrary GDScript in the Godot editor context (equivalent to Ctrl+Shift+X in the ' +
-    'Script editor). Use this to assign inline resources like BoxMesh, BoxShape3D, or ' +
-    'StandardMaterial3D to node properties — operations that create_node/update_node cannot do ' +
-    'directly because they only accept serialisable property values.',
+    'Script editor). Use for complex multi-step operations, batch edits, or anything that ' +
+    'requires full API access. For simply assigning resources to node properties prefer ' +
+    'create_node/update_node with the {"_resource": "ClassName", ...props} inline syntax.',
   schema: EditorScriptSchema,
   async execute(args: EditorScriptArgs, { godot }) {
     const result = await godot.sendCommand<{ message: string }>('run_editor_script', {
