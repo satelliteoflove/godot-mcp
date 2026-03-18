@@ -13,6 +13,7 @@ func get_commands() -> Dictionary:
 		"get_node_properties": get_node_properties,
 		"find_nodes": find_nodes,
 		"create_node": create_node,
+		"create_nodes": create_nodes,
 		"update_node": update_node,
 		"delete_node": delete_node,
 		"reparent_node": reparent_node,
@@ -168,9 +169,14 @@ func create_node(params: Dictionary) -> Dictionary:
 			var deserialized := MCPUtils.deserialize_value(properties[key])
 			node.set(key, deserialized)
 
-	parent.add_child(node)
 	var scene_root := EditorInterface.get_edited_scene_root()
-	_set_owner_recursive(node, scene_root)
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Create Node '%s'" % node_name, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(parent, "add_child", node)
+	undo_redo.add_do_method(self, "_set_owner_recursive", node, scene_root)
+	undo_redo.add_undo_method(parent, "remove_child", node)
+	undo_redo.add_undo_reference(node)
+	undo_redo.commit_action()
 
 	# Re-apply spatial transforms after add_child: the editor viewport may
 	# snap newly added Node3D nodes to the current 3D cursor position,
@@ -186,7 +192,28 @@ func create_node(params: Dictionary) -> Dictionary:
 		if "scale" in properties:
 			n3d.scale = MCPUtils.deserialize_value(properties["scale"])
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({"node_path": str(scene_root.get_path_to(node))})
+
+
+func create_nodes(params: Dictionary) -> Dictionary:
+	var scene_check := _require_scene_open()
+	if not scene_check.is_empty():
+		return scene_check
+
+	var nodes_spec: Array = params.get("nodes", [])
+	if nodes_spec.is_empty():
+		return _error("INVALID_PARAMS", "nodes array is required and must not be empty")
+
+	var results: Array = []
+	for spec in nodes_spec:
+		var result := create_node(spec)
+		results.append(result)
+		if result.get("status") == "error":
+			return _success({"created": results, "partial": true})
+
+	EditorInterface.mark_scene_as_unsaved()
+	return _success({"created": results, "partial": false})
 
 
 func _set_owner_recursive(node: Node, owner: Node) -> void:
@@ -208,11 +235,17 @@ func update_node(params: Dictionary) -> Dictionary:
 	if not node:
 		return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
 
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Update Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
 	for key in properties:
 		if key in node:
-			var deserialized := MCPUtils.deserialize_value(properties[key])
-			node.set(key, deserialized)
+			var old_value = node.get(key)
+			var new_value = MCPUtils.deserialize_value(properties[key])
+			undo_redo.add_do_property(node, key, new_value)
+			undo_redo.add_undo_property(node, key, old_value)
+	undo_redo.commit_action()
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -233,9 +266,18 @@ func delete_node(params: Dictionary) -> Dictionary:
 	if node == root:
 		return _error("CANNOT_DELETE_ROOT", "Cannot delete the root node")
 
-	node.get_parent().remove_child(node)
-	node.queue_free()
+	var parent := node.get_parent()
+	var idx := node.get_index()
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Delete Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(parent, "remove_child", node)
+	undo_redo.add_undo_method(parent, "add_child", node)
+	undo_redo.add_undo_method(parent, "move_child", node, idx)
+	undo_redo.add_undo_method(self, "_set_owner_recursive", node, root)
+	undo_redo.add_undo_reference(node)
+	undo_redo.commit_action()
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -267,8 +309,16 @@ func reparent_node(params: Dictionary) -> Dictionary:
 	if new_parent == node or node.is_ancestor_of(new_parent):
 		return _error("INVALID_REPARENT", "Cannot reparent a node to itself or its descendant")
 
-	node.reparent(new_parent)
+	var old_parent := node.get_parent()
+	var old_idx := node.get_index()
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Reparent Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(node, "reparent", new_parent)
+	undo_redo.add_undo_method(node, "reparent", old_parent)
+	undo_redo.add_undo_method(old_parent, "move_child", node, old_idx)
+	undo_redo.commit_action()
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({"new_path": str(root.get_path_to(node))})
 
 

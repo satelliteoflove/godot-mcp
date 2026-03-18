@@ -5,9 +5,9 @@ import type { AnyToolDefinition } from '../core/types.js';
 const NodeSchema = z
   .object({
     action: z
-      .enum(['get_properties', 'find', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script', 'connect_signal'])
+      .enum(['get_properties', 'find', 'create', 'create_nodes', 'update', 'delete', 'reparent', 'attach_script', 'detach_script', 'connect_signal'])
       .describe(
-        'Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal'
+        'Action: get_properties, find, create, create_nodes, update, delete, reparent, attach_script, detach_script, connect_signal'
       ),
     node_path: z
       .string()
@@ -47,6 +47,22 @@ const NodeSchema = z
       .string()
       .optional()
       .describe('Name for the new node (create only)'),
+    nodes: z
+      .array(
+        z.object({
+          parent_path: z.string(),
+          node_name: z.string(),
+          node_type: z.string().optional(),
+          scene_path: z.string().optional(),
+          properties: z.record(z.string(), z.unknown()).optional(),
+        })
+      )
+      .optional()
+      .describe(
+        'Array of node specs to create in one call (create_nodes only). ' +
+          'Each entry needs parent_path, node_name, and either node_type OR scene_path. ' +
+          'Stops on first error and returns partial:true with results so far.'
+      ),
     properties: z
       .record(z.string(), z.unknown())
       .optional()
@@ -95,6 +111,12 @@ const NodeSchema = z
             !!data.node_name &&
             !!data.node_type !== !!data.scene_path
           );
+        case 'create_nodes':
+          return (
+            !!data.nodes &&
+            data.nodes.length > 0 &&
+            data.nodes.every((n) => !!n.node_name && (!!n.node_type !== !!n.scene_path))
+          );
         case 'reparent':
           return !!data.node_path && !!data.new_parent_path;
         case 'attach_script':
@@ -107,7 +129,7 @@ const NodeSchema = z
     },
     {
       message:
-        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path; connect_signal needs node_path, signal_name, target_path, and method_name',
+        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; create_nodes needs a non-empty nodes array where each entry has node_name and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path; connect_signal needs node_path, signal_name, target_path, and method_name',
     }
   );
 
@@ -155,6 +177,19 @@ export const node = defineTool({
           }
         );
         return `Created node: ${result.node_path}`;
+      }
+
+      case 'create_nodes': {
+        const result = await godot.sendCommand<{
+          created: Array<{ status: string; node_path?: string; error?: string }>;
+          partial: boolean;
+        }>('create_nodes', { nodes: args.nodes });
+        const succeeded = result.created.filter((r) => r.status !== 'error');
+        const summary = succeeded.map((r) => r.node_path).join(', ');
+        if (result.partial) {
+          return `Created ${succeeded.length}/${result.created.length} nodes (stopped on error): ${summary}`;
+        }
+        return `Created ${succeeded.length} nodes: ${summary}`;
       }
 
       case 'update': {

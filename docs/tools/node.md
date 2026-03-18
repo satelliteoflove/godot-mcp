@@ -16,7 +16,7 @@ Manage scene nodes: get properties, find, create, update, delete, reparent, atta
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_properties`, `find`, `create`, `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal` | Yes | Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal |
+| `action` | `get_properties`, `find`, `create`, `create_nodes`, `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal` | Yes | Action: get_properties, find, create, create_nodes, update, delete, reparent, attach_script, detach_script, connect_signal |
 | `node_path` | string | get_properties, update, delete, reparent, attach_script, detach_script | Path to the node |
 | `name_pattern` | string | find | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
 | `type` | string | find | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
@@ -25,6 +25,7 @@ Manage scene nodes: get properties, find, create, update, delete, reparent, atta
 | `node_type` | string | No | Type of node to create, e.g. "Sprite2D" (create only, use this OR scene_path) |
 | `scene_path` | string | No | Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (create only, use this OR node_type) |
 | `node_name` | string | create | Name for the new node |
+| `nodes` | object[] | create_nodes | Array of node specs to create in one call. Each entry needs parent_path, node_name, and either node_type OR scene_path. Stops on first error and returns partial:true with results so far. |
 | `properties` | Record<string, unknown> | No | Properties to set (create, update). Supports: plain values, Vector2/3 as {x,y[,z]}, Color as {r,g,b[,a]}, resource paths as "res://path/to/file.tres", and inline resources as {"_resource": "ClassName", ...props}. Example: {"mesh": {"_resource": "BoxMesh", "size": {"x": 4, "y": 0.5, "z": 15}}, "position": {"x": 0, "y": 1, "z": 0}} |
 | `new_parent_path` | string | reparent | Path to the new parent node |
 | `script_path` | string | attach_script | Path to the script file |
@@ -45,6 +46,10 @@ Parameters: `name_pattern`*, `type`*
 #### `create`
 
 Parameters: `parent_path`*, `node_name`*
+
+#### `create_nodes`
+
+Parameters: `nodes`*
 
 #### `update`
 
@@ -100,7 +105,7 @@ Parameters: `signal_name`*, `target_path`*, `method_name`*
 }
 ```
 
-*6 more actions available: `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal`*
+*7 more actions available: `create_nodes`, `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal`*
 
 ---
 

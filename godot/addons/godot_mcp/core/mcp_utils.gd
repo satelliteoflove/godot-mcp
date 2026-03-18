@@ -59,7 +59,20 @@ static func serialize_value(value: Variant) -> Variant:
 			if value == null:
 				return null
 			if value is Resource:
-				return value.resource_path if value.resource_path else str(value)
+				if not value.resource_path.is_empty():
+					return {"_resource_ref": value.resource_path, "type": value.get_class()}
+				# Inline resource — serialize properties recursively
+				var props := {"_resource": value.get_class()}
+				for prop in value.get_property_list():
+					var pname: String = prop["name"]
+					if pname.begins_with("_"):
+						continue
+					if prop["usage"] & PROPERTY_USAGE_EDITOR == 0:
+						continue
+					if pname in ["resource_local_to_scene", "resource_path", "resource_name", "script"]:
+						continue
+					props[pname] = serialize_value(value.get(pname))
+				return props
 			return str(value)
 		_:
 			return value

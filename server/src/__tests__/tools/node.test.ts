@@ -130,6 +130,74 @@ describe('node tool', () => {
     });
   });
 
+  describe('create_nodes', () => {
+    it('requires non-empty nodes array', () => {
+      expect(node.schema.safeParse({ action: 'create_nodes' }).success).toBe(false);
+      expect(node.schema.safeParse({ action: 'create_nodes', nodes: [] }).success).toBe(false);
+    });
+
+    it('rejects entries with both node_type and scene_path', () => {
+      expect(node.schema.safeParse({
+        action: 'create_nodes',
+        nodes: [{ parent_path: '/root', node_name: 'A', node_type: 'Node2D', scene_path: 'res://a.tscn' }],
+      }).success).toBe(false);
+    });
+
+    it('accepts valid batch with node_type entries', () => {
+      expect(node.schema.safeParse({
+        action: 'create_nodes',
+        nodes: [
+          { parent_path: '/root', node_name: 'A', node_type: 'Node2D' },
+          { parent_path: '/root', node_name: 'B', node_type: 'Node3D' },
+        ],
+      }).success).toBe(true);
+    });
+
+    it('returns count and paths on full success', async () => {
+      mock.mockResponse({
+        created: [
+          { status: 'ok', node_path: '/root/A' },
+          { status: 'ok', node_path: '/root/B' },
+        ],
+        partial: false,
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await node.execute({
+        action: 'create_nodes',
+        nodes: [
+          { parent_path: '/root', node_name: 'A', node_type: 'Node2D' },
+          { parent_path: '/root', node_name: 'B', node_type: 'Node3D' },
+        ],
+      }, ctx);
+
+      expect(result).toBe('Created 2 nodes: /root/A, /root/B');
+      expect(mock.calls[0].command).toBe('create_nodes');
+    });
+
+    it('returns partial summary when batch stops on error', async () => {
+      mock.mockResponse({
+        created: [
+          { status: 'ok', node_path: '/root/A' },
+          { status: 'error', error: 'parent not found' },
+        ],
+        partial: true,
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await node.execute({
+        action: 'create_nodes',
+        nodes: [
+          { parent_path: '/root', node_name: 'A', node_type: 'Node2D' },
+          { parent_path: '/root/Missing', node_name: 'B', node_type: 'Node3D' },
+        ],
+      }, ctx);
+
+      expect(result).toContain('1/2');
+      expect(result).toContain('stopped on error');
+    });
+  });
+
   describe('update/delete/reparent', () => {
     it('returns appropriate confirmations', async () => {
       const ctx = createToolContext(mock);
