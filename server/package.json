@@ -50,7 +50,7 @@
     "@types/ws": "^8.5.0",
     "nodemon": "^3.1.11",
     "tsx": "^4.21.0",
-    "typescript": "^5.6.0",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.16"
   },
   "engines": {
