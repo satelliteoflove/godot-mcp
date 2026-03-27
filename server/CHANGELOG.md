@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.16.1...godot-mcp-v2.17.0) (2026-03-27)
+
+
+### Features
+
+* frame profiler with time-series analysis ([#163](https://github.com/satelliteoflove/godot-mcp/issues/163)) ([ab9bfd3](https://github.com/satelliteoflove/godot-mcp/commit/ab9bfd33ec2eb5abf57120e3be51671f20c06048))
+
 ## [2.16.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.16.0...godot-mcp-v2.16.1) (2026-03-13)
 
 
