@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.17.0...godot-mcp-v2.18.0) (2026-03-30)
+
+
+### Features
+
+* upgrade to TypeScript 6.0.2 ([#170](https://github.com/satelliteoflove/godot-mcp/issues/170)) ([8d394a6](https://github.com/satelliteoflove/godot-mcp/commit/8d394a6a5a641533391c75c39b1b5156ee0241e3))
+
 ## [2.17.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.16.1...godot-mcp-v2.17.0) (2026-03-27)
 
 
