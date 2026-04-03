@@ -117,10 +117,24 @@ func _find_3d_viewport() -> SubViewport:
 
 func _find_viewport_in_tree(node: Node, hint: String) -> SubViewport:
 	if node is SubViewportContainer:
-		var container := node as SubViewportContainer
-		for child in container.get_children():
-			if child is SubViewport:
-				return child as SubViewport
+		# Walk up the parent chain to find a node whose name matches the hint
+		# (e.g. "3D" for the 3D viewport panel, "2D" for the 2D viewport panel).
+		# This prevents returning the wrong SubViewport when multiple exist.
+		var matches_hint := true
+		if not hint.is_empty():
+			matches_hint = false
+			var ancestor := node.get_parent()
+			while ancestor != null:
+				if ancestor.name.containsn(hint):
+					matches_hint = true
+					break
+				ancestor = ancestor.get_parent()
+
+		if matches_hint:
+			var container := node as SubViewportContainer
+			for child in container.get_children():
+				if child is SubViewport:
+					return child as SubViewport
 
 	for child in node.get_children():
 		var result := _find_viewport_in_tree(child, hint)

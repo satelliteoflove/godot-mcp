@@ -172,6 +172,19 @@ func create_node(params: Dictionary) -> Dictionary:
 	var scene_root := EditorInterface.get_edited_scene_root()
 	_set_owner_recursive(node, scene_root)
 
+	# Re-apply spatial transforms after add_child: the editor viewport may
+	# snap newly added Node3D nodes to the current 3D cursor position,
+	# overriding properties set before add_child.
+	if node is Node3D:
+		var n3d := node as Node3D
+		if "position" in properties:
+			n3d.position = MCPUtils.deserialize_value(properties["position"])
+		if "rotation" in properties:
+			n3d.rotation = MCPUtils.deserialize_value(properties["rotation"])
+		if "scale" in properties:
+			n3d.scale = MCPUtils.deserialize_value(properties["scale"])
+
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({"node_path": str(scene_root.get_path_to(node))})
 
 
@@ -199,6 +212,7 @@ func update_node(params: Dictionary) -> Dictionary:
 			var deserialized := MCPUtils.deserialize_value(properties[key])
 			node.set(key, deserialized)
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -222,6 +236,7 @@ func delete_node(params: Dictionary) -> Dictionary:
 	node.get_parent().remove_child(node)
 	node.queue_free()
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -255,6 +270,7 @@ func reparent_node(params: Dictionary) -> Dictionary:
 
 	node.reparent(new_parent)
 
+	EditorInterface.mark_scene_as_unsaved()
 	return _success({"new_path": str(root.get_path_to(node))})
 
 
