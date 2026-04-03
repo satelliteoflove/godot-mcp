@@ -184,7 +184,6 @@ func create_node(params: Dictionary) -> Dictionary:
 		if "scale" in properties:
 			n3d.scale = MCPUtils.deserialize_value(properties["scale"])
 
-	EditorInterface.mark_scene_as_unsaved()
 	return _success({"node_path": str(scene_root.get_path_to(node))})
 
 
@@ -212,7 +211,6 @@ func update_node(params: Dictionary) -> Dictionary:
 			var deserialized := MCPUtils.deserialize_value(properties[key])
 			node.set(key, deserialized)
 
-	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -236,7 +234,6 @@ func delete_node(params: Dictionary) -> Dictionary:
 	node.get_parent().remove_child(node)
 	node.queue_free()
 
-	EditorInterface.mark_scene_as_unsaved()
 	return _success({})
 
 
@@ -270,7 +267,6 @@ func reparent_node(params: Dictionary) -> Dictionary:
 
 	node.reparent(new_parent)
 
-	EditorInterface.mark_scene_as_unsaved()
 	return _success({"new_path": str(root.get_path_to(node))})
 
 
