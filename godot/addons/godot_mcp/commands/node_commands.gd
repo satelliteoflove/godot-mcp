@@ -168,9 +168,23 @@ func create_node(params: Dictionary) -> Dictionary:
 			var deserialized := MCPUtils.deserialize_value(properties[key])
 			node.set(key, deserialized)
 
-	parent.add_child(node)
 	var scene_root := EditorInterface.get_edited_scene_root()
-	_set_owner_recursive(node, scene_root)
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Create Node '%s'" % node_name, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(parent, "add_child", node)
+	undo_redo.add_do_method(self, "_set_owner_recursive", node, scene_root)
+	# Re-apply spatial transforms after add_child: the editor viewport may
+	# snap newly added Node3D nodes to the current 3D cursor position.
+	if node is Node3D:
+		if "position" in properties:
+			undo_redo.add_do_property(node, "position", MCPUtils.deserialize_value(properties["position"]))
+		if "rotation" in properties:
+			undo_redo.add_do_property(node, "rotation", MCPUtils.deserialize_value(properties["rotation"]))
+		if "scale" in properties:
+			undo_redo.add_do_property(node, "scale", MCPUtils.deserialize_value(properties["scale"]))
+	undo_redo.add_undo_method(parent, "remove_child", node)
+	undo_redo.add_undo_reference(node)
+	undo_redo.commit_action()
 
 	return _success({"node_path": str(scene_root.get_path_to(node))})
 
@@ -194,10 +208,15 @@ func update_node(params: Dictionary) -> Dictionary:
 	if not node:
 		return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
 
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Update Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
 	for key in properties:
 		if key in node:
-			var deserialized := MCPUtils.deserialize_value(properties[key])
-			node.set(key, deserialized)
+			var old_value = node.get(key)
+			var new_value = MCPUtils.deserialize_value(properties[key])
+			undo_redo.add_do_property(node, key, new_value)
+			undo_redo.add_undo_property(node, key, old_value)
+	undo_redo.commit_action()
 
 	return _success({})
 
@@ -219,8 +238,16 @@ func delete_node(params: Dictionary) -> Dictionary:
 	if node == root:
 		return _error("CANNOT_DELETE_ROOT", "Cannot delete the root node")
 
-	node.get_parent().remove_child(node)
-	node.queue_free()
+	var parent := node.get_parent()
+	var idx := node.get_index()
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Delete Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(parent, "remove_child", node)
+	undo_redo.add_undo_method(parent, "add_child", node)
+	undo_redo.add_undo_method(parent, "move_child", node, idx)
+	undo_redo.add_undo_method(self, "_set_owner_recursive", node, root)
+	undo_redo.add_undo_reference(node)
+	undo_redo.commit_action()
 
 	return _success({})
 
@@ -253,7 +280,16 @@ func reparent_node(params: Dictionary) -> Dictionary:
 	if new_parent == node or node.is_ancestor_of(new_parent):
 		return _error("INVALID_REPARENT", "Cannot reparent a node to itself or its descendant")
 
-	node.reparent(new_parent)
+	var old_parent := node.get_parent()
+	var old_idx := node.get_index()
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Reparent Node '%s'" % node_path, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(node, "reparent", new_parent)
+	undo_redo.add_do_method(self, "_set_owner_recursive", node, root)
+	undo_redo.add_undo_method(node, "reparent", old_parent)
+	undo_redo.add_undo_method(old_parent, "move_child", node, old_idx)
+	undo_redo.add_undo_method(self, "_set_owner_recursive", node, root)
+	undo_redo.commit_action()
 
 	return _success({"new_path": str(root.get_path_to(node))})
 
@@ -291,11 +327,12 @@ func connect_signal(params: Dictionary) -> Dictionary:
 	if source_node.is_connected(signal_name, Callable(target_node, method_name)):
 		return _error("ALREADY_CONNECTED", "Signal '%s' is already connected to %s.%s()" % [signal_name, target_path, method_name])
 
-	var err := source_node.connect(signal_name, Callable(target_node, method_name), CONNECT_PERSIST)
-	if err != OK:
-		return _error("CONNECT_FAILED", "Failed to connect signal: %s" % error_string(err))
-
-	EditorInterface.mark_scene_as_unsaved()
+	var callable := Callable(target_node, method_name)
+	var undo_redo := _plugin.get_undo_redo()
+	undo_redo.create_action("MCP: Connect Signal '%s'" % signal_name, UndoRedo.MERGE_DISABLE)
+	undo_redo.add_do_method(source_node, "connect", signal_name, callable, CONNECT_PERSIST)
+	undo_redo.add_undo_method(source_node, "disconnect", signal_name, callable)
+	undo_redo.commit_action()
 
 	return _success({})
 
