@@ -59,10 +59,33 @@ static func serialize_value(value: Variant) -> Variant:
 			if value == null:
 				return null
 			if value is Resource:
-				return value.resource_path if value.resource_path else str(value)
+				if not value.resource_path.is_empty():
+					return value.resource_path
+				# Inline resource — serialize properties recursively
+				return _serialize_inline_resource(value)
 			return str(value)
 		_:
 			return value
+
+
+static func _serialize_inline_resource(res: Resource, depth: int = 0) -> Dictionary:
+	var props := {"_resource": res.get_class()}
+	if depth > 3:
+		return props
+	for prop in res.get_property_list():
+		var pname: String = prop["name"]
+		if pname.begins_with("_"):
+			continue
+		if prop["usage"] & PROPERTY_USAGE_EDITOR == 0:
+			continue
+		if pname in ["resource_local_to_scene", "resource_path", "resource_name", "script"]:
+			continue
+		var pval = res.get(pname)
+		if pval is Resource and pval.resource_path.is_empty():
+			props[pname] = _serialize_inline_resource(pval, depth + 1)
+		else:
+			props[pname] = serialize_value(pval)
+	return props
 
 
 static func deserialize_value(value: Variant) -> Variant:
