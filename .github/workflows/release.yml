@@ -22,7 +22,7 @@ jobs:
       tag_name: ${{ steps.release.outputs['server--tag_name'] }}
       version: ${{ steps.release.outputs['server--version'] }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: .github/release-please-config.json
