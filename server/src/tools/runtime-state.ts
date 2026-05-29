@@ -181,7 +181,9 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'TIMING: watch_start and the action that drives state change (godot_input sequence, ' +
         'player input, etc.) must overlap within the watch window. Send both in the same ' +
         'parallel tool call batch, or use a duration_ms large enough (3000–4000ms) to cover ' +
-        'the round-trip latency before the driving action is approved and sent.'
+        'the round-trip latency before the driving action is approved and sent. ' +
+        'NODE PATHS: if a path in specs cannot be resolved, that spec is silently skipped; ' +
+        'check resolved_fields in the response — 0 means all paths were invalid.'
       ),
     specs: z
       .array(
@@ -261,12 +263,16 @@ export const runtimeState = defineTool({
       }
 
       case 'watch_start': {
-        await godot.sendCommand<{ started: boolean }>('watch_start', {
+        const watchResult = await godot.sendCommand<{ started: boolean; resolved_fields?: number }>('watch_start', {
           specs: args.specs,
           hz: args.hz ?? 20,
           duration_ms: args.duration_ms ?? 1000,
         });
-        return `Sampler started. Call watch_collect after ~${args.duration_ms ?? 1000}ms to get results.`;
+        const base = `Sampler started. Call watch_collect after ~${args.duration_ms ?? 1000}ms to get results.`;
+        if ((watchResult.resolved_fields ?? 1) === 0) {
+          return base + ' Warning: 0 fields resolved — verify that all node paths in specs exist in the running scene.';
+        }
+        return `${base} Tracking ${watchResult.resolved_fields} field(s).`;
       }
 
       case 'watch_collect': {

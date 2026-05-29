@@ -526,6 +526,8 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 #   (2) static definition context needed to interpret them (puzzle clues, level layout, config)
 # An agent can observe (1) without (2) but cannot verify correctness without both.
 # Optionally include layout geometry (bounds, sizes) to enable programmatic layout checks.
+# Error handling: _mcp_state() runtime errors are non-fatal in GDScript (Godot prints them
+# and the call returns null); the `is Dictionary` check below handles that silently.
 func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 		camera_2d: Camera2D, viewport_rect: Rect2) -> Dictionary:
 	var want := include_fields.is_empty()
@@ -615,21 +617,26 @@ func _serialize_mcp_state(state: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key in state:
 		var val = state[key]
+		var serializable = null
 		match typeof(val):
 			TYPE_BOOL, TYPE_STRING:
-				result[str(key)] = val
+				serializable = val
 			TYPE_INT:
-				result[str(key)] = int(val)
+				serializable = int(val)
 			TYPE_FLOAT:
-				result[str(key)] = snapped(float(val), 0.01)
+				serializable = snapped(float(val), 0.01)
 			TYPE_ARRAY:
-				result[str(key)] = val
+				serializable = val
 			TYPE_DICTIONARY:
-				result[str(key)] = val
-		# skip non-serializable types (Objects, NodePaths, RIDs, etc.)
-	# Rough byte cap: convert to string and check length
-	if JSON.stringify(result).length() > _MCP_STATE_MAX_BYTES:
-		result["_truncated"] = true
+				serializable = val
+			# skip non-serializable types (Objects, NodePaths, RIDs, etc.)
+		if serializable == null:
+			continue
+		result[str(key)] = serializable
+		if JSON.stringify(result).length() > _MCP_STATE_MAX_BYTES:
+			result.erase(str(key))
+			result["_truncated"] = true
+			break
 	return result
 
 
@@ -647,8 +654,11 @@ func _handle_watch_start(data: Array) -> void:
 	var specs: Array = data[0] if data.size() > 0 else []
 	var hz: int = data[1] if data.size() > 1 else 20
 	var duration_ms: int = data[2] if data.size() > 2 else 1000
-	_sampler.start(specs, hz, duration_ms)
-	EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {"started": true}])
+	var start_result := _sampler.start(specs, hz, duration_ms)
+	EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {
+		"started": true,
+		"resolved_fields": start_result.get("resolved_fields", 0),
+	}])
 
 
 func _handle_watch_collect() -> void:

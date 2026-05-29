@@ -15,7 +15,7 @@ var _sample_interval: int = 1  # sample every N frames
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
 
 
-func start(specs: Array, hz: int, duration_ms: int) -> void:
+func start(specs: Array, hz: int, duration_ms: int) -> Dictionary:
 	_specs = []
 	_samples = {}
 	_hz = clampi(hz, 1, 60)
@@ -52,6 +52,7 @@ func start(specs: Array, hz: int, duration_ms: int) -> void:
 	_stop_time = 0
 	_active = true
 	set_process(true)
+	return {"resolved_fields": field_count}
 
 
 func _process(_delta: float) -> void:
@@ -90,7 +91,13 @@ func _process(_delta: float) -> void:
 
 
 func collect() -> Dictionary:
-	var elapsed := (_stop_time - _start_time) if _stop_time > 0 else (Time.get_ticks_msec() - _start_time)
+	var elapsed: int
+	if _stop_time > 0:
+		elapsed = _stop_time - _start_time
+	elif _start_time > 0:
+		elapsed = Time.get_ticks_msec() - _start_time
+	else:
+		elapsed = 0  # never started
 	var total_samples := 0
 	for key in _samples:
 		total_samples += (_samples[key] as Array).size()
@@ -187,7 +194,8 @@ func _read_field(node: Node, key: String) -> Variant:
 			if node is AnimatedSprite2D:
 				return (node as AnimatedSprite2D).frame
 
-	# Custom state fallback
+	# Custom state fallback — `is Dictionary` guards against _mcp_state() errors,
+	# which are non-fatal in GDScript (Godot prints the error and returns null).
 	if node.has_method("_mcp_state"):
 		var state = node._mcp_state()
 		if state is Dictionary and state.has(key):
