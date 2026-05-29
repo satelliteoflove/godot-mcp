@@ -450,8 +450,11 @@ func _handle_get_runtime_state(data: Array) -> void:
 	var hint := ""
 	if actual_selection == "fallback":
 		hint = ("No nodes found in group '%s' and no _mcp_state() methods detected. " +
-			"Add nodes to the '%s' group or implement `func _mcp_state() -> Dictionary` " +
-			"on key nodes for richer, targeted state data.") % [group_name, group_name]
+			"For richer data: add key nodes to the '%s' group, then implement " +
+			"`func _mcp_state() -> Dictionary` on them. " +
+			"In _mcp_state(), include both live runtime values (position, health, score) " +
+			"AND static definition context (puzzle clues, level config, item data) — " +
+			"an agent needs both to understand and verify game state.") % [group_name, group_name]
 
 	var result: Dictionary = {
 		"scene": scene_root.scene_file_path,
@@ -518,6 +521,11 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 			max_nodes, results)
 
 
+# _mcp_state() contract: return a Dictionary with two categories —
+#   (1) live runtime values that change during play (cursor pos, health, score, fill counts)
+#   (2) static definition context needed to interpret them (puzzle clues, level layout, config)
+# An agent can observe (1) without (2) but cannot verify correctness without both.
+# Optionally include layout geometry (bounds, sizes) to enable programmatic layout checks.
 func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 		camera_2d: Camera2D, viewport_rect: Rect2) -> Dictionary:
 	var want := include_fields.is_empty()

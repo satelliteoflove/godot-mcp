@@ -136,9 +136,14 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'Snapshot current game entity state as structured JSON — exact positions, velocities, ' +
         'animation state, and custom game data. Much cheaper than screenshot_game (no vision tokens). ' +
         'Works on any game with no setup; add nodes to the "mcp_watch" group or implement ' +
-        '`func _mcp_state() -> Dictionary` on key nodes to expose custom domain state ' +
-        '(e.g. health, score, puzzle progress). If you are building a game and want richer ' +
-        'state in future digest calls, add _mcp_state() to nodes with interesting custom data.'
+        '`func _mcp_state() -> Dictionary` on key nodes for richer, targeted data. ' +
+        'WHAT TO PUT IN _mcp_state(): include BOTH (1) live runtime values that change during ' +
+        'play (cursor position, health, score, fill counts) AND (2) static definition context ' +
+        'an agent needs to interpret them — e.g. a puzzle node should expose its clue data, ' +
+        'a level node its objective list, a shop its item catalog. Without definition context, ' +
+        'an agent can observe state changes but cannot verify correctness. Also include layout ' +
+        'geometry for renderable nodes (bounds, sizes, offsets) to enable programmatic layout ' +
+        'checks without a screenshot.'
       ),
     select: z
       .enum(['group', 'method', 'auto'])
