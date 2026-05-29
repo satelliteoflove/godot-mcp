@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.3.1...godot-mcp-v3.4.0) (2026-05-29)
+
+
+### Features
+
+* emit structuredContent for query actions ([#190](https://github.com/satelliteoflove/godot-mcp/issues/190)) ([#212](https://github.com/satelliteoflove/godot-mcp/issues/212)) ([a4bb209](https://github.com/satelliteoflove/godot-mcp/commit/a4bb2093a3b23c78a77d12ce42296985b00d91cb))
+
 ## [3.3.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.3.0...godot-mcp-v3.3.1) (2026-05-29)
 
 
