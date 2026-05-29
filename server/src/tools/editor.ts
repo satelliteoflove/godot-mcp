@@ -113,6 +113,7 @@ interface LogMessagesResponse {
 
 export const editor = defineTool({
   name: 'godot_editor',
+  annotations: { title: 'Editor Control', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
     'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport',
   schema: EditorSchema,

@@ -1,4 +1,4 @@
-import type { AnyToolDefinition, ResourceDefinition, ToolContext, ToolResult } from './types.js';
+import type { AnyToolDefinition, ResourceDefinition, ToolAnnotations, ToolContext, ToolResult } from './types.js';
 import { toInputSchema } from './schema.js';
 import {
   formatError,
@@ -34,11 +34,17 @@ class ToolRegistry {
     resources.forEach((resource) => this.registerResource(resource));
   }
 
-  getToolList(): Array<{ name: string; description: string; inputSchema: object }> {
+  getToolList(): Array<{
+    name: string;
+    description: string;
+    inputSchema: object;
+    annotations?: ToolAnnotations;
+  }> {
     return Array.from(this.tools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: toInputSchema(tool.schema),
+      ...(tool.annotations ? { annotations: tool.annotations } : {}),
     }));
   }
 

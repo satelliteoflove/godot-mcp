@@ -108,6 +108,7 @@ type NodeArgs = z.infer<typeof NodeSchema>;
 
 export const node = defineTool({
   name: 'godot_node',
+  annotations: { title: 'Node', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   description:
     'Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals',
   schema: NodeSchema,

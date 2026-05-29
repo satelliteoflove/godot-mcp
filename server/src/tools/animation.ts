@@ -110,6 +110,7 @@ type AnimationArgs = z.infer<typeof AnimationSchema>;
 
 export const animation = defineTool({
   name: 'godot_animation',
+  annotations: { title: 'Animation', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   description:
     'Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
   schema: AnimationSchema,

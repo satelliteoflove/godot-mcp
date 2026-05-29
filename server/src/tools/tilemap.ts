@@ -87,6 +87,7 @@ type TilemapArgs = z.infer<typeof TilemapSchema>;
 
 export const tilemap = defineTool({
   name: 'godot_tilemap',
+  annotations: { title: 'TileMapLayer', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   description:
     'Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates',
   schema: TilemapSchema,
@@ -223,6 +224,7 @@ type GridmapArgs = z.infer<typeof GridmapSchema>;
 
 export const gridmap = defineTool({
   name: 'godot_gridmap',
+  annotations: { title: 'GridMap', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   description:
     'Query and edit GridMap data: list gridmaps, get info, get/set cells',
   schema: GridmapSchema,

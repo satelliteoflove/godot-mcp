@@ -43,6 +43,7 @@ type SceneArgs = z.infer<typeof SceneSchema>;
 
 export const scene = defineTool({
   name: 'godot_scene',
+  annotations: { title: 'Scene', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description: 'Manage scenes: open, save, or create scenes',
   schema: SceneSchema,
   async execute(args: SceneArgs, { godot }) {

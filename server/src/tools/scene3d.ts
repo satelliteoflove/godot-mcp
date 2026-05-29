@@ -93,6 +93,7 @@ function formatAABB(aabb: AABB): string {
 
 export const scene3d = defineTool({
   name: 'godot_scene3d',
+  annotations: { title: '3D Scene Info', readOnlyHint: true, openWorldHint: false },
   description:
     'Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.',
   schema: Scene3DSchema,

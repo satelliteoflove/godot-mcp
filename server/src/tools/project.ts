@@ -21,6 +21,7 @@ type ProjectArgs = z.infer<typeof ProjectSchema>;
 
 export const project = defineTool({
   name: 'godot_project',
+  annotations: { title: 'Project Info', readOnlyHint: true, openWorldHint: false },
   description: 'Get project information and settings',
   schema: ProjectSchema,
   async execute(args: ProjectArgs, { godot }) {

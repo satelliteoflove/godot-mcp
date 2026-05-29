@@ -9,9 +9,20 @@ export type TextContent = { type: 'text'; text: string };
 export type ImageContent = { type: 'image'; data: string; mimeType: string };
 export type ToolResult = TextContent | ImageContent;
 
+// MCP tool annotations: advisory hints clients use to label tools and decide
+// auto-approval. See the MCP spec's ToolAnnotations.
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
 export interface ToolDefinition<TSchema extends z.ZodType = z.ZodType> {
   name: string;
   description: string;
+  annotations?: ToolAnnotations;
   schema: TSchema;
   execute: (args: z.infer<TSchema>, ctx: ToolContext) => Promise<string | ToolResult>;
 }
@@ -19,6 +30,7 @@ export interface ToolDefinition<TSchema extends z.ZodType = z.ZodType> {
 export interface AnyToolDefinition {
   name: string;
   description: string;
+  annotations?: ToolAnnotations;
   schema: z.ZodType;
   execute: (args: unknown, ctx: ToolContext) => Promise<string | ToolResult>;
 }
