@@ -30,56 +30,37 @@ const AABBInputSchema = z.object({
   size: Vector3Schema.describe('Size of the AABB'),
 });
 
-const Scene3DSchema = z
-  .object({
-    action: z
-      .enum(['get_spatial_info', 'get_bounds'])
-      .describe('Action: get_spatial_info (node spatial data), get_bounds (combined AABB)'),
-    node_path: z
-      .string()
-      .optional()
-      .describe('Path to the Node3D (required for get_spatial_info)'),
-    root_path: z
-      .string()
-      .optional()
-      .describe('Path to search root (get_bounds only, defaults to scene root)'),
+const Scene3DSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('get_spatial_info').describe('Get spatial data for a Node3D and optionally its children'),
+    node_path: z.string().describe('Path to the Node3D'),
     include_children: z
       .boolean()
       .optional()
       .default(false)
-      .describe('Include child nodes (get_spatial_info only)'),
+      .describe('Include child nodes'),
     type_filter: z
       .string()
       .optional()
-      .describe('Filter by node type, e.g. "MeshInstance3D" (get_spatial_info only)'),
+      .describe('Filter by node type, e.g. "MeshInstance3D"'),
     max_results: z
       .number()
       .int()
       .positive()
       .optional()
-      .describe(
-        'Limit number of results (get_spatial_info only). Defaults to 50 when include_children=true. Set higher (e.g., 500) if needed.'
-      ),
+      .describe('Limit number of results. Defaults to 50 when include_children=true. Set higher (e.g., 500) if needed.'),
     within_aabb: AABBInputSchema.optional().describe(
-      'Only include nodes whose global position is within this AABB (get_spatial_info only)'
+      'Only include nodes whose global position is within this AABB'
     ),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'get_spatial_info':
-          return !!data.node_path;
-        case 'get_bounds':
-          return true;
-        default:
-          return false;
-      }
-    },
-    {
-      message:
-        'Missing required fields for action. get_spatial_info requires node_path.',
-    }
-  );
+  }),
+  z.object({
+    action: z.literal('get_bounds').describe('Get the combined AABB of a subtree'),
+    root_path: z
+      .string()
+      .optional()
+      .describe('Path to search root (defaults to scene root)'),
+  }),
+]);
 
 type Scene3DArgs = z.infer<typeof Scene3DSchema>;
 

@@ -12,63 +12,73 @@ Node manipulation and script attachment tools
 
 Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `get_properties`, `find`, `create`, `update`, `delete`, `reparent`, `attach_script`, `detach_script`, `connect_signal` | Yes | Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal |
-| `node_path` | string | get_properties, update, delete, reparent, attach_script, detach_script | Path to the node |
-| `name_pattern` | string | find | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
-| `type` | string | find | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
-| `root_path` | string | No | Path to start search from (find only, defaults to scene root) |
-| `parent_path` | string | create | Path to the parent node |
-| `node_type` | string | No | Type of node to create, e.g. "Sprite2D" (create only, use this OR scene_path) |
-| `scene_path` | string | No | Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (create only, use this OR node_type) |
-| `node_name` | string | create | Name for the new node |
-| `properties` | Record<string, unknown> | create, update | Properties to set |
-| `new_parent_path` | string | reparent | Path to the new parent node |
-| `script_path` | string | attach_script | Path to the script file |
-| `signal_name` | string | connect_signal | Name of the signal to connect, e.g. "pressed", "body_entered" |
-| `target_path` | string | connect_signal | Path to the target node that will receive the signal |
-| `method_name` | string | connect_signal | Name of the method to call on the target node |
-
 ### Actions
 
 #### `get_properties`
 
-Parameters: `node_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
 
 #### `find`
 
-Parameters: `name_pattern`*, `type`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name_pattern` | string | No | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
+| `type` | string | No | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
+| `root_path` | string | No | Path to start search from (defaults to scene root) |
 
 #### `create`
 
-Parameters: `parent_path`*, `node_name`*, `properties`
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `parent_path` | string | Yes | Path to the parent node |
+| `node_name` | string | Yes | Name for the new node |
+| `node_type` | string | No | Type of node to create, e.g. "Sprite2D" (use this OR scene_path) |
+| `scene_path` | string | No | Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (use this OR node_type) |
+| `properties` | Record<string, unknown> | No | Properties to set on the node |
 
 #### `update`
 
-Parameters: `node_path`*, `properties`
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
+| `properties` | Record<string, unknown> | No | Properties to set on the node |
 
 #### `delete`
 
-Parameters: `node_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
 
 #### `reparent`
 
-Parameters: `node_path`*, `new_parent_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
+| `new_parent_path` | string | Yes | Path to the new parent node |
 
 #### `attach_script`
 
-Parameters: `node_path`*, `script_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
+| `script_path` | string | Yes | Path to the script file |
 
 #### `detach_script`
 
-Parameters: `node_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
 
 #### `connect_signal`
 
-Parameters: `signal_name`*, `target_path`*, `method_name`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node emitting the signal |
+| `signal_name` | string | Yes | Name of the signal, e.g. "pressed", "body_entered" |
+| `target_path` | string | Yes | Path to the target node that will receive the signal |
+| `method_name` | string | Yes | Name of the method to call on the target node |
 
 ### Examples
 
@@ -83,10 +93,7 @@ Parameters: `signal_name`*, `target_path`*, `method_name`*
 ```json
 // find
 {
-  "action": "find",
-  "name_pattern": "*Enemy*",
-  "type": "CharacterBody2D",
-  "root_path": "/root/Main"
+  "action": "find"
 }
 ```
 
@@ -95,7 +102,6 @@ Parameters: `signal_name`*, `target_path`*, `method_name`*
 {
   "action": "create",
   "parent_path": "/root/Main",
-  "node_type": "Sprite2D",
   "node_name": "NewNode"
 }
 ```

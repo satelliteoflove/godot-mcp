@@ -2,106 +2,86 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
+const propertiesField = z
+  .record(z.string(), z.unknown())
+  .optional()
+  .describe('Properties to set on the node');
+
 const NodeSchema = z
-  .object({
-    action: z
-      .enum(['get_properties', 'find', 'create', 'update', 'delete', 'reparent', 'attach_script', 'detach_script', 'connect_signal'])
-      .describe(
-        'Action: get_properties, find, create, update, delete, reparent, attach_script, detach_script, connect_signal'
-      ),
-    node_path: z
-      .string()
-      .optional()
-      .describe(
-        'Path to the node (required for: get_properties, update, delete, reparent, attach_script, detach_script)'
-      ),
-    name_pattern: z
-      .string()
-      .optional()
-      .describe('Glob pattern to match node names, e.g. "*Spawner*", "Turret?" (find only)'),
-    type: z
-      .string()
-      .optional()
-      .describe('Filter by node type, e.g. "CharacterBody2D", "Area2D" (find only)'),
-    root_path: z
-      .string()
-      .optional()
-      .describe('Path to start search from (find only, defaults to scene root)'),
-    parent_path: z
-      .string()
-      .optional()
-      .describe('Path to the parent node (create only)'),
-    node_type: z
-      .string()
-      .optional()
-      .describe(
-        'Type of node to create, e.g. "Sprite2D" (create only, use this OR scene_path)'
-      ),
-    scene_path: z
-      .string()
-      .optional()
-      .describe(
-        'Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (create only, use this OR node_type)'
-      ),
-    node_name: z
-      .string()
-      .optional()
-      .describe('Name for the new node (create only)'),
-    properties: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe('Properties to set (create, update)'),
-    new_parent_path: z
-      .string()
-      .optional()
-      .describe('Path to the new parent node (reparent only)'),
-    script_path: z
-      .string()
-      .optional()
-      .describe('Path to the script file (attach_script only)'),
-    signal_name: z
-      .string()
-      .optional()
-      .describe('Name of the signal to connect, e.g. "pressed", "body_entered" (connect_signal only)'),
-    target_path: z
-      .string()
-      .optional()
-      .describe('Path to the target node that will receive the signal (connect_signal only)'),
-    method_name: z
-      .string()
-      .optional()
-      .describe('Name of the method to call on the target node (connect_signal only)'),
-  })
+  .discriminatedUnion('action', [
+    z.object({
+      action: z.literal('get_properties').describe('Get a node\'s properties'),
+      node_path: z.string().describe('Path to the node'),
+    }),
+    z.object({
+      action: z.literal('find').describe('Find nodes by name and/or type'),
+      name_pattern: z
+        .string()
+        .optional()
+        .describe('Glob pattern to match node names, e.g. "*Spawner*", "Turret?"'),
+      type: z
+        .string()
+        .optional()
+        .describe('Filter by node type, e.g. "CharacterBody2D", "Area2D"'),
+      root_path: z
+        .string()
+        .optional()
+        .describe('Path to start search from (defaults to scene root)'),
+    }),
+    z.object({
+      action: z.literal('create').describe('Create a node, or instantiate a scene as a node'),
+      parent_path: z.string().describe('Path to the parent node'),
+      node_name: z.string().describe('Name for the new node'),
+      node_type: z
+        .string()
+        .optional()
+        .describe('Type of node to create, e.g. "Sprite2D" (use this OR scene_path)'),
+      scene_path: z
+        .string()
+        .optional()
+        .describe('Path to scene to instantiate, e.g. "res://enemies/goblin.tscn" (use this OR node_type)'),
+      properties: propertiesField,
+    }),
+    z.object({
+      action: z.literal('update').describe('Update a node\'s properties'),
+      node_path: z.string().describe('Path to the node'),
+      properties: propertiesField,
+    }),
+    z.object({
+      action: z.literal('delete').describe('Delete a node'),
+      node_path: z.string().describe('Path to the node'),
+    }),
+    z.object({
+      action: z.literal('reparent').describe('Move a node to a new parent'),
+      node_path: z.string().describe('Path to the node'),
+      new_parent_path: z.string().describe('Path to the new parent node'),
+    }),
+    z.object({
+      action: z.literal('attach_script').describe('Attach a script to a node'),
+      node_path: z.string().describe('Path to the node'),
+      script_path: z.string().describe('Path to the script file'),
+    }),
+    z.object({
+      action: z.literal('detach_script').describe('Detach a node\'s script'),
+      node_path: z.string().describe('Path to the node'),
+    }),
+    z.object({
+      action: z.literal('connect_signal').describe('Connect a signal to a target method'),
+      node_path: z.string().describe('Path to the node emitting the signal'),
+      signal_name: z.string().describe('Name of the signal, e.g. "pressed", "body_entered"'),
+      target_path: z.string().describe('Path to the target node that will receive the signal'),
+      method_name: z.string().describe('Name of the method to call on the target node'),
+    }),
+  ])
+  // Constraints a discriminated union can't express on its own, so they live here:
   .refine(
-    (data) => {
-      switch (data.action) {
-        case 'get_properties':
-        case 'update':
-        case 'delete':
-        case 'detach_script':
-          return !!data.node_path;
-        case 'find':
-          return !!data.name_pattern || !!data.type;
-        case 'create':
-          return (
-            !!data.parent_path &&
-            !!data.node_name &&
-            !!data.node_type !== !!data.scene_path
-          );
-        case 'reparent':
-          return !!data.node_path && !!data.new_parent_path;
-        case 'attach_script':
-          return !!data.node_path && !!data.script_path;
-        case 'connect_signal':
-          return !!data.node_path && !!data.signal_name && !!data.target_path && !!data.method_name;
-        default:
-          return false;
-      }
-    },
-    {
-      message:
-        'Missing required fields for action. get_properties/update/delete/detach_script need node_path; find needs name_pattern and/or type; create needs parent_path, node_name, and either node_type OR scene_path; reparent needs node_path and new_parent_path; attach_script needs node_path and script_path; connect_signal needs node_path, signal_name, target_path, and method_name',
-    }
+    (data) => (data.action === 'find' ? !!data.name_pattern || !!data.type : true),
+    { message: 'find requires name_pattern and/or type' }
+  )
+  .refine(
+    // create needs exactly one of node_type / scene_path (XOR).
+    (data) => (data.action === 'create' ? !!data.node_type !== !!data.scene_path : true),
+    { message: 'create requires exactly one of node_type or scene_path' }
   );
 
 type NodeArgs = z.infer<typeof NodeSchema>;

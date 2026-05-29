@@ -12,28 +12,27 @@ Scene management tools
 
 Manage scenes: open, save, or create scenes
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `open`, `save`, `create` | Yes | Action: open, save, create |
-| `scene_path` | string | open, create; optional for: save | Path to scene file |
-| `root_type` | string | create | Type of root node, e.g. "Node2D" |
-| `root_name` | string | No | Name of root node (create only, defaults to root_type) |
-
 ### Actions
 
 #### `open`
 
-Parameters: `scene_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | Yes | Path to scene file to open |
 
 #### `save`
 
-Parameters: `scene_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | No | Path to save to (defaults to the current scene path) |
 
 #### `create`
 
-Parameters: `root_type`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | Yes | Path for the new scene file |
+| `root_type` | string | Yes | Type of root node, e.g. "Node2D" |
+| `root_name` | string | No | Name of root node (defaults to root_type) |
 
 ### Examples
 
@@ -48,8 +47,7 @@ Parameters: `root_type`*
 ```json
 // save
 {
-  "action": "save",
-  "scene_path": "res://scenes/enemy.tscn"
+  "action": "save"
 }
 ```
 
@@ -58,8 +56,7 @@ Parameters: `root_type`*
 {
   "action": "create",
   "scene_path": "res://scenes/enemy.tscn",
-  "root_type": "example",
-  "root_name": "example"
+  "root_type": "example"
 }
 ```
 

@@ -164,32 +164,17 @@ export function computeFrameBudget(
   };
 }
 
-const ProfilerSchema = z
-  .object({
-    action: z
-      .enum([
-        'snapshot',
-        'start',
-        'stop',
-        'get_data',
-        'get_active_processes',
-        'get_signal_connections',
-      ])
-      .describe('Action: snapshot (full perf snapshot), start/stop/get_data (time series profiling), get_active_processes, get_signal_connections'),
-    node_path: z
-      .string()
-      .optional()
-      .describe('Node path for get_signal_connections (optional, defaults to scene root)'),
-  })
-  .refine(
-    (data) => {
-      if (data.node_path !== undefined && data.action !== 'get_signal_connections') {
-        return false;
-      }
-      return true;
-    },
-    { message: 'node_path is only valid with get_signal_connections action' }
-  );
+const ProfilerSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('snapshot').describe('Full performance snapshot (all engine metrics)') }),
+  z.object({ action: z.literal('start').describe('Start per-frame time-series profiling') }),
+  z.object({ action: z.literal('stop').describe('Stop time-series profiling') }),
+  z.object({ action: z.literal('get_data').describe('Get collected time-series data with spike detection') }),
+  z.object({ action: z.literal('get_active_processes').describe('List active _process/_physics_process scripts') }),
+  z.object({
+    action: z.literal('get_signal_connections').describe('Inspect signal connections'),
+    node_path: z.string().optional().describe('Node path (defaults to scene root)'),
+  }),
+]);
 
 type ProfilerArgs = z.infer<typeof ProfilerSchema>;
 

@@ -9,37 +9,22 @@ interface ResourceInfoResult {
   properties?: Record<string, unknown>;
 }
 
-const ResourceSchema = z
-  .object({
-    action: z
-      .enum(['get_info'])
-      .describe('Action: get_info'),
+const ResourceSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('get_info').describe('Inspect a Resource file by path'),
     resource_path: z
       .string()
-      .optional()
-      .describe('Resource path (e.g., "res://player/sprites.tres") (get_info)'),
+      .describe('Resource path (e.g., "res://player/sprites.tres")'),
     max_depth: z
       .number()
       .optional()
-      .describe(
-        'Detail level: 0 = summary only, 1 = full detail (default), 2+ = expand sub-resources (get_info)'
-      ),
+      .describe('Detail level: 0 = summary only, 1 = full detail (default), 2+ = expand sub-resources'),
     include_internal: z
       .boolean()
       .optional()
-      .describe('Include internal properties starting with underscore (get_info, default: false)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'get_info':
-          return !!data.resource_path;
-        default:
-          return false;
-      }
-    },
-    { message: 'get_info action requires resource_path' }
-  );
+      .describe('Include internal properties starting with underscore (default: false)'),
+  }),
+]);
 
 type ResourceArgs = z.infer<typeof ResourceSchema>;
 

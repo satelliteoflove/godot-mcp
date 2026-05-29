@@ -15,96 +15,116 @@ const TrackTypeEnum = z.enum([
   'animation',
 ]);
 
-const AnimationSchema = z
-  .object({
-    action: z
-      .enum([
-        'list_players',
-        'get_info',
-        'get_details',
-        'get_keyframes',
-        'play',
-        'stop',
-        'seek',
-        'create',
-        'delete',
-        'update_props',
-        'add_track',
-        'remove_track',
-        'add_keyframe',
-        'remove_keyframe',
-        'update_keyframe',
-      ])
-      .describe(
-        'Action: list_players, get_info, get_details, get_keyframes (query), play, stop, seek (playback), create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe (edit)'
-      ),
-    root_path: z.string().optional().describe('Starting node path (list_players only)'),
-    node_path: z.string().optional().describe('Path to AnimationPlayer (required except list_players)'),
-    animation_name: z.string().optional().describe('Animation name'),
-    track_index: z.number().optional().describe('Track index'),
-    custom_blend: z.number().optional().describe('Custom blend time, -1 for default (play)'),
-    custom_speed: z.number().optional().describe('Playback speed, 1.0 default (play)'),
-    from_end: z.boolean().optional().describe('Play from end for reverse (play)'),
-    keep_state: z.boolean().optional().describe('Keep current animation state (stop)'),
-    seconds: z.number().optional().describe('Position to seek to (seek)'),
-    update: z.boolean().optional().describe('Update node immediately, default true (seek)'),
-    library_name: z.string().optional().describe('Library name (create, delete)'),
-    length: z.number().optional().describe('Animation length in seconds (create, update_props)'),
-    loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong (create, update_props)'),
-    step: z.number().optional().describe('Step value for keyframe snapping (create, update_props)'),
-    track_type: TrackTypeEnum.optional().describe('Type of track (add_track)'),
-    track_path: z.string().optional().describe('Node path and property, e.g. "Sprite2D:frame" (add_track)'),
-    insert_at: z.number().optional().describe('Track index to insert at, -1 for end (add_track)'),
-    time: z.number().optional().describe('Keyframe time in seconds (add_keyframe, update_keyframe)'),
-    value: z.unknown().optional().describe('Keyframe value (add_keyframe, update_keyframe)'),
-    transition: z.number().optional().describe('Transition curve, 1.0 = linear (add_keyframe, update_keyframe)'),
-    method_name: z.string().optional().describe('Method name for method tracks (add_keyframe)'),
-    args: z.array(z.unknown()).optional().describe('Method arguments (add_keyframe)'),
-    keyframe_index: z.number().optional().describe('Keyframe index (remove_keyframe, update_keyframe)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'list_players':
-          return true;
-        case 'get_info':
-        case 'stop':
-          return !!data.node_path;
-        case 'get_details':
-        case 'create':
-        case 'delete':
-        case 'update_props':
-        case 'play':
-          return !!data.node_path && !!data.animation_name;
-        case 'get_keyframes':
-          return !!data.node_path && !!data.animation_name && data.track_index !== undefined;
-        case 'seek':
-          return !!data.node_path && data.seconds !== undefined;
-        case 'add_track':
-          return !!data.node_path && !!data.animation_name && !!data.track_type && !!data.track_path;
-        case 'remove_track':
-          return !!data.node_path && !!data.animation_name && data.track_index !== undefined;
-        case 'add_keyframe':
-          return (
-            !!data.node_path &&
-            !!data.animation_name &&
-            data.track_index !== undefined &&
-            data.time !== undefined
-          );
-        case 'remove_keyframe':
-        case 'update_keyframe':
-          return (
-            !!data.node_path &&
-            !!data.animation_name &&
-            data.track_index !== undefined &&
-            data.keyframe_index !== undefined
-          );
-        default:
-          return false;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
+const nodePathField = z.string().describe('Path to the AnimationPlayer');
+const animNameField = z.string().describe('Animation name');
+const trackIndexField = z.number().describe('Track index');
+const keyframeIndexField = z.number().describe('Keyframe index');
+
+const AnimationSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('list_players').describe('List AnimationPlayer nodes in the scene'),
+    root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
+  }),
+  z.object({
+    action: z.literal('get_info').describe('Get AnimationPlayer state and library list'),
+    node_path: nodePathField,
+  }),
+  z.object({
+    action: z.literal('get_details').describe("Get an animation's tracks and properties"),
+    node_path: nodePathField,
+    animation_name: animNameField,
+  }),
+  z.object({
+    action: z.literal('get_keyframes').describe('Get keyframes for a track'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_index: trackIndexField,
+  }),
+  z.object({
+    action: z.literal('play').describe('Play an animation'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    custom_blend: z.number().optional().describe('Custom blend time, -1 for default'),
+    custom_speed: z.number().optional().describe('Playback speed, 1.0 default'),
+    from_end: z.boolean().optional().describe('Play from end for reverse'),
+  }),
+  z.object({
+    action: z.literal('stop').describe('Stop playback'),
+    node_path: nodePathField,
+    keep_state: z.boolean().optional().describe('Keep current animation state'),
+  }),
+  z.object({
+    action: z.literal('seek').describe('Seek to a position in the current animation'),
+    node_path: nodePathField,
+    seconds: z.number().describe('Position to seek to'),
+    update: z.boolean().optional().describe('Update node immediately, default true'),
+  }),
+  z.object({
+    action: z.literal('create').describe('Create an animation'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    library_name: z.string().optional().describe('Library name'),
+    length: z.number().optional().describe('Animation length in seconds'),
+    loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong'),
+    step: z.number().optional().describe('Step value for keyframe snapping'),
+  }),
+  z.object({
+    action: z.literal('delete').describe('Delete an animation'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    library_name: z.string().optional().describe('Library name'),
+  }),
+  z.object({
+    action: z.literal('update_props').describe('Update animation properties'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    length: z.number().optional().describe('Animation length in seconds'),
+    loop_mode: LoopModeEnum.optional().describe('Loop mode: none, linear, pingpong'),
+    step: z.number().optional().describe('Step value for keyframe snapping'),
+  }),
+  z.object({
+    action: z.literal('add_track').describe('Add a track to an animation'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_type: TrackTypeEnum.describe('Type of track'),
+    track_path: z.string().describe('Node path and property, e.g. "Sprite2D:frame"'),
+    insert_at: z.number().optional().describe('Track index to insert at, -1 for end'),
+  }),
+  z.object({
+    action: z.literal('remove_track').describe('Remove a track'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_index: trackIndexField,
+  }),
+  z.object({
+    action: z.literal('add_keyframe').describe('Add a keyframe to a track'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_index: trackIndexField,
+    time: z.number().describe('Keyframe time in seconds'),
+    value: z.unknown().optional().describe('Keyframe value'),
+    transition: z.number().optional().describe('Transition curve, 1.0 = linear'),
+    method_name: z.string().optional().describe('Method name for method tracks'),
+    args: z.array(z.unknown()).optional().describe('Method arguments'),
+  }),
+  z.object({
+    action: z.literal('remove_keyframe').describe('Remove a keyframe'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_index: trackIndexField,
+    keyframe_index: keyframeIndexField,
+  }),
+  z.object({
+    action: z.literal('update_keyframe').describe('Update a keyframe'),
+    node_path: nodePathField,
+    animation_name: animNameField,
+    track_index: trackIndexField,
+    keyframe_index: keyframeIndexField,
+    time: z.number().optional().describe('Keyframe time in seconds'),
+    value: z.unknown().optional().describe('Keyframe value'),
+    transition: z.number().optional().describe('Transition curve, 1.0 = linear'),
+  }),
+]);
 
 type AnimationArgs = z.infer<typeof AnimationSchema>;
 

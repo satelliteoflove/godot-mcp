@@ -338,10 +338,89 @@ function getExampleValue(name: string, prop: Record<string, unknown>): unknown {
   }
 }
 
+interface ActionVariant {
+  action: string;
+  properties: Record<string, Record<string, unknown>>;
+  required: string[];
+}
+
+// Discriminated-union schemas serialize to oneOf (one object variant per
+// action). Pull each variant's action literal, properties, and required list.
+function getActionVariants(schema: Record<string, unknown>): ActionVariant[] | null {
+  const branches = (schema.oneOf || schema.anyOf) as Array<Record<string, unknown>> | undefined;
+  if (!Array.isArray(branches)) return null;
+
+  const variants: ActionVariant[] = [];
+  for (const branch of branches) {
+    const properties = (branch.properties as Record<string, Record<string, unknown>>) || {};
+    const actionProp = properties.action;
+    const action =
+      (actionProp?.const as string | undefined) ??
+      (Array.isArray(actionProp?.enum) ? (actionProp!.enum as string[])[0] : undefined);
+    if (action === undefined) continue;
+    variants.push({ action, properties, required: (branch.required as string[]) || [] });
+  }
+  return variants.length > 0 ? variants : null;
+}
+
+function generateUnionActionDocs(variants: ActionVariant[]): string {
+  let md = '### Actions\n\n';
+
+  for (const variant of variants) {
+    md += `#### \`${variant.action}\`\n\n`;
+    const paramNames = Object.keys(variant.properties).filter((n) => n !== 'action');
+
+    if (paramNames.length === 0) {
+      md += '*No parameters.*\n\n';
+      continue;
+    }
+
+    md += '| Parameter | Type | Required | Description |\n';
+    md += '|-----------|------|----------|-------------|\n';
+    for (const name of paramNames) {
+      const prop = variant.properties[name];
+      const typeStr = getTypeString(prop);
+      const reqStr = variant.required.includes(name) ? 'Yes' : 'No';
+      const desc = escapeMarkdown(String(prop.description || ''));
+      md += `| \`${name}\` | ${typeStr} | ${reqStr} | ${desc} |\n`;
+    }
+    md += '\n';
+  }
+
+  return md;
+}
+
+function generateUnionExamples(variants: ActionVariant[]): string {
+  let md = '### Examples\n\n';
+
+  for (const variant of variants.slice(0, 3)) {
+    const example: Record<string, unknown> = { action: variant.action };
+    for (const name of variant.required) {
+      if (name === 'action') continue;
+      example[name] = getExampleValue(name, variant.properties[name]);
+    }
+    md += `\`\`\`json\n// ${variant.action}\n${JSON.stringify(example, null, 2)}\n\`\`\`\n\n`;
+  }
+
+  if (variants.length > 3) {
+    md += `*${variants.length - 3} more actions available: ${variants.slice(3).map((v) => `\`${v.action}\``).join(', ')}*\n\n`;
+  }
+
+  return md;
+}
+
 function generateToolMarkdown(tool: AnyToolDefinition): string {
   const schema = toInputSchema(tool.schema);
   let md = `## ${tool.name}\n\n`;
   md += `${tool.description}\n\n`;
+
+  const variants = getActionVariants(schema);
+  if (variants) {
+    md += generateUnionActionDocs(variants);
+    md += generateUnionExamples(variants);
+    return md;
+  }
+
   md += `### Parameters\n\n`;
   md += generateParamsTable(schema);
   md += '\n';

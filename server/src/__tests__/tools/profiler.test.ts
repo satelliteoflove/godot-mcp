@@ -18,8 +18,12 @@ describe('profiler tool', () => {
       expect(profiler.schema.safeParse({ action: 'get_active_processes' }).success).toBe(true);
     });
 
-    it('rejects node_path on non-signal actions', () => {
-      expect(profiler.schema.safeParse({ action: 'snapshot', node_path: '/root/Test' }).success).toBe(false);
+    it('strips node_path from non-signal actions (only get_signal_connections defines it)', () => {
+      const parsed = profiler.schema.safeParse({ action: 'snapshot', node_path: '/root/Test' });
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect('node_path' in parsed.data).toBe(false);
+      }
     });
 
     it('accepts node_path on get_signal_connections', () => {

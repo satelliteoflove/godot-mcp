@@ -12,52 +12,63 @@ Editor control, debugging, and screenshot tools
 
 Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_log_messages`, `get_stack_trace`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_log_messages, get_stack_trace, screenshot_game, screenshot_editor, set_viewport_2d |
-| `node_path` | string | select | Path to node |
-| `scene_path` | string | No | Scene to run (run only, optional) |
-| `clear` | boolean | get_log_messages | Clear buffer after reading |
-| `limit` | integer | No | Maximum number of messages to return (get_log_messages only, default: 50) |
-| `viewport` | `2d`, `3d` | screenshot_editor | Which editor viewport to capture |
-| `max_width` | number | screenshot_game, screenshot_editor | Maximum width in pixels for screenshot |
-| `center_x` | number | set_viewport_2d | X coordinate to center the 2D viewport on |
-| `center_y` | number | set_viewport_2d | Y coordinate to center the 2D viewport on |
-| `zoom` | number | set_viewport_2d | Zoom level for 2D viewport, e.g. 1.0 = 100%, 2.0 = 200% |
-
 ### Actions
 
 #### `get_state`
 
+*No parameters.*
+
 #### `get_selection`
+
+*No parameters.*
 
 #### `select`
 
-Parameters: `node_path`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to node to select |
 
 #### `run`
 
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | No | Scene to run (optional, defaults to main scene) |
+
 #### `stop`
+
+*No parameters.*
 
 #### `get_log_messages`
 
-Parameters: `clear`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `clear` | boolean | No | Clear buffer after reading |
+| `limit` | integer | No | Maximum number of messages to return (default: 50) |
 
 #### `get_stack_trace`
 
+*No parameters.*
+
 #### `screenshot_game`
 
-Parameters: `max_width`
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `max_width` | number | No | Maximum width in pixels for the screenshot |
 
 #### `screenshot_editor`
 
-Parameters: `viewport`*, `max_width`
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `viewport` | `2d`, `3d` | No | Which editor viewport to capture |
+| `max_width` | number | No | Maximum width in pixels for the screenshot |
 
 #### `set_viewport_2d`
 
-Parameters: `center_x`*, `center_y`*, `zoom`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `center_x` | number | No | X coordinate to center the 2D viewport on |
+| `center_y` | number | No | Y coordinate to center the 2D viewport on |
+| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% |
 
 ### Examples
 

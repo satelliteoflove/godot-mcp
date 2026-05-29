@@ -12,26 +12,33 @@ Performance profiling: snapshots, per-frame time series with spike detection, ac
 
 Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `snapshot`, `start`, `stop`, `get_data`, `get_active_processes`, `get_signal_connections` | Yes | Action: snapshot (full perf snapshot), start/stop/get_data (time series profiling), get_active_processes, get_signal_connections |
-| `node_path` | string | No | Node path for get_signal_connections (optional, defaults to scene root) |
-
 ### Actions
 
 #### `snapshot`
 
+*No parameters.*
+
 #### `start`
+
+*No parameters.*
 
 #### `stop`
 
+*No parameters.*
+
 #### `get_data`
+
+*No parameters.*
 
 #### `get_active_processes`
 
+*No parameters.*
+
 #### `get_signal_connections`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | No | Node path (defaults to scene root) |
 
 ### Examples
 

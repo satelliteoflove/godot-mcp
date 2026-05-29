@@ -2,42 +2,25 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
-const SceneSchema = z
-  .object({
-    action: z
-      .enum(['open', 'save', 'create'])
-      .describe('Action: open, save, create'),
+const SceneSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('open').describe('Open a scene file'),
+    scene_path: z.string().describe('Path to scene file to open'),
+  }),
+  z.object({
+    action: z.literal('save').describe('Save the current scene'),
     scene_path: z
       .string()
       .optional()
-      .describe('Path to scene file (required for: open, create; optional for: save)'),
-    root_type: z
-      .string()
-      .optional()
-      .describe('Type of root node, e.g. "Node2D" (create only)'),
-    root_name: z
-      .string()
-      .optional()
-      .describe('Name of root node (create only, defaults to root_type)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'save':
-          return true;
-        case 'open':
-          return !!data.scene_path;
-        case 'create':
-          return !!data.scene_path && !!data.root_type;
-        default:
-          return false;
-      }
-    },
-    {
-      message:
-        'Missing required fields for action. open needs scene_path; create needs scene_path and root_type',
-    }
-  );
+      .describe('Path to save to (defaults to the current scene path)'),
+  }),
+  z.object({
+    action: z.literal('create').describe('Create a new scene'),
+    scene_path: z.string().describe('Path for the new scene file'),
+    root_type: z.string().describe('Type of root node, e.g. "Node2D"'),
+    root_name: z.string().optional().describe('Name of root node (defaults to root_type)'),
+  }),
+]);
 
 type SceneArgs = z.infer<typeof SceneSchema>;
 

@@ -8,28 +8,31 @@ const FETCH_TIMEOUT_MS = 15000;
 const SUPPORTED_VERSIONS = ['stable', 'latest', '4.5', '4.4', '4.3', '4.2'] as const;
 type DocsVersion = (typeof SUPPORTED_VERSIONS)[number];
 
-const DocsSchema = z.object({
-  action: z
-    .enum(['fetch_class', 'fetch_page'])
-    .describe('Action: fetch_class (get class reference by name), fetch_page (get any docs page by path)'),
-  class_name: z
-    .string()
-    .optional()
-    .describe('Class name to fetch, e.g. "CharacterBody2D" (fetch_class only)'),
-  path: z
-    .string()
-    .optional()
-    .describe('Documentation path, e.g. "/tutorials/2d/2d_movement.html" (fetch_page only)'),
-  version: z
-    .enum(SUPPORTED_VERSIONS)
-    .optional()
-    .describe('Godot docs version. If omitted, auto-detects from connected Godot editor or defaults to "stable"'),
-  section: z
-    .enum(['full', 'description', 'properties', 'methods', 'signals'])
-    .optional()
-    .default('full')
-    .describe('Which section to return (default: full). Use specific sections to reduce token usage.'),
-});
+const SectionEnum = z
+  .enum(['full', 'description', 'properties', 'methods', 'signals'])
+  .optional()
+  .default('full')
+  .describe('Which section to return (default: full). Use specific sections to reduce token usage.');
+
+const VersionEnum = z
+  .enum(SUPPORTED_VERSIONS)
+  .optional()
+  .describe('Godot docs version. If omitted, auto-detects from connected Godot editor or defaults to "stable"');
+
+const DocsSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('fetch_class').describe('Get a class reference by name'),
+    class_name: z.string().describe('Class name to fetch, e.g. "CharacterBody2D"'),
+    version: VersionEnum,
+    section: SectionEnum,
+  }),
+  z.object({
+    action: z.literal('fetch_page').describe('Get any docs page by path'),
+    path: z.string().describe('Documentation path, e.g. "/tutorials/2d/2d_movement.html"'),
+    version: VersionEnum,
+    section: SectionEnum,
+  }),
+]);
 
 type DocsArgs = z.infer<typeof DocsSchema>;
 

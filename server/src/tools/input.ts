@@ -8,46 +8,37 @@ const InputActionSchema = z.object({
   duration_ms: z.number().int().min(0).optional().default(0).describe('How long to hold the input (0 = instant tap)'),
 });
 
-const InputSchema = z
-  .object({
-    action: z
-      .enum(['get_map', 'sequence', 'type_text'])
-      .describe('Action: get_map (list available input actions), sequence (execute input timeline), type_text (type text into focused UI element)'),
+const InputSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('get_map').describe('List available input actions from the project Input Map'),
+  }),
+  z.object({
+    action: z.literal('sequence').describe('Execute an input timeline'),
     inputs: z
       .array(InputActionSchema)
       .min(1)
-      .optional()
-      .describe('Array of inputs to execute (sequence only)'),
+      .describe('Array of inputs to execute'),
+  }),
+  z.object({
+    action: z.literal('type_text').describe('Type text into the focused UI element'),
     text: z
       .string()
       .min(1)
-      .optional()
-      .describe('Text to type (type_text only)'),
+      .describe('Text to type'),
     delay_ms: z
       .number()
       .int()
       .min(0)
       .optional()
       .default(50)
-      .describe('Delay between keystrokes in milliseconds (type_text only, default 50)'),
+      .describe('Delay between keystrokes in milliseconds (default 50)'),
     submit: z
       .boolean()
       .optional()
       .default(false)
-      .describe('Press Enter after typing to submit (type_text only, for LineEdit text_submitted)'),
-  })
-  .refine(
-    (data) => {
-      if (data.action === 'sequence') {
-        return data.inputs && data.inputs.length > 0;
-      }
-      if (data.action === 'type_text') {
-        return data.text && data.text.length > 0;
-      }
-      return true;
-    },
-    { message: 'sequence requires inputs array; type_text requires text string' }
-  );
+      .describe('Press Enter after typing to submit (for LineEdit text_submitted)'),
+  }),
+]);
 
 type InputArgs = z.infer<typeof InputSchema>;
 

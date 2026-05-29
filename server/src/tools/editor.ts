@@ -34,62 +34,47 @@ function toImageContent(base64: string): ImageContent {
 }
 
 const EditorSchema = z
-  .object({
-    action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_log_messages', 'get_stack_trace', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_log_messages, get_stack_trace, screenshot_game, screenshot_editor, set_viewport_2d'),
-    node_path: z
-      .string()
-      .optional()
-      .describe('Path to node (select only)'),
-    scene_path: z
-      .string()
-      .optional()
-      .describe('Scene to run (run only, optional)'),
-    clear: z
-      .boolean()
-      .optional()
-      .describe('Clear buffer after reading (get_log_messages only)'),
-    limit: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe('Maximum number of messages to return (get_log_messages only, default: 50)'),
-    viewport: z
-      .enum(['2d', '3d'])
-      .optional()
-      .describe('Which editor viewport to capture (screenshot_editor only)'),
-    max_width: z
-      .number()
-      .optional()
-      .describe('Maximum width in pixels for screenshot (screenshot_game, screenshot_editor)'),
-    center_x: z
-      .number()
-      .optional()
-      .describe('X coordinate to center the 2D viewport on (set_viewport_2d only)'),
-    center_y: z
-      .number()
-      .optional()
-      .describe('Y coordinate to center the 2D viewport on (set_viewport_2d only)'),
-    zoom: z
-      .number()
-      .positive()
-      .optional()
-      .describe('Zoom level for 2D viewport, e.g. 1.0 = 100%, 2.0 = 200% (set_viewport_2d only)'),
-  })
+  .discriminatedUnion('action', [
+    z.object({ action: z.literal('get_state').describe('Get editor state: current scene, play state, version, camera, viewport') }),
+    z.object({ action: z.literal('get_selection').describe('Get the currently selected nodes') }),
+    z.object({
+      action: z.literal('select').describe('Select a node in the editor'),
+      node_path: z.string().describe('Path to node to select'),
+    }),
+    z.object({
+      action: z.literal('run').describe('Run the project'),
+      scene_path: z.string().optional().describe('Scene to run (optional, defaults to main scene)'),
+    }),
+    z.object({ action: z.literal('stop').describe('Stop the running project') }),
+    z.object({
+      action: z.literal('get_log_messages').describe('Get editor/game log messages'),
+      clear: z.boolean().optional().describe('Clear buffer after reading'),
+      limit: z.number().int().positive().optional().describe('Maximum number of messages to return (default: 50)'),
+    }),
+    z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
+    z.object({
+      action: z.literal('screenshot_game').describe('Capture a screenshot of the running game'),
+      max_width: z.number().optional().describe('Maximum width in pixels for the screenshot'),
+    }),
+    z.object({
+      action: z.literal('screenshot_editor').describe('Capture a screenshot of an editor viewport'),
+      viewport: z.enum(['2d', '3d']).optional().describe('Which editor viewport to capture'),
+      max_width: z.number().optional().describe('Maximum width in pixels for the screenshot'),
+    }),
+    z.object({
+      action: z.literal('set_viewport_2d').describe('Center and zoom the 2D editor viewport'),
+      center_x: z.number().optional().describe('X coordinate to center the 2D viewport on'),
+      center_y: z.number().optional().describe('Y coordinate to center the 2D viewport on'),
+      zoom: z.number().positive().optional().describe('Zoom level, e.g. 1.0 = 100%, 2.0 = 200%'),
+    }),
+  ])
+  // Constraint a discriminated union can't express on its own, so it lives here:
   .refine(
-    (data) => {
-      switch (data.action) {
-        case 'select':
-          return !!data.node_path;
-        case 'set_viewport_2d':
-          return data.center_x !== undefined || data.center_y !== undefined || data.zoom !== undefined;
-        default:
-          return true;
-      }
-    },
-    { message: 'select requires node_path; set_viewport_2d requires at least one of center_x, center_y, or zoom' }
+    (data) =>
+      data.action === 'set_viewport_2d'
+        ? data.center_x !== undefined || data.center_y !== undefined || data.zoom !== undefined
+        : true,
+    { message: 'set_viewport_2d requires at least one of center_x, center_y, or zoom' }
   );
 
 type EditorArgs = z.infer<typeof EditorSchema>;

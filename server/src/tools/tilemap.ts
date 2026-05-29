@@ -13,38 +13,53 @@ const Vector3iSchema = z.object({
   z: z.number().int(),
 });
 
-const TilemapSchema = z
-  .object({
-    action: z
-      .enum([
-        'list_layers',
-        'get_info',
-        'get_tileset_info',
-        'get_used_cells',
-        'get_cell',
-        'get_cells_in_region',
-        'convert_coords',
-        'set_cell',
-        'erase_cell',
-        'clear_layer',
-        'set_cells_batch',
-      ])
-      .describe(
-        'Action: list_layers, get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords, set_cell, erase_cell, clear_layer, set_cells_batch'
-      ),
-    root_path: z.string().optional().describe('Starting node path (list_layers only)'),
-    node_path: z.string().optional().describe('Path to TileMapLayer (required except list_layers)'),
-    coords: Vector2iSchema.optional().describe('Cell coordinates (get_cell, set_cell, erase_cell)'),
-    min_coords: Vector2iSchema.optional().describe('Minimum corner of region (get_cells_in_region)'),
-    max_coords: Vector2iSchema.optional().describe('Maximum corner of region (get_cells_in_region)'),
+const tilemapNodePath = z.string().describe('Path to the TileMapLayer');
+
+const TilemapSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('list_layers').describe('List TileMapLayer nodes in the scene'),
+    root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
+  }),
+  z.object({ action: z.literal('get_info').describe('Get TileMapLayer info'), node_path: tilemapNodePath }),
+  z.object({ action: z.literal('get_tileset_info').describe("Get the layer's TileSet info"), node_path: tilemapNodePath }),
+  z.object({ action: z.literal('get_used_cells').describe('Get all used cells'), node_path: tilemapNodePath }),
+  z.object({
+    action: z.literal('get_cell').describe('Get a single cell'),
+    node_path: tilemapNodePath,
+    coords: Vector2iSchema.describe('Cell coordinates'),
+  }),
+  z.object({
+    action: z.literal('get_cells_in_region').describe('Get cells within a rectangular region'),
+    node_path: tilemapNodePath,
+    min_coords: Vector2iSchema.describe('Minimum corner of region'),
+    max_coords: Vector2iSchema.describe('Maximum corner of region'),
+  }),
+  z.object({
+    action: z.literal('convert_coords').describe('Convert between local position and map coordinates'),
+    node_path: tilemapNodePath,
     local_position: z
       .object({ x: z.number(), y: z.number() })
       .optional()
-      .describe('Local position to convert to map coords (convert_coords)'),
-    map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position (convert_coords)'),
-    source_id: z.number().int().optional().describe('TileSet source ID, default 0 (set_cell)'),
-    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0 (set_cell)'),
-    alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0 (set_cell)'),
+      .describe('Local position to convert to map coords'),
+    map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position'),
+  }),
+  z.object({
+    action: z.literal('set_cell').describe('Set a single cell'),
+    node_path: tilemapNodePath,
+    coords: Vector2iSchema.describe('Cell coordinates'),
+    source_id: z.number().int().optional().describe('TileSet source ID, default 0'),
+    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0'),
+    alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0'),
+  }),
+  z.object({
+    action: z.literal('erase_cell').describe('Erase a single cell'),
+    node_path: tilemapNodePath,
+    coords: Vector2iSchema.describe('Cell coordinates'),
+  }),
+  z.object({ action: z.literal('clear_layer').describe('Clear all cells in the layer'), node_path: tilemapNodePath }),
+  z.object({
+    action: z.literal('set_cells_batch').describe('Set many cells at once'),
+    node_path: tilemapNodePath,
     cells: z
       .array(
         z.object({
@@ -54,34 +69,10 @@ const TilemapSchema = z
           alternative_tile: z.number().int().optional(),
         })
       )
-      .optional()
-      .describe('Array of cells to set (set_cells_batch)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'list_layers':
-          return true;
-        case 'get_info':
-        case 'get_tileset_info':
-        case 'get_used_cells':
-        case 'convert_coords':
-        case 'clear_layer':
-          return !!data.node_path;
-        case 'get_cell':
-        case 'set_cell':
-        case 'erase_cell':
-          return !!data.node_path && !!data.coords;
-        case 'get_cells_in_region':
-          return !!data.node_path && !!data.min_coords && !!data.max_coords;
-        case 'set_cells_batch':
-          return !!data.node_path && !!data.cells && data.cells.length > 0;
-        default:
-          return false;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
+      .min(1)
+      .describe('Array of cells to set'),
+  }),
+]);
 
 type TilemapArgs = z.infer<typeof TilemapSchema>;
 
@@ -173,16 +164,42 @@ export const tilemap = defineTool({
   },
 });
 
-const GridmapSchema = z
-  .object({
-    action: z
-      .enum(['list', 'get_info', 'get_meshlib_info', 'get_used_cells', 'get_cell', 'get_cells_by_item', 'set_cell', 'clear_cell', 'clear', 'set_cells_batch'])
-      .describe('Action: list, get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item, set_cell, clear_cell, clear, set_cells_batch'),
-    root_path: z.string().optional().describe('Starting node path (list only)'),
-    node_path: z.string().optional().describe('Path to GridMap (required except list)'),
-    coords: Vector3iSchema.optional().describe('Cell coordinates (get_cell, set_cell, clear_cell)'),
-    item: z.number().int().optional().describe('MeshLibrary item index (get_cells_by_item, set_cell)'),
-    orientation: z.number().int().optional().describe('Orientation 0-23, default 0 (set_cell)'),
+const gridmapNodePath = z.string().describe('Path to the GridMap');
+
+const GridmapSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('list').describe('List GridMap nodes in the scene'),
+    root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
+  }),
+  z.object({ action: z.literal('get_info').describe('Get GridMap info'), node_path: gridmapNodePath }),
+  z.object({ action: z.literal('get_meshlib_info').describe("Get the GridMap's MeshLibrary info"), node_path: gridmapNodePath }),
+  z.object({ action: z.literal('get_used_cells').describe('Get all used cells'), node_path: gridmapNodePath }),
+  z.object({
+    action: z.literal('get_cell').describe('Get a single cell'),
+    node_path: gridmapNodePath,
+    coords: Vector3iSchema.describe('Cell coordinates'),
+  }),
+  z.object({
+    action: z.literal('get_cells_by_item').describe('Get all cells using a given MeshLibrary item'),
+    node_path: gridmapNodePath,
+    item: z.number().int().describe('MeshLibrary item index'),
+  }),
+  z.object({
+    action: z.literal('set_cell').describe('Set a single cell'),
+    node_path: gridmapNodePath,
+    coords: Vector3iSchema.describe('Cell coordinates'),
+    item: z.number().int().describe('MeshLibrary item index'),
+    orientation: z.number().int().optional().describe('Orientation 0-23, default 0'),
+  }),
+  z.object({
+    action: z.literal('clear_cell').describe('Clear a single cell'),
+    node_path: gridmapNodePath,
+    coords: Vector3iSchema.describe('Cell coordinates'),
+  }),
+  z.object({ action: z.literal('clear').describe('Clear all cells'), node_path: gridmapNodePath }),
+  z.object({
+    action: z.literal('set_cells_batch').describe('Set many cells at once'),
+    node_path: gridmapNodePath,
     cells: z
       .array(
         z.object({
@@ -191,34 +208,10 @@ const GridmapSchema = z
           orientation: z.number().int().optional(),
         })
       )
-      .optional()
-      .describe('Array of cells to set (set_cells_batch)'),
-  })
-  .refine(
-    (data) => {
-      switch (data.action) {
-        case 'list':
-          return true;
-        case 'get_info':
-        case 'get_meshlib_info':
-        case 'get_used_cells':
-        case 'clear':
-          return !!data.node_path;
-        case 'get_cell':
-        case 'clear_cell':
-          return !!data.node_path && !!data.coords;
-        case 'get_cells_by_item':
-          return !!data.node_path && data.item !== undefined;
-        case 'set_cell':
-          return !!data.node_path && !!data.coords && data.item !== undefined;
-        case 'set_cells_batch':
-          return !!data.node_path && !!data.cells && data.cells.length > 0;
-        default:
-          return false;
-      }
-    },
-    { message: 'Missing required fields for action' }
-  );
+      .min(1)
+      .describe('Array of cells to set'),
+  }),
+]);
 
 type GridmapArgs = z.infer<typeof GridmapSchema>;
 

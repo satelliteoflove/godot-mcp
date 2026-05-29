@@ -3,19 +3,25 @@ import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition } from '../core/types.js';
 import { getServerVersion } from '../version.js';
 
-const ProjectSchema = z.object({
-  action: z
-    .enum(['get_info', 'get_settings', 'addon_status'])
-    .describe('Action: get_info, get_settings, addon_status (check addon/server version compatibility)'),
-  category: z
-    .string()
-    .optional()
-    .describe('Settings category to filter by (get_settings only, use "input" for input mappings)'),
-  include_builtin: z
-    .boolean()
-    .optional()
-    .describe('Include built-in ui_* actions (get_settings with category="input" only)'),
-});
+const ProjectSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('get_info').describe('Get project name, path, version, and main scene'),
+  }),
+  z.object({
+    action: z.literal('get_settings').describe('Get project settings'),
+    category: z
+      .string()
+      .optional()
+      .describe('Settings category to filter by (use "input" for input mappings)'),
+    include_builtin: z
+      .boolean()
+      .optional()
+      .describe('Include built-in ui_* actions (with category="input")'),
+  }),
+  z.object({
+    action: z.literal('addon_status').describe('Check addon/server version compatibility'),
+  }),
+]);
 
 type ProjectArgs = z.infer<typeof ProjectSchema>;
 

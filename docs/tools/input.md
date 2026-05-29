@@ -12,36 +12,32 @@ Input injection for testing running games (action-based, no mouse/coordinates ye
 
 Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `get_map`, `sequence`, `type_text` | Yes | Action: get_map (list available input actions), sequence (execute input timeline), type_text (type text into focused UI element) |
-| `inputs` | object[] | sequence | Array of inputs to execute |
-| `text` | string | type_text | Text to type |
-| `delay_ms` | integer | Yes | Delay between keystrokes in milliseconds (type_text only, default 50) |
-| `submit` | boolean | Yes | Press Enter after typing to submit (type_text only, for LineEdit text_submitted) |
-
 ### Actions
 
 #### `get_map`
 
+*No parameters.*
+
 #### `sequence`
 
-Parameters: `inputs`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `inputs` | object[] | Yes | Array of inputs to execute |
 
 #### `type_text`
 
-Parameters: `text`*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `text` | string | Yes | Text to type |
+| `delay_ms` | integer | Yes | Delay between keystrokes in milliseconds (default 50) |
+| `submit` | boolean | Yes | Press Enter after typing to submit (for LineEdit text_submitted) |
 
 ### Examples
 
 ```json
 // get_map
 {
-  "action": "get_map",
-  "delay_ms": null,
-  "submit": false
+  "action": "get_map"
 }
 ```
 
@@ -49,9 +45,7 @@ Parameters: `text`*
 // sequence
 {
   "action": "sequence",
-  "inputs": [],
-  "delay_ms": null,
-  "submit": false
+  "inputs": []
 }
 ```
 

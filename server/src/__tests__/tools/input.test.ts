@@ -49,7 +49,7 @@ describe('input tool', () => {
       });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map', delay_ms: 50, submit: false }, ctx);
+      const result = await input.execute({ action: 'get_map' }, ctx);
       expect(result).toContain('jump: Space, Joypad Button 0');
       expect(result).toContain('move_left: A, Left');
       expect(result).toContain('source: game');
@@ -59,7 +59,7 @@ describe('input tool', () => {
       mock.mockResponse({ actions: [], source: 'editor' });
       const ctx = createToolContext(mock);
 
-      const result = await input.execute({ action: 'get_map', delay_ms: 50, submit: false }, ctx);
+      const result = await input.execute({ action: 'get_map' }, ctx);
       expect(result).toContain('No custom input actions defined');
     });
   });
@@ -72,8 +72,6 @@ describe('input tool', () => {
       const result = await input.execute({
         action: 'sequence',
         inputs: [{ action_name: 'jump', start_ms: 0, duration_ms: 0 }],
-        delay_ms: 50,
-        submit: false,
       }, ctx);
 
       expect(result).toContain('1 action(s) executed');
@@ -91,8 +89,6 @@ describe('input tool', () => {
           { action_name: 'move_forward', start_ms: 0, duration_ms: 1000 },
           { action_name: 'jump', start_ms: 500, duration_ms: 250 },
         ],
-        delay_ms: 50,
-        submit: false,
       }, ctx);
 
       expect(result).toContain('2 action(s) executed');
@@ -107,8 +103,6 @@ describe('input tool', () => {
       await expect(input.execute({
         action: 'sequence',
         inputs: [{ action_name: 'invalid', start_ms: 0, duration_ms: 0 }],
-        delay_ms: 50,
-        submit: false,
       }, ctx)).rejects.toThrow('Unknown action: invalid');
     });
   });
