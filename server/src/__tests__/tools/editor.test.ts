@@ -66,32 +66,6 @@ describe('editor tool', () => {
     });
   });
 
-  describe('get_debug_output (deprecated)', () => {
-    it('returns deprecation notice with labeled output based on source', async () => {
-      const ctx = createToolContext(mock);
-      const deprecation = '[DEPRECATED] get_debug_output is deprecated. Use minimal-godot-mcp\'s get_console_output tool instead (no addon required).';
-
-      mock.mockResponse({ output: '', source: 'editor' });
-      const emptyResult = await editor.execute({ action: 'get_debug_output', source: 'editor' }, ctx);
-      expect(emptyResult).toContain(deprecation);
-      expect(emptyResult).toContain('No editor output');
-
-      mock.mockResponse({ output: 'Player spawned', source: 'game' });
-      const result = await editor.execute({ action: 'get_debug_output', source: 'game' }, ctx);
-      expect(result).toContain(deprecation);
-      expect(result).toContain('Game output:');
-      expect(result).toContain('Player spawned');
-    });
-
-    it('passes clear parameter to Godot', async () => {
-      mock.mockResponse({ output: 'test', source: 'game' });
-      const ctx = createToolContext(mock);
-
-      await editor.execute({ action: 'get_debug_output', clear: true }, ctx);
-      expect(mock.calls[0].params.clear).toBe(true);
-    });
-  });
-
   describe('get_log_messages', () => {
     it('returns "No log messages" when empty', async () => {
       const ctx = createToolContext(mock);
@@ -119,34 +93,6 @@ describe('editor tool', () => {
       mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
       await editor.execute({ action: 'get_log_messages', limit: 10 }, ctx);
       expect(mock.calls[0].params.limit).toBe(10);
-    });
-  });
-
-  describe('get_errors (deprecated alias)', () => {
-    it('returns "No errors" when empty, JSON when present', async () => {
-      const ctx = createToolContext(mock);
-
-      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
-      expect(await editor.execute({ action: 'get_errors' }, ctx)).toBe('No errors');
-
-      const responseData = {
-        total_count: 1,
-        returned_count: 1,
-        messages: [{
-          timestamp: 12345,
-          type: 'Parser Error',
-          message: 'Could not find type',
-          file: 'res://test.gd',
-          line: 10,
-          error_type: 0,
-          frames: [],
-        }],
-      };
-      mock.mockResponse(responseData);
-      const result = await editor.execute({ action: 'get_errors' }, ctx);
-      const parsed = JSON.parse(result as string);
-      expect(parsed.error_count).toBe(1);
-      expect(parsed.errors).toEqual(responseData.messages);
     });
   });
 

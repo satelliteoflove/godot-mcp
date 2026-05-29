@@ -10,18 +10,17 @@ Editor control, debugging, and screenshot tools
 
 ## editor
 
-Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output (deprecated - use minimal-godot-mcp)/errors/stack traces, get performance metrics, control 2D viewport
+Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_debug_output`, `get_log_messages`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_debug_output (deprecated - use minimal-godot-mcp), get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d |
+| `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_log_messages`, `get_stack_trace`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes | Action: get_state, get_selection, select, run, stop, get_log_messages, get_stack_trace, screenshot_game, screenshot_editor, set_viewport_2d |
 | `node_path` | string | select | Path to node |
 | `scene_path` | string | No | Scene to run (run only, optional) |
-| `clear` | boolean | get_debug_output, get_log_messages, get_errors | Clear buffer after reading |
+| `clear` | boolean | get_log_messages | Clear buffer after reading |
 | `limit` | integer | No | Maximum number of messages to return (get_log_messages only, default: 50) |
-| `source` | `editor`, `game` | No | Output source: "editor" for editor panel messages (script errors, loading failures), "game" for running game output. If omitted, returns game output when running, else editor output. |
 | `viewport` | `2d`, `3d` | screenshot_editor | Which editor viewport to capture |
 | `max_width` | number | screenshot_game, screenshot_editor | Maximum width in pixels for screenshot |
 | `center_x` | number | set_viewport_2d | X coordinate to center the 2D viewport on |
@@ -42,21 +41,11 @@ Parameters: `node_path`*
 
 #### `stop`
 
-#### `get_debug_output`
-
-Parameters: `clear`
-
 #### `get_log_messages`
 
-Parameters: `clear`
-
-#### `get_errors`
-
-Parameters: `clear`
+Parameters: `clear`*
 
 #### `get_stack_trace`
-
-#### `get_performance`
 
 #### `screenshot_game`
 
@@ -94,7 +83,7 @@ Parameters: `center_x`*, `center_y`*, `zoom`*
 }
 ```
 
-*10 more actions available: `run`, `stop`, `get_debug_output`, `get_log_messages`, `get_errors`, `get_stack_trace`, `get_performance`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d`*
+*7 more actions available: `run`, `stop`, `get_log_messages`, `get_stack_trace`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d`*
 
 ---
 

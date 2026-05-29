@@ -36,8 +36,8 @@ function toImageContent(base64: string): ImageContent {
 const EditorSchema = z
   .object({
     action: z
-      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_debug_output', 'get_log_messages', 'get_errors', 'get_stack_trace', 'get_performance', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
-      .describe('Action: get_state, get_selection, select, run, stop, get_debug_output (deprecated - use minimal-godot-mcp), get_log_messages, get_errors (deprecated), get_stack_trace, get_performance, screenshot_game, screenshot_editor, set_viewport_2d'),
+      .enum(['get_state', 'get_selection', 'select', 'run', 'stop', 'get_log_messages', 'get_stack_trace', 'screenshot_game', 'screenshot_editor', 'set_viewport_2d'])
+      .describe('Action: get_state, get_selection, select, run, stop, get_log_messages, get_stack_trace, screenshot_game, screenshot_editor, set_viewport_2d'),
     node_path: z
       .string()
       .optional()
@@ -49,17 +49,13 @@ const EditorSchema = z
     clear: z
       .boolean()
       .optional()
-      .describe('Clear buffer after reading (get_debug_output, get_log_messages, get_errors)'),
+      .describe('Clear buffer after reading (get_log_messages only)'),
     limit: z
       .number()
       .int()
       .positive()
       .optional()
       .describe('Maximum number of messages to return (get_log_messages only, default: 50)'),
-    source: z
-      .enum(['editor', 'game'])
-      .optional()
-      .describe('Output source: "editor" for editor panel messages (script errors, loading failures), "game" for running game output. If omitted, returns game output when running, else editor output.'),
     viewport: z
       .enum(['2d', '3d'])
       .optional()
@@ -118,7 +114,7 @@ interface LogMessagesResponse {
 export const editor = defineTool({
   name: 'editor',
   description:
-    'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, get debug output (deprecated - use minimal-godot-mcp)/errors/stack traces, get performance metrics, control 2D viewport',
+    'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -160,19 +156,6 @@ export const editor = defineTool({
         return 'Stopped project';
       }
 
-      case 'get_debug_output': {
-        const deprecation = '[DEPRECATED] get_debug_output is deprecated. Use minimal-godot-mcp\'s get_console_output tool instead (no addon required).\n\n';
-        const result = await godot.sendCommand<{ output: string; source: string }>(
-          'get_debug_output',
-          { clear: args.clear ?? false, source: args.source }
-        );
-        if (!result.output || result.output.trim() === '') {
-          return `${deprecation}No ${result.source ?? 'debug'} output`;
-        }
-        const label = result.source === 'editor' ? 'Editor' : result.source === 'game' ? 'Game' : 'Debug';
-        return `${deprecation}${label} output:\n\`\`\`\n${result.output}\n\`\`\``;
-      }
-
       case 'get_log_messages': {
         const result = await godot.sendCommand<LogMessagesResponse>(
           'get_log_messages',
@@ -187,23 +170,6 @@ export const editor = defineTool({
         return JSON.stringify(result, null, 2);
       }
 
-      case 'get_errors': {
-        const result = await godot.sendCommand<LogMessagesResponse>(
-          'get_log_messages',
-          {
-            clear: args.clear ?? false,
-            limit: args.limit ?? 50,
-          }
-        );
-        if (result.returned_count === 0) {
-          return 'No errors';
-        }
-        return JSON.stringify({
-          error_count: result.returned_count,
-          errors: result.messages,
-        }, null, 2);
-      }
-
       case 'get_stack_trace': {
         const result = await godot.sendCommand<{
           error: string;
@@ -216,12 +182,6 @@ export const editor = defineTool({
           return 'No stack trace available';
         }
         return JSON.stringify(result, null, 2);
-      }
-
-      case 'get_performance': {
-        const deprecation = '[DEPRECATED] get_performance is deprecated. Use profiler > snapshot instead for all 59 monitors + render timing.\n\n';
-        const result = await godot.sendCommand<Record<string, number>>('get_performance_metrics');
-        return deprecation + JSON.stringify(result, null, 2);
       }
 
       case 'screenshot_game': {
