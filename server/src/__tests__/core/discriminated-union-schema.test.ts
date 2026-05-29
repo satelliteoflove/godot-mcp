@@ -5,27 +5,33 @@ import { animation } from '../../tools/animation.js';
 import { editor } from '../../tools/editor.js';
 
 type JsonSchema = Record<string, unknown>;
-const variantsOf = (tool: { schema: Parameters<typeof toInputSchema>[0] }): JsonSchema[] =>
-  (toInputSchema(tool.schema) as JsonSchema).oneOf as JsonSchema[];
-const actionOf = (variant: JsonSchema): string =>
-  ((variant.properties as Record<string, JsonSchema>).action as JsonSchema).const as string;
+
+const schemaOf = (tool: { schema: Parameters<typeof toInputSchema>[0] }): JsonSchema =>
+  toInputSchema(tool.schema) as JsonSchema;
+
+const actionEnumOf = (schema: JsonSchema): string[] =>
+  ((schema.properties as JsonSchema).action as JsonSchema).enum as string[];
 
 describe('discriminated-union tool schemas', () => {
-  it('serialize to oneOf with one variant per action', () => {
-    const variants = variantsOf(node);
-    expect(Array.isArray(variants)).toBe(true);
-    expect(variants).toHaveLength(9);
-    const actions = variants.map(actionOf);
+  it('serialize to a flat object schema with an action enum', () => {
+    const schema = schemaOf(node);
+    expect(schema.type).toBe('object');
+    const actions = actionEnumOf(schema);
+    expect(Array.isArray(actions)).toBe(true);
+    expect(actions).toHaveLength(9);
     expect(actions).toContain('create');
     expect(actions).toContain('connect_signal');
   });
 
-  it('encode per-action required fields in each variant', () => {
-    const create = variantsOf(node).find((v) => actionOf(v) === 'create')!;
-    expect(create.required).toEqual(expect.arrayContaining(['action', 'parent_path', 'node_name']));
-    // node_type / scene_path are the XOR pair, so neither is individually required
-    expect(create.required).not.toContain('node_type');
-    expect(create.required).not.toContain('scene_path');
+  it('mark action as the only required field; action-specific fields are optional', () => {
+    const schema = schemaOf(node);
+    expect(schema.required).toEqual(['action']);
+    const props = schema.properties as JsonSchema;
+    // create-action fields are present as optional top-level properties
+    expect(props).toHaveProperty('parent_path');
+    expect(props).toHaveProperty('node_name');
+    expect(props).toHaveProperty('node_type');
+    expect(props).toHaveProperty('scene_path');
   });
 
   it('keep residual constraints the union cannot express on its own', () => {
