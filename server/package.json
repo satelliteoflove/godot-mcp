@@ -22,11 +22,11 @@
   "homepage": "https://github.com/satelliteoflove/godot-mcp#readme",
   "scripts": {
     "build": "tsc && npm run copy-addon",
-    "copy-addon": "rm -rf addon && cp -r ../godot/addons/godot_mcp addon",
+    "copy-addon": "tsx scripts/copy-addon.ts",
     "start": "node dist/index.js",
     "cli": "node dist/cli.js",
     "dev": "tsc --watch",
-    "dev:cli": "nodemon --exec 'tsx src/cli.ts' --ext ts --watch src",
+    "dev:cli": "nodemon --exec \"tsx src/cli.ts\" --ext ts --watch src",
     "test": "vitest run",
     "test:watch": "vitest",
     "generate-docs": "tsx scripts/generate-docs.ts"
