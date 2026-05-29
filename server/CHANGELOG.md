@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.18.0...godot-mcp-v3.0.0) (2026-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **editor:** the editor tool no longer accepts the actions get_debug_output, get_errors, or get_performance.
+
+### Features
+
+* **editor:** remove deprecated debug/errors/performance actions ([#193](https://github.com/satelliteoflove/godot-mcp/issues/193)) ([4a01224](https://github.com/satelliteoflove/godot-mcp/commit/4a01224d31177e13024771e73b83e842c05be2f6))
+
 ## [2.18.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.17.0...godot-mcp-v2.18.0) (2026-03-30)
 
 
