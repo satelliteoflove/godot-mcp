@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition, ImageContent, Vector3 } from '../core/types.js';
 
 interface ScreenshotResponse {
@@ -114,7 +115,7 @@ export const editor = defineTool({
           camera?: CameraInfo;
           viewport_2d?: Viewport2DInfo;
         }>('get_editor_state');
-        return JSON.stringify(result);
+        return structured(result);
       }
 
       case 'get_selection': {
@@ -153,7 +154,7 @@ export const editor = defineTool({
         if (result.returned_count === 0) {
           return 'No log messages';
         }
-        return JSON.stringify(result);
+        return structured(result);
       }
 
       case 'get_stack_trace': {
@@ -167,7 +168,7 @@ export const editor = defineTool({
         if (!result.error && result.frames.length === 0) {
           return 'No stack trace available';
         }
-        return JSON.stringify(result);
+        return structured(result);
       }
 
       case 'screenshot_game': {

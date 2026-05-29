@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 import { getServerVersion } from '../version.js';
 
@@ -39,7 +40,7 @@ export const project = defineTool({
           godot_version: string;
           main_scene: string | null;
         }>('get_project_info');
-        return JSON.stringify(result);
+        return structured(result);
       }
 
       case 'get_settings': {
@@ -49,14 +50,14 @@ export const project = defineTool({
           category: args.category,
           include_builtin: args.include_builtin,
         });
-        return JSON.stringify(result.settings);
+        return structured(result.settings);
       }
 
       case 'addon_status': {
         const serverVersion = getServerVersion();
 
         if (!godot.isConnected) {
-          return JSON.stringify(
+          return structured(
             {
               connected: false,
               server_version: serverVersion,
@@ -70,7 +71,7 @@ export const project = defineTool({
         const projectPath = godot.projectPath;
         const versionsMatch = godot.versionsMatch;
 
-        return JSON.stringify(
+        return structured(
           {
             connected: true,
             server_version: serverVersion,

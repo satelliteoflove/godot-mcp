@@ -54,3 +54,17 @@ export function createToolContext(mock: MockGodotConnection) {
     } as unknown as GodotConnection,
   };
 }
+
+// Extract the structured payload from a tool result. Query actions return a
+// StructuredToolResult ({ text, structuredContent }); this returns the
+// structuredContent. Falls back to parsing a plain JSON-string result.
+export function structuredOf(result: unknown): any {
+  if (
+    result &&
+    typeof result === 'object' &&
+    'structuredContent' in result
+  ) {
+    return (result as { structuredContent: unknown }).structuredContent;
+  }
+  return JSON.parse(result as string);
+}

@@ -9,6 +9,7 @@ import {
 
 import { initializeConnection, getGodotConnection } from './connection/websocket.js';
 import { registry } from './core/registry.js';
+import { isStructuredResult } from './core/structured.js';
 import { registerAllTools } from './tools/index.js';
 import { registerAllResources } from './resources/index.js';
 import { GodotCommandError } from './utils/errors.js';
@@ -48,6 +49,12 @@ export async function main() {
       if (typeof result === 'string') {
         return {
           content: [{ type: 'text', text: result }],
+        };
+      }
+      if (isStructuredResult(result)) {
+        return {
+          content: [{ type: 'text', text: result.text }],
+          structuredContent: result.structuredContent,
         };
       }
       return {

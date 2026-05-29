@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 interface FrameEntry {
@@ -190,7 +191,7 @@ export const profiler = defineTool({
         const result = await godot.sendCommand<Record<string, number | string>>(
           'get_performance_metrics'
         );
-        return JSON.stringify(result);
+        return structured(result);
       }
 
       case 'start': {
@@ -208,7 +209,7 @@ export const profiler = defineTool({
         const { frames } = result;
 
         if (frames.length === 0) {
-          return JSON.stringify({
+          return structured({
             active: result.active,
             frame_count: 0,
             message: 'No frames collected. Start the profiler first with action: start',
@@ -228,7 +229,7 @@ export const profiler = defineTool({
 
         const frameBudget = computeFrameBudget(frameTimeStats, targetFps);
 
-        return JSON.stringify({
+        return structured({
           active: result.active,
           frame_count: result.frame_count,
           total_frames_collected: result.total_frames_collected,

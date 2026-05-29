@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 const propertiesField = z
@@ -98,7 +99,7 @@ export const node = defineTool({
         const result = await godot.sendCommand<{
           properties: Record<string, unknown>;
         }>('get_node_properties', { node_path: args.node_path });
-        return JSON.stringify(result.properties);
+        return structured(result.properties);
       }
 
       case 'find': {

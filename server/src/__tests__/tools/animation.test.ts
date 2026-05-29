@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { animation } from '../../tools/animation.js';
 
 describe('animation tool', () => {
@@ -33,14 +33,14 @@ describe('animation tool', () => {
 
       const info = { current_animation: 'idle', is_playing: true };
       mock.mockResponse(info);
-      expect(JSON.parse(await animation.execute({
+      expect(structuredOf(await animation.execute({
         action: 'get_info',
         node_path: '/root/AnimPlayer',
       }, ctx) as string)).toEqual(info);
 
       const details = { name: 'walk', length: 1.5, track_count: 3 };
       mock.mockResponse(details);
-      expect(JSON.parse(await animation.execute({
+      expect(structuredOf(await animation.execute({
         action: 'get_details',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -48,7 +48,7 @@ describe('animation tool', () => {
 
       const keyframes = { track_path: 'Sprite:frame', keyframes: [{ time: 0, value: 0 }] };
       mock.mockResponse(keyframes);
-      expect(JSON.parse(await animation.execute({
+      expect(structuredOf(await animation.execute({
         action: 'get_keyframes',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',

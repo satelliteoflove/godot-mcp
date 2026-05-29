@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { profiler, computePercentiles, detectSpikes, computeMonitorTrends, computeFrameBudget } from '../../tools/profiler.js';
 
 describe('profiler tool', () => {
@@ -38,7 +38,7 @@ describe('profiler tool', () => {
       mock.mockResponse(metrics);
       const ctx = createToolContext(mock);
       const result = await profiler.execute({ action: 'snapshot' }, ctx);
-      expect(JSON.parse(result as string)).toEqual(metrics);
+      expect(structuredOf(result)).toEqual(metrics);
       expect(mock.calls[0].command).toBe('get_performance_metrics');
     });
   });
@@ -59,7 +59,7 @@ describe('profiler tool', () => {
       mock.mockResponse({ active: false, frame_count: 0, total_frames_collected: 0, frames: [] });
       const ctx = createToolContext(mock);
       const result = await profiler.execute({ action: 'get_data' }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
       expect(parsed.frame_count).toBe(0);
       expect(parsed.message).toContain('No frames collected');
     });
@@ -73,7 +73,7 @@ describe('profiler tool', () => {
       mock.mockResponse({ active: true, frame_count: 3, total_frames_collected: 3, frames });
       const ctx = createToolContext(mock);
       const result = await profiler.execute({ action: 'get_data' }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
       expect(parsed.statistics.frame_time).toBeDefined();
       expect(parsed.statistics.frame_time.avg_ms).toBeGreaterThan(0);
       expect(parsed.frame_budget).toBeDefined();

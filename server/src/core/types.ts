@@ -9,6 +9,16 @@ export type TextContent = { type: 'text'; text: string };
 export type ImageContent = { type: 'image'; data: string; mimeType: string };
 export type ToolResult = TextContent | ImageContent;
 
+// A query result that carries both a text rendering (for clients without
+// structured-output support) and the structured object (emitted as the MCP
+// result's `structuredContent`). Additive: the text is the fallback.
+export interface StructuredToolResult {
+  text: string;
+  structuredContent: Record<string, unknown>;
+}
+
+export type ToolExecuteResult = string | ToolResult | StructuredToolResult;
+
 // MCP tool annotations: advisory hints clients use to label tools and decide
 // auto-approval. See the MCP spec's ToolAnnotations.
 export interface ToolAnnotations {
@@ -24,7 +34,8 @@ export interface ToolDefinition<TSchema extends z.ZodType = z.ZodType> {
   description: string;
   annotations?: ToolAnnotations;
   schema: TSchema;
-  execute: (args: z.infer<TSchema>, ctx: ToolContext) => Promise<string | ToolResult>;
+  outputSchema?: z.ZodType;
+  execute: (args: z.infer<TSchema>, ctx: ToolContext) => Promise<ToolExecuteResult>;
 }
 
 export interface AnyToolDefinition {
@@ -32,7 +43,8 @@ export interface AnyToolDefinition {
   description: string;
   annotations?: ToolAnnotations;
   schema: z.ZodType;
-  execute: (args: unknown, ctx: ToolContext) => Promise<string | ToolResult>;
+  outputSchema?: z.ZodType;
+  execute: (args: unknown, ctx: ToolContext) => Promise<ToolExecuteResult>;
 }
 
 export interface ResourceDefinition {

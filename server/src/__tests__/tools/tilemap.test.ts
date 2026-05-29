@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { tilemap, gridmap } from '../../tools/tilemap.js';
 
 describe('tilemap tool', () => {
@@ -31,19 +31,19 @@ describe('tilemap tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ name: 'Ground', enabled: true });
-      expect(JSON.parse(await tilemap.execute({
+      expect(structuredOf(await tilemap.execute({
         action: 'get_info',
         node_path: '/root/Ground',
       }, ctx) as string)).toHaveProperty('name', 'Ground');
 
       mock.mockResponse({ tile_size: { x: 16, y: 16 } });
-      expect(JSON.parse(await tilemap.execute({
+      expect(structuredOf(await tilemap.execute({
         action: 'get_tileset_info',
         node_path: '/root/Ground',
       }, ctx) as string)).toHaveProperty('tile_size');
 
       mock.mockResponse({ cells: [{ x: 0, y: 0 }], count: 1 });
-      expect(JSON.parse(await tilemap.execute({
+      expect(structuredOf(await tilemap.execute({
         action: 'get_used_cells',
         node_path: '/root/Ground',
       }, ctx) as string)).toHaveProperty('count', 1);
@@ -159,13 +159,13 @@ describe('gridmap tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ name: 'Floor', cell_size: { x: 2, y: 2, z: 2 } });
-      expect(JSON.parse(await gridmap.execute({
+      expect(structuredOf(await gridmap.execute({
         action: 'get_info',
         node_path: '/root/Floor',
       }, ctx) as string)).toHaveProperty('cell_size');
 
       mock.mockResponse({ item_count: 3 });
-      expect(JSON.parse(await gridmap.execute({
+      expect(structuredOf(await gridmap.execute({
         action: 'get_meshlib_info',
         node_path: '/root/Floor',
       }, ctx) as string)).toHaveProperty('item_count', 3);

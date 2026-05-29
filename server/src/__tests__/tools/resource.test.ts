@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { resource } from '../../tools/resource.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -69,7 +69,7 @@ describe('resource tool', () => {
         action: 'get_info',
         resource_path: 'res://player/player_sprites.tres',
       }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
 
       expect(parsed.resource_type).toBe('SpriteFrames');
       expect(parsed.type_specific.animations).toHaveLength(5);
@@ -90,7 +90,7 @@ describe('resource tool', () => {
         resource_path: 'res://player/player_sprites.tres',
         max_depth: 0,
       }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
 
       const idleAnim = parsed.type_specific.animations.find((a: { name: string }) => a.name === 'idle');
       expect(idleAnim.frame_count).toBe(1);
@@ -105,7 +105,7 @@ describe('resource tool', () => {
         action: 'get_info',
         resource_path: 'res://player/player_sprites.tres',
       }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
 
       const damageAnim = parsed.type_specific.animations.find((a: { name: string }) => a.name === 'damage');
       expect(damageAnim.loop).toBe(false);
@@ -121,7 +121,7 @@ describe('resource tool', () => {
         action: 'get_info',
         resource_path: 'res://sprites/player/hero.png',
       }, ctx);
-      const parsed = JSON.parse(result as string);
+      const parsed = structuredOf(result);
 
       expect(parsed.resource_type).toBe('CompressedTexture2D');
       expect(parsed.type_specific.width).toBe(1026);

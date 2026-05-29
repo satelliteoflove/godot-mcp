@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { node } from '../../tools/node.js';
 
 describe('node tool', () => {
@@ -93,7 +93,7 @@ describe('node tool', () => {
       const ctx = createToolContext(mock);
 
       const result = await node.execute({ action: 'get_properties', node_path: '/root/Player' }, ctx);
-      expect(JSON.parse(result as string)).toEqual(properties);
+      expect(structuredOf(result)).toEqual(properties);
     });
   });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
+import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { editor } from '../../tools/editor.js';
 
 describe('editor tool', () => {
@@ -37,7 +37,7 @@ describe('editor tool', () => {
 
       const result = await editor.execute({ action: 'get_state' }, ctx);
 
-      expect(JSON.parse(result as string)).toEqual(state);
+      expect(structuredOf(result)).toEqual(state);
     });
   });
 
@@ -85,7 +85,7 @@ describe('editor tool', () => {
       };
       mock.mockResponse(responseData);
       const result = await editor.execute({ action: 'get_log_messages' }, ctx);
-      expect(JSON.parse(result as string)).toEqual(responseData);
+      expect(structuredOf(result)).toEqual(responseData);
     });
 
     it('passes limit param to Godot', async () => {
@@ -112,7 +112,7 @@ describe('editor tool', () => {
       };
       mock.mockResponse(stackData);
       const result = await editor.execute({ action: 'get_stack_trace' }, ctx);
-      expect(JSON.parse(result as string)).toEqual(stackData);
+      expect(structuredOf(result)).toEqual(stackData);
     });
   });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 interface ResourceInfoResult {
@@ -8,6 +9,17 @@ interface ResourceInfoResult {
   type_specific?: Record<string, unknown>;
   properties?: Record<string, unknown>;
 }
+
+// Output shape for get_info. Loose so type-specific payloads (SpriteFrames,
+// TileSet, Texture2D, etc.) pass through without over-constraining clients.
+const ResourceInfoOutput = z
+  .object({
+    resource_path: z.string(),
+    resource_type: z.string(),
+    type_specific: z.record(z.string(), z.unknown()).optional(),
+    properties: z.record(z.string(), z.unknown()).optional(),
+  })
+  .loose();
 
 const ResourceSchema = z.discriminatedUnion('action', [
   z.object({
@@ -34,6 +46,7 @@ export const resource = defineTool({
   description:
     'Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.',
   schema: ResourceSchema,
+  outputSchema: ResourceInfoOutput,
   async execute(args: ResourceArgs, { godot }) {
     switch (args.action) {
       case 'get_info': {
@@ -45,7 +58,7 @@ export const resource = defineTool({
             include_internal: args.include_internal ?? false,
           }
         );
-        return JSON.stringify(result);
+        return structured(result);
       }
     }
   },

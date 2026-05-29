@@ -1,5 +1,12 @@
-import type { AnyToolDefinition, ResourceDefinition, ToolAnnotations, ToolContext, ToolResult } from './types.js';
+import type {
+  AnyToolDefinition,
+  ResourceDefinition,
+  ToolAnnotations,
+  ToolContext,
+  ToolExecuteResult,
+} from './types.js';
 import { toInputSchema } from './schema.js';
+import { isStructuredResult } from './structured.js';
 import {
   formatError,
   GodotCommandError,
@@ -38,12 +45,14 @@ class ToolRegistry {
     name: string;
     description: string;
     inputSchema: object;
+    outputSchema?: object;
     annotations?: ToolAnnotations;
   }> {
     return Array.from(this.tools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: toInputSchema(tool.schema),
+      ...(tool.outputSchema ? { outputSchema: toInputSchema(tool.outputSchema) } : {}),
       ...(tool.annotations ? { annotations: tool.annotations } : {}),
     }));
   }
@@ -68,7 +77,7 @@ class ToolRegistry {
     name: string,
     args: Record<string, unknown>,
     ctx: ToolContext
-  ): Promise<string | ToolResult> {
+  ): Promise<ToolExecuteResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);
@@ -83,9 +92,13 @@ class ToolRegistry {
       const validated = tool.schema.parse(args);
       const result = await tool.execute(validated, ctx);
       success = true;
-      responseBytes = typeof result === 'string'
-        ? Buffer.byteLength(result, 'utf-8')
-        : Buffer.byteLength(JSON.stringify(result), 'utf-8');
+      const responseText =
+        typeof result === 'string'
+          ? result
+          : isStructuredResult(result)
+            ? result.text
+            : JSON.stringify(result);
+      responseBytes = Buffer.byteLength(responseText, 'utf-8');
       return result;
     } catch (error) {
       errorType = categorizeError(error);

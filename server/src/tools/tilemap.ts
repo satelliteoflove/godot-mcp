@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 const Vector2iSchema = z.object({
@@ -95,19 +96,19 @@ export const tilemap = defineTool({
       }
       case 'get_info': {
         const result = await godot.sendCommand('get_tilemap_layer_info', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_tileset_info': {
         const result = await godot.sendCommand('get_tileset_info', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_used_cells': {
         const result = await godot.sendCommand('get_used_cells', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_cell': {
         const result = await godot.sendCommand('get_cell', { node_path: args.node_path, coords: args.coords });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_cells_in_region': {
         const result = await godot.sendCommand('get_cells_in_region', {
@@ -115,7 +116,7 @@ export const tilemap = defineTool({
           min_coords: args.min_coords,
           max_coords: args.max_coords,
         });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'convert_coords': {
         const result = await godot.sendCommand('convert_coords', {
@@ -123,7 +124,7 @@ export const tilemap = defineTool({
           local_position: args.local_position,
           map_coords: args.map_coords,
         });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'set_cell': {
         const result = await godot.sendCommand<{
@@ -234,23 +235,23 @@ export const gridmap = defineTool({
       }
       case 'get_info': {
         const result = await godot.sendCommand('get_gridmap_info', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_meshlib_info': {
         const result = await godot.sendCommand('get_meshlib_info', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_used_cells': {
         const result = await godot.sendCommand('get_gridmap_used_cells', { node_path: args.node_path });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_cell': {
         const result = await godot.sendCommand('get_gridmap_cell', { node_path: args.node_path, coords: args.coords });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'get_cells_by_item': {
         const result = await godot.sendCommand('get_cells_by_item', { node_path: args.node_path, item: args.item });
-        return JSON.stringify(result);
+        return structured(result);
       }
       case 'set_cell': {
         const result = await godot.sendCommand<{
