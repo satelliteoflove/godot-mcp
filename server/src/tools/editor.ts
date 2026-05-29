@@ -30,7 +30,7 @@ function toImageContent(base64: string): ImageContent {
   return {
     type: 'image',
     data: base64,
-    mimeType: 'image/png',
+    mimeType: 'image/jpeg',
   };
 }
 
@@ -54,13 +54,15 @@ const EditorSchema = z
     }),
     z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
     z.object({
-      action: z.literal('screenshot_game').describe('Capture a screenshot of the running game'),
-      max_width: z.number().optional().describe('Maximum width in pixels for the screenshot'),
+      action: z.literal('screenshot_game').describe('Capture a JPEG screenshot of the running game'),
+      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 1024)'),
+      quality: z.number().int().min(1).max(100).optional().describe('JPEG quality 1-100 (default: 75)'),
     }),
     z.object({
-      action: z.literal('screenshot_editor').describe('Capture a screenshot of an editor viewport'),
+      action: z.literal('screenshot_editor').describe('Capture a JPEG screenshot of an editor viewport'),
       viewport: z.enum(['2d', '3d']).optional().describe('Which editor viewport to capture'),
-      max_width: z.number().optional().describe('Maximum width in pixels for the screenshot'),
+      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 1024)'),
+      quality: z.number().int().min(1).max(100).optional().describe('JPEG quality 1-100 (default: 75)'),
     }),
     z.object({
       action: z.literal('set_viewport_2d').describe('Center and zoom the 2D editor viewport'),
@@ -174,7 +176,7 @@ export const editor = defineTool({
       case 'screenshot_game': {
         const result = await godot.sendCommand<ScreenshotResponse>(
           'capture_game_screenshot',
-          { max_width: args.max_width }
+          { max_width: args.max_width, quality: args.quality }
         );
         return toImageContent(result.image_base64);
       }
@@ -182,7 +184,7 @@ export const editor = defineTool({
       case 'screenshot_editor': {
         const result = await godot.sendCommand<ScreenshotResponse>(
           'capture_editor_screenshot',
-          { viewport: args.viewport, max_width: args.max_width }
+          { viewport: args.viewport, max_width: args.max_width, quality: args.quality }
         );
         return toImageContent(result.image_base64);
       }

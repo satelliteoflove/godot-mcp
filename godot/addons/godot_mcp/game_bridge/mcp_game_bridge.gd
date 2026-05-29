@@ -1,7 +1,8 @@
 extends Node
 class_name MCPGameBridge
 
-const DEFAULT_MAX_WIDTH := 1920
+const DEFAULT_MAX_WIDTH := 1024
+const DEFAULT_JPEG_QUALITY := 0.75
 
 var _logger: _MCPGameLogger
 var _profiler: MCPFrameProfiler
@@ -94,11 +95,12 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 
 func _take_screenshot_deferred(data: Array) -> void:
 	var max_width: int = data[0] if data.size() > 0 else DEFAULT_MAX_WIDTH
+	var quality: float = data[1] if data.size() > 1 else DEFAULT_JPEG_QUALITY
 	await RenderingServer.frame_post_draw
-	_capture_and_send_screenshot(max_width)
+	_capture_and_send_screenshot(max_width, quality)
 
 
-func _capture_and_send_screenshot(max_width: int) -> void:
+func _capture_and_send_screenshot(max_width: int, quality: float = DEFAULT_JPEG_QUALITY) -> void:
 	var viewport := get_viewport()
 	if viewport == null:
 		_send_screenshot_error("NO_VIEWPORT", "Could not get game viewport")
@@ -111,8 +113,8 @@ func _capture_and_send_screenshot(max_width: int) -> void:
 		var scale_factor := float(max_width) / float(image.get_width())
 		var new_height := int(image.get_height() * scale_factor)
 		image.resize(max_width, new_height, Image.INTERPOLATE_LANCZOS)
-	var png_buffer := image.save_png_to_buffer()
-	var base64 := Marshalls.raw_to_base64(png_buffer)
+	var jpg_buffer := image.save_jpg_to_buffer(quality)
+	var base64 := Marshalls.raw_to_base64(jpg_buffer)
 	EngineDebugger.send_message("godot_mcp:screenshot_result", [
 		true,
 		base64,
