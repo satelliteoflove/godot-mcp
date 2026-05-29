@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.3.0...godot-mcp-v3.3.1) (2026-05-29)
+
+
+### Performance Improvements
+
+* compact JSON in tool query responses ([#189](https://github.com/satelliteoflove/godot-mcp/issues/189)) ([#210](https://github.com/satelliteoflove/godot-mcp/issues/210)) ([7323935](https://github.com/satelliteoflove/godot-mcp/commit/732393541f1f3ff0359f3d0e969260e86386a708))
+
 ## [3.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.2.0...godot-mcp-v3.3.0) (2026-05-29)
 
 
