@@ -4,11 +4,11 @@ Scene management tools
 
 ## Tools
 
-- [scene](#scene)
+- [godot_scene](#godot_scene)
 
 ---
 
-## scene
+## godot_scene
 
 Manage scenes: open, save, or create scenes
 

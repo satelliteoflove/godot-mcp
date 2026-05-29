@@ -57,7 +57,7 @@ interface InputMapAction {
 }
 
 export const input = defineTool({
-  name: 'input',
+  name: 'godot_input',
   description:
     'Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.',
   schema: InputSchema,

@@ -4,11 +4,11 @@ Animation query, playback, and editing tools
 
 ## Tools
 
-- [animation](#animation)
+- [godot_animation](#godot_animation)
 
 ---
 
-## animation
+## godot_animation
 
 Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 

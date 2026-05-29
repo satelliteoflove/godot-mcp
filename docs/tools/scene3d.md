@@ -4,11 +4,11 @@
 
 ## Tools
 
-- [scene3d](#scene3d)
+- [godot_scene3d](#godot_scene3d)
 
 ---
 
-## scene3d
+## godot_scene3d
 
 Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.
 

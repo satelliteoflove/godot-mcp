@@ -6,50 +6,50 @@ This documentation is auto-generated from the tool definitions.
 
 Scene management tools
 
-- `scene` - Manage scenes: open, save, or create scenes
+- `godot_scene` - Manage scenes: open, save, or create scenes
 
 ## [Node](node.md)
 
 Node manipulation and script attachment tools
 
-- `node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
+- `godot_node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
 
 ## [Editor](editor.md)
 
 Editor control, debugging, and screenshot tools
 
-- `editor` - Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport
+- `godot_editor` - Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport
 
 ## [Project](project.md)
 
 Project information tools
 
-- `project` - Get project information and settings
+- `godot_project` - Get project information and settings
 
 ## [Animation](animation.md)
 
 Animation query, playback, and editing tools
 
-- `animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
+- `godot_animation` - Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
 
 ## [TileMapLayer/GridMap](tilemap.md)
 
 TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap)
 
-- `tilemap` - Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates
-- `gridmap` - Query and edit GridMap data: list gridmaps, get info, get/set cells
+- `godot_tilemap` - Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates
+- `godot_gridmap` - Query and edit GridMap data: list gridmaps, get info, get/set cells
 
 ## [Resource](resource.md)
 
 Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
-- `resource` - Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
+- `godot_resource` - Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
 
 ## [Scene3D](scene3d.md)
 
 3D spatial information and bounding box tools
 
-- `scene3d` - Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.
+- `godot_scene3d` - Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.
 
 ## [Documentation](docs.md)
 
@@ -61,5 +61,11 @@ Fetch Godot Engine documentation with smart extraction
 
 Input injection for testing running games (action-based, no mouse/coordinates yet)
 
-- `input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
+- `godot_input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
+
+## [Profiler](profiler.md)
+
+Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections
+
+- `godot_profiler` - Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections
 

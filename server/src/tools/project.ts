@@ -20,7 +20,7 @@ const ProjectSchema = z.object({
 type ProjectArgs = z.infer<typeof ProjectSchema>;
 
 export const project = defineTool({
-  name: 'project',
+  name: 'godot_project',
   description: 'Get project information and settings',
   schema: ProjectSchema,
   async execute(args: ProjectArgs, { godot }) {

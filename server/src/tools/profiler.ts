@@ -194,7 +194,7 @@ const ProfilerSchema = z
 type ProfilerArgs = z.infer<typeof ProfilerSchema>;
 
 export const profiler = defineTool({
-  name: 'profiler',
+  name: 'godot_profiler',
   description:
     'Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections',
   schema: ProfilerSchema,

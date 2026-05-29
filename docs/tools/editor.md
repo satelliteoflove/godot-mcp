@@ -4,11 +4,11 @@ Editor control, debugging, and screenshot tools
 
 ## Tools
 
-- [editor](#editor)
+- [godot_editor](#godot_editor)
 
 ---
 
-## editor
+## godot_editor
 
 Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport
 

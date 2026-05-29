@@ -4,11 +4,11 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 ## Tools
 
-- [resource](#resource)
+- [godot_resource](#godot_resource)
 
 ---
 
-## resource
+## godot_resource
 
 Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
 

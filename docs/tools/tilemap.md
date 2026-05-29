@@ -4,12 +4,12 @@ TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprec
 
 ## Tools
 
-- [tilemap](#tilemap)
-- [gridmap](#gridmap)
+- [godot_tilemap](#godot_tilemap)
+- [godot_gridmap](#godot_gridmap)
 
 ---
 
-## tilemap
+## godot_tilemap
 
 Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates
 
@@ -90,7 +90,7 @@ Parameters: `coords`
 
 ---
 
-## gridmap
+## godot_gridmap
 
 Query and edit GridMap data: list gridmaps, get info, get/set cells
 

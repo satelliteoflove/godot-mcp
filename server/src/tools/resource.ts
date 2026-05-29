@@ -44,7 +44,7 @@ const ResourceSchema = z
 type ResourceArgs = z.infer<typeof ResourceSchema>;
 
 export const resource = defineTool({
-  name: 'resource',
+  name: 'godot_resource',
   description:
     'Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.',
   schema: ResourceSchema,

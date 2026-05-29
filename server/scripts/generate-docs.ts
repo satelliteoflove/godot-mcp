@@ -12,6 +12,7 @@ import { resourceTools } from '../src/tools/resource.js';
 import { scene3dTools } from '../src/tools/scene3d.js';
 import { docsTools } from '../src/tools/docs.js';
 import { inputTools } from '../src/tools/input.js';
+import { profilerTools } from '../src/tools/profiler.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
@@ -41,6 +42,7 @@ const categories: ToolCategory[] = [
   { name: 'Scene3D', filename: 'scene3d', description: '3D spatial information and bounding box tools', tools: scene3dTools },
   { name: 'Documentation', filename: 'docs', description: 'Fetch Godot Engine documentation with smart extraction', tools: docsTools },
   { name: 'Input', filename: 'input', description: 'Input injection for testing running games (action-based, no mouse/coordinates yet)', tools: inputTools },
+  { name: 'Profiler', filename: 'profiler', description: 'Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections', tools: profilerTools },
 ];
 
 const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];

@@ -4,11 +4,11 @@ Node manipulation and script attachment tools
 
 ## Tools
 
-- [node](#node)
+- [godot_node](#godot_node)
 
 ---
 
-## node
+## godot_node
 
 Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
 

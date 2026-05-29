@@ -4,11 +4,11 @@ Input injection for testing running games (action-based, no mouse/coordinates ye
 
 ## Tools
 
-- [input](#input)
+- [godot_input](#godot_input)
 
 ---
 
-## input
+## godot_input
 
 Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
 

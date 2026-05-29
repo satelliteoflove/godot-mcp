@@ -4,11 +4,11 @@ Project information tools
 
 ## Tools
 
-- [project](#project)
+- [godot_project](#godot_project)
 
 ---
 
-## project
+## godot_project
 
 Get project information and settings
 
