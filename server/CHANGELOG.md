@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.1.0...godot-mcp-v3.2.0) (2026-05-29)
+
+
+### Features
+
+* add MCP tool annotations (title + readOnly/destructive/openWorld hints) ([#206](https://github.com/satelliteoflove/godot-mcp/issues/206)) ([e6f1089](https://github.com/satelliteoflove/godot-mcp/commit/e6f10890d8634d03e03fcaaa45fc68b1d22f7daf))
+
 ## [3.1.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.0.0...godot-mcp-v3.1.0) (2026-05-29)
 
 
