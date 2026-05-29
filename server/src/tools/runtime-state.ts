@@ -177,7 +177,11 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'Start an in-engine sampler that records specified node fields over a time window. ' +
         'Returns immediately; call watch_collect after duration_ms to get the summarized digest. ' +
         'Field keys: "pos.x", "pos.y", "vel.x", "vel.y" for built-in properties; ' +
-        'any key from _mcp_state() for custom game state (e.g. "health", "ammo").'
+        'any key from _mcp_state() for custom game state (e.g. "health", "ammo"). ' +
+        'TIMING: watch_start and the action that drives state change (godot_input sequence, ' +
+        'player input, etc.) must overlap within the watch window. Send both in the same ' +
+        'parallel tool call batch, or use a duration_ms large enough (3000–4000ms) to cover ' +
+        'the round-trip latency before the driving action is approved and sent.'
       ),
     specs: z
       .array(

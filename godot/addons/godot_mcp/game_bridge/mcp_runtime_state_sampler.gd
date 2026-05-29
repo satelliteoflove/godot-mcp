@@ -9,6 +9,7 @@ var _specs: Array = []       # [{node, fields: [{key, resolver}]}]
 var _hz: int = 20
 var _duration_ms: int = 1000
 var _start_time: int = 0
+var _stop_time: int = 0      # set on auto-stop or manual stop; 0 = still running
 var _frame_index: int = 0
 var _sample_interval: int = 1  # sample every N frames
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
@@ -48,6 +49,7 @@ func start(specs: Array, hz: int, duration_ms: int) -> void:
 		if not resolved_fields.is_empty():
 			_specs.append({"node": node, "node_path": node_path, "fields": resolved_fields})
 
+	_stop_time = 0
 	_active = true
 	set_process(true)
 
@@ -60,6 +62,7 @@ func _process(_delta: float) -> void:
 
 	if elapsed >= _duration_ms:
 		_active = false
+		_stop_time = Time.get_ticks_msec()
 		set_process(false)
 		return
 
@@ -87,7 +90,7 @@ func _process(_delta: float) -> void:
 
 
 func collect() -> Dictionary:
-	var elapsed := Time.get_ticks_msec() - _start_time
+	var elapsed := (_stop_time - _start_time) if _stop_time > 0 else (Time.get_ticks_msec() - _start_time)
 	var total_samples := 0
 	for key in _samples:
 		total_samples += (_samples[key] as Array).size()
@@ -100,6 +103,7 @@ func collect() -> Dictionary:
 
 func stop() -> Dictionary:
 	_active = false
+	_stop_time = Time.get_ticks_msec()
 	set_process(false)
 	return collect()
 
