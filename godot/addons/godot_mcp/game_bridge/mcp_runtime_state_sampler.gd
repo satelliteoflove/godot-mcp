@@ -40,7 +40,7 @@ func start(specs: Array, hz: int, duration_ms: int) -> void:
 		for field_key in fields:
 			if field_count >= MAX_FIELDS:
 				break
-			var full_key := node_path + ":" + field_key
+			var full_key: String = node_path + ":" + str(field_key)
 			_samples[full_key] = []
 			resolved_fields.append({"key": field_key, "full_key": full_key})
 			field_count += 1
