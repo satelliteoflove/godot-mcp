@@ -98,7 +98,7 @@ export const node = defineTool({
         const result = await godot.sendCommand<{
           properties: Record<string, unknown>;
         }>('get_node_properties', { node_path: args.node_path });
-        return JSON.stringify(result.properties, null, 2);
+        return JSON.stringify(result.properties);
       }
 
       case 'find': {

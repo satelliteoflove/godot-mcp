@@ -154,7 +154,7 @@ export const animation = defineTool({
           libraries: Record<string, string[]>;
           animation_count: number;
         }>('get_animation_player_info', { node_path: args.node_path });
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
       case 'get_details': {
         const result = await godot.sendCommand<{
@@ -175,7 +175,7 @@ export const animation = defineTool({
           node_path: args.node_path,
           animation_name: args.animation_name,
         });
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
       case 'get_keyframes': {
         const result = await godot.sendCommand<{
@@ -195,7 +195,7 @@ export const animation = defineTool({
           animation_name: args.animation_name,
           track_index: args.track_index,
         });
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
       case 'play': {
         const result = await godot.sendCommand<{ playing: string; from_position: number }>(

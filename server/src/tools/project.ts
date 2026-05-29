@@ -39,7 +39,7 @@ export const project = defineTool({
           godot_version: string;
           main_scene: string | null;
         }>('get_project_info');
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
 
       case 'get_settings': {
@@ -49,7 +49,7 @@ export const project = defineTool({
           category: args.category,
           include_builtin: args.include_builtin,
         });
-        return JSON.stringify(result.settings, null, 2);
+        return JSON.stringify(result.settings);
       }
 
       case 'addon_status': {
@@ -62,9 +62,7 @@ export const project = defineTool({
               server_version: serverVersion,
               recommendation:
                 'Not connected to Godot. Ask user for their project path, then install with: npx @satelliteoflove/godot-mcp --install-addon <path>',
-            },
-            null,
-            2
+            }
           );
         }
 
@@ -84,9 +82,7 @@ export const project = defineTool({
             recommendation: versionsMatch
               ? null
               : `Version mismatch. Close Godot and run: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`,
-          },
-          null,
-          2
+          }
         );
       }
     }

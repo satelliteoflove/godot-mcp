@@ -114,7 +114,7 @@ export const editor = defineTool({
           camera?: CameraInfo;
           viewport_2d?: Viewport2DInfo;
         }>('get_editor_state');
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
 
       case 'get_selection': {
@@ -153,7 +153,7 @@ export const editor = defineTool({
         if (result.returned_count === 0) {
           return 'No log messages';
         }
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
 
       case 'get_stack_trace': {
@@ -167,7 +167,7 @@ export const editor = defineTool({
         if (!result.error && result.frames.length === 0) {
           return 'No stack trace available';
         }
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
 
       case 'screenshot_game': {

@@ -190,7 +190,7 @@ export const profiler = defineTool({
         const result = await godot.sendCommand<Record<string, number | string>>(
           'get_performance_metrics'
         );
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
 
       case 'start': {
@@ -212,7 +212,7 @@ export const profiler = defineTool({
             active: result.active,
             frame_count: 0,
             message: 'No frames collected. Start the profiler first with action: start',
-          }, null, 2);
+          });
         }
 
         const frameTimeStats = computePercentiles(frames.map((f) => f.ft));
@@ -245,7 +245,7 @@ export const profiler = defineTool({
             frames: spikes.slice(0, 20),
           },
           monitor_trends: monitorTrends,
-        }, null, 2);
+        });
       }
 
       case 'get_active_processes': {

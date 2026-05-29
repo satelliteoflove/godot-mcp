@@ -45,7 +45,7 @@ export const resource = defineTool({
             include_internal: args.include_internal ?? false,
           }
         );
-        return JSON.stringify(result, null, 2);
+        return JSON.stringify(result);
       }
     }
   },
