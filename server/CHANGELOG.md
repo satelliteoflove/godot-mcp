@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.2.0...godot-mcp-v3.3.0) (2026-05-29)
+
+
+### Features
+
+* model tool inputs as discriminated unions per action ([#208](https://github.com/satelliteoflove/godot-mcp/issues/208)) ([aec7248](https://github.com/satelliteoflove/godot-mcp/commit/aec72485fd7e1c498a943759c8aa6ba54f7d16f8))
+
 ## [3.2.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.1.0...godot-mcp-v3.2.0) (2026-05-29)
 
 
