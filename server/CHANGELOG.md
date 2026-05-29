@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.4.1...godot-mcp-v3.5.0) (2026-05-29)
+
+
+### Features
+
+* JPEG screenshots with quality param and 1024px default ([#217](https://github.com/satelliteoflove/godot-mcp/issues/217)) ([ebdf7d9](https://github.com/satelliteoflove/godot-mcp/commit/ebdf7d9f4515d7d26e0210f7426aa6bcbedce9d7))
+
 ## [3.4.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.4.0...godot-mcp-v3.4.1) (2026-05-29)
 
 
