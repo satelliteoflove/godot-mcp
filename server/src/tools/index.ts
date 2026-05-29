@@ -10,6 +10,7 @@ import { scene3dTools } from './scene3d.js';
 import { docsTools } from './docs.js';
 import { inputTools } from './input.js';
 import { profilerTools } from './profiler.js';
+import { runtimeStateTools } from './runtime-state.js';
 
 export function registerAllTools(): void {
   registry.registerTools(sceneTools);
@@ -23,6 +24,7 @@ export function registerAllTools(): void {
   registry.registerTools(docsTools);
   registry.registerTools(inputTools);
   registry.registerTools(profilerTools);
+  registry.registerTools(runtimeStateTools);
 }
 
 export { sceneTools } from './scene.js';
@@ -36,3 +38,4 @@ export { scene3dTools } from './scene3d.js';
 export { docsTools } from './docs.js';
 export { inputTools } from './input.js';
 export { profilerTools } from './profiler.js';
+export { runtimeStateTools } from './runtime-state.js';

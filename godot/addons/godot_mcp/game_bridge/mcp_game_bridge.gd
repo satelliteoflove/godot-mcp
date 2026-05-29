@@ -6,6 +6,7 @@ const DEFAULT_JPEG_QUALITY := 0.75
 
 var _logger: _MCPGameLogger
 var _profiler: MCPFrameProfiler
+var _sampler: MCPRuntimeStateSampler
 
 
 func _ready() -> void:
@@ -15,6 +16,8 @@ func _ready() -> void:
 	OS.add_logger(_logger)
 	_profiler = MCPFrameProfiler.new()
 	EngineDebugger.register_profiler("mcp_frame_profiler", _profiler)
+	_sampler = MCPRuntimeStateSampler.new()
+	add_child(_sampler)
 	EngineDebugger.register_message_capture("godot_mcp", _on_debugger_message)
 	MCPLog.info("Game bridge initialized")
 
@@ -89,6 +92,18 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"get_signal_connections":
 			_handle_get_signal_connections(data)
+			return true
+		"get_runtime_state":
+			_handle_get_runtime_state(data)
+			return true
+		"watch_start":
+			_handle_watch_start(data)
+			return true
+		"watch_collect":
+			_handle_watch_collect()
+			return true
+		"watch_stop":
+			_handle_watch_stop()
 			return true
 	return false
 
@@ -374,6 +389,272 @@ func _node_path_string(node: Node, scene_root: Node) -> String:
 	if relative != NodePath("."):
 		path += "/" + str(relative)
 	return path
+
+
+func _handle_get_runtime_state(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+
+	var tree := get_tree()
+	var scene_root := tree.current_scene if tree else null
+	if not scene_root:
+		EngineDebugger.send_message("godot_mcp:game_response", ["get_runtime_state", {
+			"scene": "",
+			"selection": "fallback",
+			"entity_count": 0,
+			"entities": [],
+			"hint": "No scene is currently running.",
+		}])
+		return
+
+	var select_mode: String = params.get("select", "auto")
+	var group_name: String = params.get("group", "mcp_watch")
+	var name_filter: String = params.get("name", "")
+	var type_filter: String = params.get("type", "")
+	var max_nodes: int = params.get("max_nodes", 40)
+	var include_fields: Array = params.get("include", [])
+	max_nodes = clampi(max_nodes, 1, 200)
+
+	# Resolve camera for on-screen checks
+	var camera_2d: Camera2D = _find_camera_2d()
+	var camera_viewport_rect := Rect2()
+	if camera_2d:
+		camera_viewport_rect = camera_2d.get_viewport_rect()
+
+	# Determine which selection tier to use
+	var actual_selection: String = select_mode
+	if select_mode == "auto":
+		if _has_group_members(scene_root, group_name):
+			actual_selection = "group"
+		elif _has_mcp_state_nodes(scene_root):
+			actual_selection = "method"
+		else:
+			actual_selection = "fallback"
+
+	# Collect entities
+	var entities: Array = []
+	_collect_runtime_state(scene_root, scene_root, actual_selection, group_name,
+		name_filter, type_filter, include_fields, camera_2d, camera_viewport_rect,
+		max_nodes, entities)
+
+	# Extract camera entity separately if present
+	var camera_entity = null
+	var cam_node := _find_camera_2d() if actual_selection != "fallback" else camera_2d
+	if cam_node:
+		camera_entity = {
+			"type": "Camera2D",
+			"pos": {"x": snapped(cam_node.global_position.x, 0.01), "y": snapped(cam_node.global_position.y, 0.01)},
+			"zoom": {"x": snapped(cam_node.zoom.x, 0.01), "y": snapped(cam_node.zoom.y, 0.01)},
+			"camera": true,
+		}
+
+	var hint := ""
+	if actual_selection == "fallback":
+		hint = ("No nodes found in group '%s' and no _mcp_state() methods detected. " +
+			"Add nodes to the '%s' group or implement `func _mcp_state() -> Dictionary` " +
+			"on key nodes for richer, targeted state data.") % [group_name, group_name]
+
+	var result: Dictionary = {
+		"scene": scene_root.scene_file_path,
+		"selection": actual_selection,
+		"entity_count": entities.size(),
+		"entities": entities,
+	}
+	if camera_entity:
+		result["camera"] = camera_entity
+	if not hint.is_empty():
+		result["hint"] = hint
+
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_runtime_state", result])
+
+
+func _has_group_members(scene_root: Node, group_name: String) -> bool:
+	var tree := get_tree()
+	if tree == null:
+		return false
+	return tree.get_nodes_in_group(group_name).size() > 0
+
+
+func _has_mcp_state_nodes(node: Node) -> bool:
+	if node.has_method("_mcp_state"):
+		return true
+	for child in node.get_children():
+		if _has_mcp_state_nodes(child):
+			return true
+	return false
+
+
+func _collect_runtime_state(node: Node, scene_root: Node, selection: String, group_name: String,
+		name_filter: String, type_filter: String, include_fields: Array,
+		camera_2d: Camera2D, viewport_rect: Rect2,
+		max_nodes: int, results: Array) -> void:
+	if results.size() >= max_nodes:
+		return
+
+	var include_node := false
+	match selection:
+		"group":
+			include_node = node.is_in_group(group_name)
+		"method":
+			include_node = node.has_method("_mcp_state")
+		"fallback":
+			include_node = (node is CanvasItem and (node as CanvasItem).is_visible_in_tree())
+
+	if include_node:
+		if not name_filter.is_empty() and not node.name.matchn(name_filter):
+			include_node = false
+		if not type_filter.is_empty() and not node.is_class(type_filter):
+			include_node = false
+
+	if include_node:
+		var entity := _extract_node_state(node, scene_root, include_fields, camera_2d, viewport_rect)
+		if entity != null:
+			results.append(entity)
+
+	for child in node.get_children():
+		if results.size() >= max_nodes:
+			return
+		_collect_runtime_state(child, scene_root, selection, group_name,
+			name_filter, type_filter, include_fields, camera_2d, viewport_rect,
+			max_nodes, results)
+
+
+func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
+		camera_2d: Camera2D, viewport_rect: Rect2) -> Dictionary:
+	var want := include_fields.is_empty()
+	var want_transform := want or include_fields.has("transform")
+	var want_velocity := want or include_fields.has("velocity")
+	var want_anim := want or include_fields.has("anim")
+	var want_groups := want or include_fields.has("groups")
+	var want_onscreen := want or include_fields.has("onscreen")
+	var want_state := want or include_fields.has("state")
+
+	var entity: Dictionary = {
+		"path": _node_path_string(node, scene_root),
+		"type": node.get_class(),
+	}
+
+	if want_groups:
+		var groups := node.get_groups().filter(func(g): return not g.begins_with("_"))
+		if not groups.is_empty():
+			entity["groups"] = groups
+
+	if want_transform and node is Node2D:
+		var n2d := node as Node2D
+		entity["pos"] = {"x": snapped(n2d.global_position.x, 0.01), "y": snapped(n2d.global_position.y, 0.01)}
+		entity["rot"] = snapped(rad_to_deg(n2d.global_rotation), 0.01)
+		if n2d.scale != Vector2.ONE:
+			entity["scale"] = {"x": snapped(n2d.scale.x, 0.01), "y": snapped(n2d.scale.y, 0.01)}
+
+	if want_transform and node is Node3D:
+		var n3d := node as Node3D
+		entity["pos"] = {
+			"x": snapped(n3d.global_position.x, 0.01),
+			"y": snapped(n3d.global_position.y, 0.01),
+			"z": snapped(n3d.global_position.z, 0.01),
+		}
+		entity["rot"] = {
+			"x": snapped(rad_to_deg(n3d.global_rotation.x), 0.01),
+			"y": snapped(rad_to_deg(n3d.global_rotation.y), 0.01),
+			"z": snapped(rad_to_deg(n3d.global_rotation.z), 0.01),
+		}
+
+	if want_velocity:
+		if node is CharacterBody2D:
+			var v := (node as CharacterBody2D).velocity
+			entity["vel"] = {"x": snapped(v.x, 0.01), "y": snapped(v.y, 0.01)}
+		elif node is RigidBody2D:
+			var v := (node as RigidBody2D).linear_velocity
+			entity["vel"] = {"x": snapped(v.x, 0.01), "y": snapped(v.y, 0.01)}
+			entity["angvel"] = snapped((node as RigidBody2D).angular_velocity, 0.01)
+		elif node is CharacterBody3D:
+			var v := (node as CharacterBody3D).velocity
+			entity["vel"] = {"x": snapped(v.x, 0.01), "y": snapped(v.y, 0.01), "z": snapped(v.z, 0.01)}
+		elif node is RigidBody3D:
+			var v := (node as RigidBody3D).linear_velocity
+			entity["vel"] = {"x": snapped(v.x, 0.01), "y": snapped(v.y, 0.01), "z": snapped(v.z, 0.01)}
+			var av := (node as RigidBody3D).angular_velocity
+			entity["angvel"] = {"x": snapped(av.x, 0.01), "y": snapped(av.y, 0.01), "z": snapped(av.z, 0.01)}
+
+	if want_anim:
+		if node is AnimationPlayer:
+			var ap := node as AnimationPlayer
+			entity["anim"] = ap.current_animation
+			entity["anim_pos"] = snapped(ap.current_animation_position, 0.01)
+			entity["playing"] = ap.is_playing()
+		elif node is AnimatedSprite2D:
+			var asp := node as AnimatedSprite2D
+			entity["anim"] = asp.animation
+			entity["anim_frame"] = asp.frame
+
+	if want_onscreen and camera_2d and node is Node2D:
+		var pos := (node as Node2D).global_position
+		entity["onscreen"] = viewport_rect.has_point(pos)
+
+	if want_state and node.has_method("_mcp_state"):
+		var raw_state = node._mcp_state()
+		if raw_state is Dictionary:
+			var serialized := _serialize_mcp_state(raw_state)
+			if not serialized.is_empty():
+				entity["state"] = serialized
+
+	return entity
+
+
+const _MCP_STATE_MAX_BYTES := 1024
+
+
+func _serialize_mcp_state(state: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in state:
+		var val = state[key]
+		match typeof(val):
+			TYPE_BOOL, TYPE_STRING:
+				result[str(key)] = val
+			TYPE_INT:
+				result[str(key)] = int(val)
+			TYPE_FLOAT:
+				result[str(key)] = snapped(float(val), 0.01)
+			TYPE_ARRAY:
+				result[str(key)] = val
+			TYPE_DICTIONARY:
+				result[str(key)] = val
+		# skip non-serializable types (Objects, NodePaths, RIDs, etc.)
+	# Rough byte cap: convert to string and check length
+	if JSON.stringify(result).length() > _MCP_STATE_MAX_BYTES:
+		result["_truncated"] = true
+	return result
+
+
+func _find_camera_2d() -> Camera2D:
+	var viewport := get_viewport()
+	if viewport == null:
+		return null
+	return viewport.get_camera_2d()
+
+
+func _handle_watch_start(data: Array) -> void:
+	if _sampler == null:
+		EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {"started": false, "error": "Sampler not initialized"}])
+		return
+	var specs: Array = data[0] if data.size() > 0 else []
+	var hz: int = data[1] if data.size() > 1 else 20
+	var duration_ms: int = data[2] if data.size() > 2 else 1000
+	_sampler.start(specs, hz, duration_ms)
+	EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {"started": true}])
+
+
+func _handle_watch_collect() -> void:
+	if _sampler == null:
+		EngineDebugger.send_message("godot_mcp:game_response", ["watch_collect", {"window_ms": 0, "sample_count": 0, "fields": {}}])
+		return
+	EngineDebugger.send_message("godot_mcp:game_response", ["watch_collect", _sampler.collect()])
+
+
+func _handle_watch_stop() -> void:
+	if _sampler == null:
+		EngineDebugger.send_message("godot_mcp:game_response", ["watch_stop", {"window_ms": 0, "sample_count": 0, "fields": {}}])
+		return
+	EngineDebugger.send_message("godot_mcp:game_response", ["watch_stop", _sampler.stop()])
 
 
 class _MCPGameLogger extends Logger:

@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **12 tools** and **3 resources** for AI-assisted Godot development.
+This server provides **13 tools** and **3 resources** for AI-assisted Godot development.
 
 ## Quick Links
 
@@ -27,6 +27,7 @@ This server provides **12 tools** and **3 resources** for AI-assisted Godot deve
 | [Documentation](tools/docs.md) | 1 | Fetch Godot Engine documentation with smart extraction |
 | [Input](tools/input.md) | 1 | Input injection for testing running games (action-based, no mouse/coordinates yet) |
 | [Profiler](tools/profiler.md) | 1 | Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections |
+| [Runtime State](tools/runtime-state.md) | 1 | Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Much cheaper than screenshots. |
 
 ## Installation
 

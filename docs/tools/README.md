@@ -69,3 +69,9 @@ Performance profiling: snapshots, per-frame time series with spike detection, ac
 
 - `godot_profiler` - Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections
 
+## [Runtime State](runtime-state.md)
+
+Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Much cheaper than screenshots.
+
+- `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup.
+
