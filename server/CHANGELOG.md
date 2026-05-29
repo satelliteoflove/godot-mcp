@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.0.0...godot-mcp-v3.1.0) (2026-05-29)
+
+
+### Features
+
+* namespace all tools under godot_ prefix ([#203](https://github.com/satelliteoflove/godot-mcp/issues/203)) ([778867e](https://github.com/satelliteoflove/godot-mcp/commit/778867ee864e3af44c31358904e52d04cded2157))
+
 ## [3.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v2.18.0...godot-mcp-v3.0.0) (2026-05-29)
 
 
