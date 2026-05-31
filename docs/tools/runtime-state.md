@@ -17,8 +17,9 @@ Observe live game state as structured data. Use digest for a one-shot entity sna
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `action` | `digest`, `watch_start`, `watch_collect`, `watch_stop` | Yes |  |
-| `select` | `group`, `method`, `auto` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "auto" = best available (default: auto picks group → method → visible CanvasItems) |
+| `select` | `group`, `method`, `auto`, `none` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "auto" = best available (default: auto picks group → method → visible CanvasItems), "none" = no automatic selection; return only the nodes named in paths |
 | `group` | string | No | Group name to use when select="group" or "auto" (default: "mcp_watch") |
+| `paths` | string[] | No | Explicit absolute node paths to include in addition to tier selection, e.g. ["/root/GameState"]. The digest walks the current scene only, so autoload singletons — where global game state often lives (cash, score, settings) — are otherwise unreachable. Each path returns _mcp_state() if present, else a snapshot of the node's script variables (scalars/arrays, ~1 KB cap). Paths that do not resolve are returned in unresolved_paths. |
 | `name` | string | No | Glob filter on node name (e.g. "Player*") |
 | `type` | string | No | Class filter (e.g. "CharacterBody2D") |
 | `max_nodes` | integer | No | Maximum nodes in result (default: 40) |

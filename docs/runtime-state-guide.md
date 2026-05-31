@@ -8,7 +8,8 @@ by adopting two small, opt-in conventions:
 - the `mcp_watch` group: tag the nodes that matter, and
 - the `_mcp_state()` method: expose your own domain state (health, ammo, score, ...).
 
-This guide covers both, plus how the tool decides which nodes to report.
+This guide covers both, plus how the tool decides which nodes to report and how to read
+global state held in autoload singletons.
 
 For the raw parameter/action reference, see
 [Tools Reference -> Runtime State](tools/runtime-state.md).
@@ -17,7 +18,7 @@ For the raw parameter/action reference, see
 
 ## Selection tiers and `auto`
 
-`godot_runtime_state` (action `digest`) picks nodes using one of three tiers, controlled by
+`godot_runtime_state` (action `digest`) picks nodes using one of these tiers, controlled by
 the `select` parameter:
 
 | Tier       | What it selects                                                        |
@@ -25,6 +26,7 @@ the `select` parameter:
 | `group`    | Nodes in the `mcp_watch` group (or a custom group via `group`)         |
 | `method`   | Nodes that define `func _mcp_state() -> Dictionary`                     |
 | `fallback` | Visible `CanvasItem`s (`is_visible_in_tree()`), capped at `max_nodes`  |
+| `none`     | No automatic selection -- only the nodes named in `paths` (see below)  |
 
 The default, `select: "auto"`, picks the cheapest useful tier:
 
@@ -123,6 +125,47 @@ func _mcp_state() -> Dictionary:
 
 ---
 
+## Reading global state in autoloads
+
+The tiers above all walk the **current scene**. Autoload singletons live at `/root` as
+siblings of the scene, so global state held in an autoload (cash, score, settings) is **not
+reachable** by `group` / `method` / `fallback` -- and tagging an autoload into `mcp_watch`
+or giving it `_mcp_state()` will not help on its own, because tier discovery never visits it.
+
+Read singletons (or any node outside the current scene) by naming them explicitly with
+`paths`:
+
+```json
+{ "action": "digest", "select": "none", "paths": ["/root/GameState"] }
+```
+
+- `select: "none"` skips the tier walk entirely and returns only the nodes you name -- a
+  clean singleton read with no scene-walk noise. You can also pass `paths` alongside a normal
+  tier; the named nodes are appended to the result.
+- Each path returns `_mcp_state()` if the node defines it, otherwise a snapshot of the node's
+  **script variables** (the `var`s declared in its script), so it works with no
+  instrumentation at all. The snapshot follows the `_mcp_state()` rules: JSON-able
+  scalars/arrays only, private (`_`-prefixed) vars skipped, ~1 KB cap.
+- Paths that do not resolve come back in `unresolved_paths`.
+
+You do not need to know the paths in advance: every `digest` response includes
+`available_autoloads`, listing the singletons you can read.
+
+`digest` with `select: "none"` and `paths: ["/root/GameState"]` returns:
+
+```json
+{
+  "path": "/root/GameState",
+  "type": "Node",
+  "state": { "cash": 25000, "tick_count": 20, "total_population": 3 }
+}
+```
+
+For a curated view instead of every script var, give the autoload its own `_mcp_state()` --
+it takes precedence over the raw snapshot.
+
+---
+
 ## Worked example: a Player node
 
 ```gdscript
@@ -166,7 +209,9 @@ and gets back an entity like:
 ## Watching state over time
 
 Keys you expose from `_mcp_state()` are also valid `watch_start` field keys, alongside the
-built-ins (`pos.x`, `pos.y`, `pos.z`, `vel.x`, `vel.y`, `vel.z`, `rot`, `anim`, ...):
+built-ins (`pos.x`, `pos.y`, `pos.z`, `vel.x`, `vel.y`, `vel.z`, `rot`, `anim`, ...).
+Absolute paths work here too, so you can watch an autoload's fields the same way you read
+them in a digest (e.g. `/root/GameState`):
 
 ```json
 {
@@ -192,3 +237,5 @@ length. See [Tools Reference -> Runtime State](tools/runtime-state.md) for the f
 - Add `_mcp_state()` to those nodes; return live values AND the context to interpret them.
 - Keep each `_mcp_state()` cheap, side-effect-free, JSON-able, and under ~1 KB.
 - Let agents call `digest` for a snapshot and `watch_start` / `watch_collect` for motion.
+- For global state in autoload singletons, read them with `select="none"` and `paths`
+  (every response lists them in `available_autoloads`).
