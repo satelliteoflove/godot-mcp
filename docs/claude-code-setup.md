@@ -31,3 +31,11 @@ For language server diagnostics and raw console output, use [minimal-godot-mcp](
 ```
 
 Adjust to fit your project. The model already has access to tool descriptions and will figure out workflows on its own - this template just covers the non-obvious stuff.
+
+## Exposing Game State
+
+To let agents read live game state as structured data (instead of inferring it from
+screenshots), tag the entities that matter into the `mcp_watch` group and optionally
+implement `func _mcp_state() -> Dictionary` on them. See the
+[Runtime State Guide](runtime-state-guide.md) for the conventions, the `_mcp_state()`
+contract, and examples.

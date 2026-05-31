@@ -44,6 +44,7 @@ They don't overlap much, and they don't conflict. Run them side by side for the 
 
 - [Installation Guide](INSTALL.md) - MCP client configs for Claude Desktop, Claude Code, VSCode/Copilot, and more
 - [Claude Code Setup Guide](docs/claude-code-setup.md) - CLAUDE.md template for Godot projects
+- [Runtime State Guide](docs/runtime-state-guide.md) - Expose game state to agents via the `mcp_watch` group and `_mcp_state()`
 - [Tools Reference](docs/tools/README.md) - All 12 tools with full API docs
 - [Resources Reference](docs/resources.md) - MCP resources for reading project data
 - [Contributing](CONTRIBUTING.md) - Dev setup, adding tools, release process
