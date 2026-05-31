@@ -31,6 +31,7 @@ describe('runtimeState tool', () => {
           action: 'digest',
           select: 'group',
           group: 'my_watch',
+          paths: ['/root/GameState', '/root/SimulationClock'],
           name: 'Player*',
           type: 'CharacterBody2D',
           max_nodes: 10,
@@ -41,6 +42,12 @@ describe('runtimeState tool', () => {
 
     it('rejects digest with invalid select value', () => {
       expect(runtimeState.schema.safeParse({ action: 'digest', select: 'invalid' }).success).toBe(false);
+    });
+
+    it('accepts select="none" with explicit paths', () => {
+      expect(
+        runtimeState.schema.safeParse({ action: 'digest', select: 'none', paths: ['/root/GameState'] }).success
+      ).toBe(true);
     });
 
     it('rejects digest with max_nodes out of range', () => {
@@ -116,6 +123,7 @@ describe('runtimeState tool', () => {
           action: 'digest',
           select: 'group',
           group: 'my_watch',
+          paths: ['/root/GameState'],
           name: 'Player',
           type: 'CharacterBody2D',
           max_nodes: 10,
@@ -127,10 +135,36 @@ describe('runtimeState tool', () => {
       const params = mock.calls[0].params;
       expect(params.select).toBe('group');
       expect(params.group).toBe('my_watch');
+      expect(params.paths).toEqual(['/root/GameState']);
       expect(params.name).toBe('Player');
       expect(params.type).toBe('CharacterBody2D');
       expect(params.max_nodes).toBe(10);
       expect(params.include).toEqual(['transform', 'velocity']);
+    });
+
+    it('passes through state snapshot, available_autoloads, and unresolved_paths', async () => {
+      const response = {
+        scene: 'res://scenes/main.tscn',
+        selection: 'none',
+        entity_count: 1,
+        entities: [
+          { path: '/root/GameState', type: 'Node', state: { cash: 25000, tick_count: 8 } },
+        ],
+        available_autoloads: ['/root/GameState', '/root/SimulationClock'],
+        unresolved_paths: ['/root/Nope'],
+      };
+      mock.mockResponse(response);
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        { action: 'digest', select: 'none', paths: ['/root/GameState', '/root/Nope'] },
+        ctx
+      );
+      const data = structuredOf(result);
+
+      expect(data.entities[0].state).toEqual({ cash: 25000, tick_count: 8 });
+      expect(data.available_autoloads).toEqual(['/root/GameState', '/root/SimulationClock']);
+      expect(data.unresolved_paths).toEqual(['/root/Nope']);
     });
 
     it('includes hint field in fallback selection result', async () => {

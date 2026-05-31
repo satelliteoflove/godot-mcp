@@ -31,6 +31,8 @@ interface DigestResponse {
   camera?: EntitySnapshot;
   entities: EntitySnapshot[];
   hint?: string;
+  unresolved_paths?: string[];
+  available_autoloads?: string[];
 }
 
 interface WatchRawSample {
@@ -146,16 +148,28 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'checks without a screenshot.'
       ),
     select: z
-      .enum(['group', 'method', 'auto'])
+      .enum(['group', 'method', 'auto', 'none'])
       .optional()
       .describe(
         'Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), ' +
-        '"auto" = best available (default: auto picks group → method → visible CanvasItems)'
+        '"auto" = best available (default: auto picks group → method → visible CanvasItems), ' +
+        '"none" = no automatic selection; return only the nodes named in paths'
       ),
     group: z
       .string()
       .optional()
       .describe('Group name to use when select="group" or "auto" (default: "mcp_watch")'),
+    paths: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Explicit absolute node paths to include in addition to tier selection, e.g. ' +
+        '["/root/GameState"]. The digest walks the current scene only, so autoload ' +
+        'singletons — where global game state often lives (cash, score, settings) — are ' +
+        'otherwise unreachable. Each path returns _mcp_state() if present, else a snapshot ' +
+        'of the node\'s script variables (scalars/arrays, ~1 KB cap). Paths that do not ' +
+        'resolve are returned in unresolved_paths.'
+      ),
     name: z.string().optional().describe('Glob filter on node name (e.g. "Player*")'),
     type: z.string().optional().describe('Class filter (e.g. "CharacterBody2D")'),
     max_nodes: z
@@ -253,6 +267,7 @@ export const runtimeState = defineTool({
         const params: Record<string, unknown> = {};
         if (args.select !== undefined) params.select = args.select;
         if (args.group !== undefined) params.group = args.group;
+        if (args.paths !== undefined) params.paths = args.paths;
         if (args.name !== undefined) params.name = args.name;
         if (args.type !== undefined) params.type = args.type;
         if (args.max_nodes !== undefined) params.max_nodes = args.max_nodes;

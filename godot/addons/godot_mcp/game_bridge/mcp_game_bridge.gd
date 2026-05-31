@@ -430,11 +430,36 @@ func _handle_get_runtime_state(data: Array) -> void:
 		else:
 			actual_selection = "fallback"
 
-	# Collect entities
+	# Collect entities (skipped entirely when select="none" — explicit paths only)
 	var entities: Array = []
-	_collect_runtime_state(scene_root, scene_root, actual_selection, group_name,
-		name_filter, type_filter, include_fields, camera_2d, camera_viewport_rect,
-		max_nodes, entities)
+	if actual_selection != "none":
+		_collect_runtime_state(scene_root, scene_root, actual_selection, group_name,
+			name_filter, type_filter, include_fields, camera_2d, camera_viewport_rect,
+			max_nodes, entities)
+
+	# Explicit paths: include nodes the scene walk cannot reach (e.g. autoload
+	# singletons under /root). For each, return _mcp_state() if present, else a
+	# snapshot of the node's script variables (scalars/arrays, capped). Deduped
+	# against tier-selected entities and each other by absolute path.
+	var explicit_paths: Array = params.get("paths", [])
+	var unresolved_paths: Array = []
+	if not explicit_paths.is_empty():
+		var seen_paths := {}
+		for e in entities:
+			seen_paths[str(e.get("path", ""))] = true
+		for p in explicit_paths:
+			var pstr: String = str(p)
+			var n := _resolve_node_abs(pstr)
+			if n == null:
+				unresolved_paths.append(pstr)
+				continue
+			var abs_path := str(n.get_path())
+			if seen_paths.has(abs_path):
+				continue
+			seen_paths[abs_path] = true
+			var ent := _extract_node_state(n, scene_root, include_fields, camera_2d, camera_viewport_rect, true)
+			ent["path"] = abs_path
+			entities.append(ent)
 
 	# Extract camera entity separately if present
 	var camera_entity = null
@@ -447,6 +472,8 @@ func _handle_get_runtime_state(data: Array) -> void:
 			"camera": true,
 		}
 
+	var autoloads := _list_autoload_paths(scene_root)
+
 	var hint := ""
 	if actual_selection == "fallback":
 		hint = ("No nodes found in group '%s' and no _mcp_state() methods detected. " +
@@ -455,6 +482,11 @@ func _handle_get_runtime_state(data: Array) -> void:
 			"In _mcp_state(), include both live runtime values (position, health, score) " +
 			"AND static definition context (puzzle clues, level config, item data) — " +
 			"an agent needs both to understand and verify game state.") % [group_name, group_name]
+		if not autoloads.is_empty():
+			hint += (" Global game state often lives in autoload singletons (see " +
+				"available_autoloads), which this scene walk does not reach — read them " +
+				"with select=\"none\" and paths: [...]; each returns _mcp_state() if " +
+				"present, else a snapshot of its script variables.")
 
 	var result: Dictionary = {
 		"scene": scene_root.scene_file_path,
@@ -462,10 +494,14 @@ func _handle_get_runtime_state(data: Array) -> void:
 		"entity_count": entities.size(),
 		"entities": entities,
 	}
+	if not autoloads.is_empty():
+		result["available_autoloads"] = autoloads
 	if camera_entity:
 		result["camera"] = camera_entity
 	if not hint.is_empty():
 		result["hint"] = hint
+	if not unresolved_paths.is_empty():
+		result["unresolved_paths"] = unresolved_paths
 
 	EngineDebugger.send_message("godot_mcp:game_response", ["get_runtime_state", result])
 
@@ -529,7 +565,7 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 # Error handling: _mcp_state() runtime errors are non-fatal in GDScript (Godot prints them
 # and the call returns null); the `is Dictionary` check below handles that silently.
 func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
-		camera_2d: Camera2D, viewport_rect: Rect2) -> Dictionary:
+		camera_2d: Camera2D, viewport_rect: Rect2, allow_var_snapshot: bool = false) -> Dictionary:
 	var want := include_fields.is_empty()
 	var want_transform := want or include_fields.has("transform")
 	var want_velocity := want or include_fields.has("velocity")
@@ -600,12 +636,17 @@ func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 		var pos := (node as Node2D).global_position
 		entity["onscreen"] = viewport_rect.has_point(pos)
 
-	if want_state and node.has_method("_mcp_state"):
-		var raw_state = node._mcp_state()
-		if raw_state is Dictionary:
-			var serialized := _serialize_mcp_state(raw_state)
-			if not serialized.is_empty():
-				entity["state"] = serialized
+	if want_state:
+		if node.has_method("_mcp_state"):
+			var raw_state = node._mcp_state()
+			if raw_state is Dictionary:
+				var serialized := _serialize_mcp_state(raw_state)
+				if not serialized.is_empty():
+					entity["state"] = serialized
+		elif allow_var_snapshot:
+			var snap := _snapshot_script_vars(node)
+			if not snap.is_empty():
+				entity["state"] = snap
 
 	return entity
 
@@ -638,6 +679,89 @@ func _serialize_mcp_state(state: Dictionary) -> Dictionary:
 			result["_truncated"] = true
 			break
 	return result
+
+
+# Snapshot a node's own script variables (PROPERTY_USAGE_SCRIPT_VARIABLE) as
+# JSON-able scalars/arrays. Used for explicitly-requested nodes (e.g. autoload
+# singletons) that do not implement _mcp_state(). Private vars (leading "_") are
+# skipped; dictionaries/objects/non-serializable values are dropped; total size
+# is capped like _serialize_mcp_state.
+func _snapshot_script_vars(node: Node) -> Dictionary:
+	var result: Dictionary = {}
+	for prop in node.get_property_list():
+		if not (int(prop.get("usage", 0)) & PROPERTY_USAGE_SCRIPT_VARIABLE):
+			continue
+		var key: String = str(prop.get("name", ""))
+		if key.is_empty() or key.begins_with("_"):
+			continue
+		var serializable = _to_serializable_scalar(node.get(key))
+		if serializable == null:
+			continue
+		result[key] = serializable
+		if JSON.stringify(result).length() > _MCP_STATE_MAX_BYTES:
+			result.erase(key)
+			result["_truncated"] = true
+			break
+	return result
+
+
+# Convert a value to a JSON-able scalar (or array of scalars). Returns null to
+# signal "skip" — dictionaries, objects, vectors, and arrays containing any of
+# those are intentionally dropped to keep the snapshot small and safe.
+func _to_serializable_scalar(val) -> Variant:
+	match typeof(val):
+		TYPE_BOOL, TYPE_STRING:
+			return val
+		TYPE_STRING_NAME:
+			return str(val)
+		TYPE_INT:
+			return int(val)
+		TYPE_FLOAT:
+			return snapped(float(val), 0.01)
+		TYPE_ARRAY:
+			var arr: Array = []
+			for e in val:
+				var s = _to_serializable_scalar(e)
+				if s == null:
+					return null
+				arr.append(s)
+			return arr
+	return null
+
+
+# Resolve an absolute ("/root/Name/...") or scene-relative node path. Unlike the
+# digest tree walk (rooted at current_scene), this reaches autoload singletons
+# and anything else under the SceneTree root.
+func _resolve_node_abs(path: String) -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	var root := tree.root
+	if root == null:
+		return null
+	if path == "/root" or path == "/root/":
+		return root
+	if path.begins_with("/root/"):
+		return root.get_node_or_null(path.substr(6))
+	if path.begins_with("/"):
+		return root.get_node_or_null(path.substr(1))
+	var scene_root := tree.current_scene
+	return scene_root.get_node_or_null(path) if scene_root else null
+
+
+# List autoload singleton paths (direct children of /root, excluding the current
+# scene and this bridge node). Used to guide callers to global state the scene
+# walk cannot reach.
+func _list_autoload_paths(scene_root: Node) -> Array:
+	var out: Array = []
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return out
+	for child in tree.root.get_children():
+		if child == scene_root or child == self:
+			continue
+		out.append("/root/" + str(child.name))
+	return out
 
 
 func _find_camera_2d() -> Camera2D:
