@@ -65,7 +65,8 @@ For each selected node the digest returns the fields that apply to it:
 - `pos`, `rot`, `scale` for `Node2D` / `Node3D`
 - `vel` (and `angvel` for rigid bodies) for `CharacterBody2D/3D` and `RigidBody2D/3D`
 - `anim` / `anim_pos` / `anim_frame` / `playing` for `AnimationPlayer` / `AnimatedSprite2D`
-- `onscreen` for a `Node2D` when a `Camera2D` is active
+- `onscreen` for `Node2D` (against the active `Camera2D`'s visible world rect) and
+  `Node3D` (against the active `Camera3D` frustum) -- see "On-screen detection" below
 - `state` -- whatever your `_mcp_state()` returns (see below)
 
 Use a different group name with the `group` parameter; `mcp_watch` is just the default.
@@ -122,6 +123,26 @@ func _mcp_state() -> Dictionary:
         "grid_size": { "w": grid.width, "h": grid.height },
     }
 ```
+
+---
+
+## On-screen detection
+
+The `onscreen` flag reports whether a node's position is within the current view.
+The camera is resolved from the node's **own viewport**, so a node inside a
+`SubViewport` is tested against that SubViewport's camera, not the main window's.
+
+- **3D** (`Node3D`): true when the position is inside the active `Camera3D` frustum
+  (`is_position_in_frustum`), honoring perspective/orthographic projection and the
+  near/far planes.
+- **2D** (`Node2D`): true when the position is inside the active `Camera2D`'s visible
+  **world** rect -- derived from the viewport's canvas transform, so camera offset and
+  zoom are accounted for. A `VisibleOnScreenNotifier2D` is queried directly when the
+  node is one.
+- The flag is **omitted** (not reported as `false`) when it cannot be decided -- e.g. a
+  3D node with no active `Camera3D`, or a 2D node with no active `Camera2D`.
+- Boundary: the 2D rect test is inclusive of the top/left edge and exclusive of the
+  bottom/right edge (Godot `Rect2.has_point` semantics).
 
 ---
 

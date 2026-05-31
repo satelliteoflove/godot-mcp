@@ -3,6 +3,7 @@ class_name MCPGameBridge
 
 const DEFAULT_MAX_WIDTH := 1024
 const DEFAULT_JPEG_QUALITY := 0.75
+const Onscreen := preload("onscreen.gd")
 
 var _logger: _MCPGameLogger
 var _profiler: MCPFrameProfiler
@@ -414,11 +415,11 @@ func _handle_get_runtime_state(data: Array) -> void:
 	var include_fields: Array = params.get("include", [])
 	max_nodes = clampi(max_nodes, 1, 200)
 
-	# Resolve camera for on-screen checks
+	# Resolve a 2D camera for the optional camera entity. On-screen checks no
+	# longer use this — they resolve the camera per-node from the node's own
+	# viewport (see Onscreen.compute), which is what makes SubViewport cameras
+	# work correctly.
 	var camera_2d: Camera2D = _find_camera_2d()
-	var camera_viewport_rect := Rect2()
-	if camera_2d:
-		camera_viewport_rect = camera_2d.get_viewport_rect()
 
 	# Determine which selection tier to use
 	var actual_selection: String = select_mode
@@ -434,7 +435,7 @@ func _handle_get_runtime_state(data: Array) -> void:
 	var entities: Array = []
 	if actual_selection != "none":
 		_collect_runtime_state(scene_root, scene_root, actual_selection, group_name,
-			name_filter, type_filter, include_fields, camera_2d, camera_viewport_rect,
+			name_filter, type_filter, include_fields,
 			max_nodes, entities)
 
 	# Explicit paths: include nodes the scene walk cannot reach (e.g. autoload
@@ -457,18 +458,17 @@ func _handle_get_runtime_state(data: Array) -> void:
 			if seen_paths.has(abs_path):
 				continue
 			seen_paths[abs_path] = true
-			var ent := _extract_node_state(n, scene_root, include_fields, camera_2d, camera_viewport_rect, true)
+			var ent := _extract_node_state(n, scene_root, include_fields, true)
 			ent["path"] = abs_path
 			entities.append(ent)
 
 	# Extract camera entity separately if present
 	var camera_entity = null
-	var cam_node := _find_camera_2d() if actual_selection != "fallback" else camera_2d
-	if cam_node:
+	if camera_2d:
 		camera_entity = {
 			"type": "Camera2D",
-			"pos": {"x": snapped(cam_node.global_position.x, 0.01), "y": snapped(cam_node.global_position.y, 0.01)},
-			"zoom": {"x": snapped(cam_node.zoom.x, 0.01), "y": snapped(cam_node.zoom.y, 0.01)},
+			"pos": {"x": snapped(camera_2d.global_position.x, 0.01), "y": snapped(camera_2d.global_position.y, 0.01)},
+			"zoom": {"x": snapped(camera_2d.zoom.x, 0.01), "y": snapped(camera_2d.zoom.y, 0.01)},
 			"camera": true,
 		}
 
@@ -524,7 +524,6 @@ func _has_mcp_state_nodes(node: Node) -> bool:
 
 func _collect_runtime_state(node: Node, scene_root: Node, selection: String, group_name: String,
 		name_filter: String, type_filter: String, include_fields: Array,
-		camera_2d: Camera2D, viewport_rect: Rect2,
 		max_nodes: int, results: Array) -> void:
 	if results.size() >= max_nodes:
 		return
@@ -545,7 +544,7 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 			include_node = false
 
 	if include_node:
-		var entity := _extract_node_state(node, scene_root, include_fields, camera_2d, viewport_rect)
+		var entity := _extract_node_state(node, scene_root, include_fields)
 		if entity != null:
 			results.append(entity)
 
@@ -553,7 +552,7 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 		if results.size() >= max_nodes:
 			return
 		_collect_runtime_state(child, scene_root, selection, group_name,
-			name_filter, type_filter, include_fields, camera_2d, viewport_rect,
+			name_filter, type_filter, include_fields,
 			max_nodes, results)
 
 
@@ -565,7 +564,7 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 # Error handling: _mcp_state() runtime errors are non-fatal in GDScript (Godot prints them
 # and the call returns null); the `is Dictionary` check below handles that silently.
 func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
-		camera_2d: Camera2D, viewport_rect: Rect2, allow_var_snapshot: bool = false) -> Dictionary:
+		allow_var_snapshot: bool = false) -> Dictionary:
 	var want := include_fields.is_empty()
 	var want_transform := want or include_fields.has("transform")
 	var want_velocity := want or include_fields.has("velocity")
@@ -632,9 +631,13 @@ func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 			entity["anim"] = asp.animation
 			entity["anim_frame"] = asp.frame
 
-	if want_onscreen and camera_2d and node is Node2D:
-		var pos := (node as Node2D).global_position
-		entity["onscreen"] = viewport_rect.has_point(pos)
+	if want_onscreen:
+		# Resolve the camera from the node's own viewport (handles SubViewport
+		# cameras) and use the correct geometry per dimension — 3D frustum, 2D
+		# visible world rect. Returns null when undeterminable; omit the field.
+		var onscreen = Onscreen.compute(node)
+		if onscreen != null:
+			entity["onscreen"] = onscreen
 
 	if want_state:
 		if node.has_method("_mcp_state"):
