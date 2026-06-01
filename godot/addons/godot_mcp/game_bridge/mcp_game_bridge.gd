@@ -24,6 +24,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	# Guaranteed cleanup: never leave an action latched when the bridge node
+	# leaves the tree (game shutdown / scene change). Safe if nothing is held.
+	_release_held_actions()
 	if EngineDebugger.is_active():
 		EngineDebugger.unregister_message_capture("godot_mcp")
 		if _profiler:
@@ -43,7 +46,10 @@ func _process(_delta: float) -> void:
 		input_event.pressed = seq_event.is_press
 		input_event.strength = 1.0 if seq_event.is_press else 0.0
 		Input.parse_input_event(input_event)
-		if not seq_event.is_press:
+		if seq_event.is_press:
+			_held_actions[seq_event.action] = true
+		else:
+			_held_actions.erase(seq_event.action)
 			_actions_completed += 1
 
 	if _sequence_events.is_empty():
@@ -60,6 +66,29 @@ var _sequence_start_time: int = 0
 var _sequence_running: bool = false
 var _actions_completed: int = 0
 var _actions_total: int = 0
+# Actions whose press has been injected but whose paired release has not yet
+# fired. Used to guarantee a release even if the queue is cleared mid-flight
+# (new sequence) or the node leaves the tree — otherwise the dropped release
+# latches the action "pressed" in the Input singleton (the stuck-held bug).
+var _held_actions: Dictionary = {}
+
+
+# Release any action still held from an interrupted sequence. A release here is a
+# guaranteed cleanup, never a queued step that a clear could drop. Safe to call
+# when nothing is held.
+func _release_held_actions() -> void:
+	if _held_actions.is_empty():
+		return
+	for action in _held_actions.keys():
+		var release := InputEventAction.new()
+		release.action = action
+		release.pressed = false
+		release.strength = 0.0
+		Input.parse_input_event(release)
+	# Flush so the release takes effect immediately — _exit_tree may not get
+	# another frame, and a cleanup should be deterministic, not deferred.
+	Input.flush_buffered_events()
+	_held_actions.clear()
 
 
 func _on_debugger_message(message: String, data: Array) -> bool:
@@ -890,6 +919,10 @@ func _handle_execute_input_sequence(data: Array) -> void:
 		}])
 		return
 
+	# Release anything still held from a prior, interrupted sequence BEFORE
+	# clearing the queue — otherwise that sequence's unfired releases are dropped
+	# and its actions stay latched (stuck-held bug).
+	_release_held_actions()
 	_sequence_events.clear()
 	_actions_completed = 0
 	_actions_total = inputs.size()
