@@ -4,8 +4,7 @@
       "release-type": "node",
       "package-name": "@satelliteoflove/godot-mcp",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "include-paths": ["godot"]
+      "bump-patch-for-minor-pre-major": true
     }
   }
 }
