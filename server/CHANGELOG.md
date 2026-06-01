@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.6.1...godot-mcp-v3.7.0) (2026-06-01)
+
+
+### Features
+
+* digest reaches autoload singletons via explicit paths ([#226](https://github.com/satelliteoflove/godot-mcp/issues/226)) ([3f815ed](https://github.com/satelliteoflove/godot-mcp/commit/3f815ed9d98211c35ba86e316dad66dead4b374b))
+
+
+### Bug Fixes
+
+* correct on-screen detection for 3D, 2D camera transforms, and SubViewports ([#229](https://github.com/satelliteoflove/godot-mcp/issues/229)) ([633ef72](https://github.com/satelliteoflove/godot-mcp/commit/633ef72f98ae3a3c858617099feb65addf5551d4)), closes [#200](https://github.com/satelliteoflove/godot-mcp/issues/200)
+
 ## [3.6.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.6.0...godot-mcp-v3.6.1) (2026-05-30)
 
 
