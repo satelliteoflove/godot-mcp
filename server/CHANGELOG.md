@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.7.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.7.0...godot-mcp-v3.7.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **game-bridge:** keep processing while the scene tree is paused ([#253](https://github.com/satelliteoflove/godot-mcp/issues/253)) ([04cff1b](https://github.com/satelliteoflove/godot-mcp/commit/04cff1b31e400aeff9fe9802a11e3f86c6f73c2a)), closes [#238](https://github.com/satelliteoflove/godot-mcp/issues/238)
+* **game-bridge:** release held actions before clearing the input-sequence queue ([#231](https://github.com/satelliteoflove/godot-mcp/issues/231)) ([a0aa7ab](https://github.com/satelliteoflove/godot-mcp/commit/a0aa7abe02700b65b6a57cce5dea0826e73c433f))
+* release pipeline ignores addon-only commits ([#254](https://github.com/satelliteoflove/godot-mcp/issues/254)) ([fb1753e](https://github.com/satelliteoflove/godot-mcp/commit/fb1753eaf0225e0fe843d6ad410d2a54ee5fee46))
+
 ## [3.7.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.6.1...godot-mcp-v3.7.0) (2026-06-01)
 
 
