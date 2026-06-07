@@ -1,8 +1,18 @@
 {
   "packages": {
-    "server": {
-      "release-type": "node",
+    ".": {
+      "release-type": "simple",
       "package-name": "@satelliteoflove/godot-mcp",
+      "component": "godot-mcp",
+      "include-component-in-tag": true,
+      "changelog-path": "server/CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "server/package.json",
+          "jsonpath": "$.version"
+        }
+      ],
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true
     }

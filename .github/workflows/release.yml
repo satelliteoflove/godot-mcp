@@ -18,9 +18,9 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs['server--release_created'] }}
-      tag_name: ${{ steps.release.outputs['server--tag_name'] }}
-      version: ${{ steps.release.outputs['server--version'] }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -51,6 +51,10 @@ jobs:
         if: ${{ steps.check-pr.outputs.branch }}
         with:
           node-version: '22'
+      - name: Sync package-lock version after release-please bump
+        if: ${{ steps.check-pr.outputs.branch }}
+        run: npm install --package-lock-only
+        working-directory: server
       - run: npm ci
         if: ${{ steps.check-pr.outputs.branch }}
         working-directory: server
@@ -67,7 +71,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/ README.md server/README.md godot/addons/godot_mcp/plugin.cfg
+          git add docs/ README.md server/README.md server/package-lock.json godot/addons/godot_mcp/plugin.cfg
           git diff --staged --quiet || git commit -m "chore: auto-generate docs and sync addon version"
           git push
 
