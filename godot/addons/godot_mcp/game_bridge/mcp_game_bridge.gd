@@ -11,6 +11,13 @@ var _sampler: MCPRuntimeStateSampler
 
 
 func _ready() -> void:
+	# The bridge must keep processing while the scene tree is paused. Input
+	# sequences are driven from _process, so without this a press that toggles
+	# `paused = true` freezes the runner mid-sequence: the paired release never
+	# fires and the editor-side wait times out (~30s) — pause menus, a primary
+	# injection target, become undrivable. The bridge answers to the debugger,
+	# not the game's pause state. Children (the sampler) inherit this mode.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	if not EngineDebugger.is_active():
 		return
 	_logger = _MCPGameLogger.new()
