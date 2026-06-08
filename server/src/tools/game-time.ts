@@ -47,7 +47,7 @@ const GameTimeSchema = z
       until: z
         .string()
         .min(1)
-        .describe('A GDScript boolean expression, re-evaluated against the running game every frame; stepping stops the frame it is truthy. Autoloads are in scope by name (e.g. `G.wave > 1`, `GameState.tick_count % 12 == 11`), plus `tree` (the SceneTree) and `root` (the root Window) for tree queries (e.g. `tree.get_nodes_in_group("enemies").size() >= 1`). Must parse and evaluate without error against the current state or the call is rejected up front.'),
+        .describe('A GDScript boolean expression, re-evaluated against the running game every frame; stepping stops the frame it is truthy. Autoloads are in scope by name (e.g. `G.wave > 1`, `GameState.tick_count % 12 == 11`), plus `tree` (the SceneTree) and `root` (the root Window) for tree queries (e.g. `tree.get_nodes_in_group("enemies").size() >= 1`). Must parse and evaluate without error against the current state or the call is rejected up front. Expressions do NOT short-circuit (`and`/`or` evaluate both operands), so to read a node that may not exist yet, do not guard with `arr.size() > 0 and arr[0].x` — sequence two calls instead: step_until the node exists (`tree.get_nodes_in_group("boss").size() >= 1`), then step_until reading it (`tree.get_nodes_in_group("boss")[0].state == 4`).'),
       max_ms: z
         .number()
         .int()
