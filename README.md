@@ -40,6 +40,8 @@ Open your Godot project, restart your AI assistant, and start building.
 
 They don't overlap much, and they don't conflict. Run them side by side for the best coverage.
 
+**One godot-mcp client at a time, though.** A Godot editor bridge serves a single godot-mcp connection. If a second godot-mcp client connects - for example, a subagent that inherited the same MCP config - it is rejected while the first is active rather than displacing it, so the original session keeps working. The second client retries and connects automatically once the first disconnects. A client that crashes without closing its socket is taken over after a short idle timeout, so a dead session never permanently blocks new connections.
+
 ## Documentation
 
 - [Installation Guide](INSTALL.md) - MCP client configs for Claude Desktop, Claude Code, VSCode/Copilot, and more

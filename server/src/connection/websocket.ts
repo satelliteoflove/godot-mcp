@@ -146,19 +146,20 @@ export class GodotConnection extends EventEmitter {
 
     switch (diag.lastDisconnectReason) {
       case 'rejected_another_client':
-        lines.push('Status: Connection rejected (another client already connected)');
+        lines.push('Status: Another client is already connected to Godot');
         if (diag.rejectionCount > 1) {
           lines.push(`Details: ${diag.rejectionCount} connection attempts rejected`);
         }
-        lines.push('Suggestion: Multiple MCP server processes may be running.');
-        lines.push('  Check: ps aux | grep godot-mcp (macOS/Linux)');
-        lines.push('  Check: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*" (Windows)');
-        lines.push('  Fix: Kill all godot-mcp processes and restart your MCP client');
+        lines.push('Suggestion: Only one client can drive the Godot bridge at a time.');
+        lines.push('  This client keeps retrying and will connect once the other disconnects.');
+        lines.push('  If you did not expect another client, check for duplicate godot-mcp processes:');
+        lines.push('    macOS/Linux: ps aux | grep godot-mcp');
+        lines.push('    Windows: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"');
         break;
 
       case 'replaced_by_new_client':
-        lines.push('Status: Another MCP server connected and replaced this one');
-        lines.push('Suggestion: This server is no longer active. Restart it or close this session.');
+        lines.push('Status: Another client took over the Godot bridge');
+        lines.push('Suggestion: Reconnecting automatically; this recovers once the other client disconnects.');
         break;
 
       case 'connection_refused':
@@ -238,23 +239,33 @@ export class GodotConnection extends EventEmitter {
         if (code === CLOSE_CODE_ALREADY_CONNECTED) {
           this.lastDisconnectReason = 'rejected_another_client';
           this.rejectionCount++;
+          // Back off in proportion to how many times we've been rejected so a
+          // lingering second client doesn't busy-loop reconnecting every second
+          // (each brief 'open' resets reconnectAttempt before this close fires).
+          this.reconnectAttempt = Math.min(this.rejectionCount - 1, RECONNECT_DELAYS.length - 1);
           const reasonStr = reason?.toString() || 'Another client is already connected';
-          logger.critical('Connection rejected: another client already connected', {
-            reason: reasonStr,
-            suggestion: 'Multiple MCP server processes may be running',
-            diagnostics: {
-              macLinux: 'ps aux | grep godot-mcp',
-              windows: 'Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"',
-            },
-          });
+          logger.warningRateLimited(
+            'rejected-another-client',
+            'Another client holds the Godot bridge; will keep retrying',
+            {
+              reason: reasonStr,
+              rejectionCount: this.rejectionCount,
+            }
+          );
         } else if (code === CLOSE_CODE_REPLACED) {
+          // A newer client took over the bridge. Don't latch this connection
+          // dead - keep reconnecting so it recovers automatically once the
+          // other client disconnects (or is itself replaced).
           this.lastDisconnectReason = 'replaced_by_new_client';
-          this.isClosing = true;
           const reasonStr = reason?.toString() || 'Replaced by new client';
-          logger.warning('Another MCP server connected to Godot, this server will not reconnect', {
-            reason: reasonStr,
-            suggestion: 'This is normal when reconnecting. If unexpected, check for duplicate MCP server configurations.',
-          });
+          logger.warningRateLimited(
+            'replaced-by-new-client',
+            'Connection was replaced by another client; will attempt to reconnect',
+            {
+              reason: reasonStr,
+              suggestion: 'This client reconnects when the Godot bridge is free again.',
+            }
+          );
         } else if (code === CLOSE_CODE_STALE) {
           this.lastDisconnectReason = 'connection_lost';
           const reasonStr = reason?.toString() || 'Connection timed out (no activity)';
