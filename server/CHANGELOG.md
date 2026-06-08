@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.8.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.7.1...godot-mcp-v3.8.0) (2026-06-08)
+
+
+### Features
+
+* game time control for high-latency agents ([#256](https://github.com/satelliteoflove/godot-mcp/issues/256)) ([08d5d89](https://github.com/satelliteoflove/godot-mcp/commit/08d5d89f7da101782b282e16e8728cf0aaf31b7d))
+
+
+### Bug Fixes
+
+* ship .uid sidecars so the addon's resource identity is stable ([#257](https://github.com/satelliteoflove/godot-mcp/issues/257)) ([ecc5396](https://github.com/satelliteoflove/godot-mcp/commit/ecc5396e2adc232db6c5b9fa16af50ac9aebb886))
+* use ScriptBacktrace.get_frame_file for error frame capture ([#259](https://github.com/satelliteoflove/godot-mcp/issues/259)) ([3182e2c](https://github.com/satelliteoflove/godot-mcp/commit/3182e2c14bf3d334ed127736505c5a672c0e4611))
+
 ## [3.7.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.7.0...godot-mcp-v3.7.1) (2026-06-07)
 
 
