@@ -112,7 +112,7 @@ describe('game_time tool', () => {
 
   describe('thaw', () => {
     it('reports the frozen duration', async () => {
-      mock.mockResponse({ frozen: false, was_frozen: true, game_paused: false, frozen_for_ms: 42000 });
+      mock.mockResponse({ frozen: false, was_frozen: true, game_paused: false, frozen_wall_ms: 42000 });
       const ctx = createToolContext(mock);
 
       const result = await gameTime.execute({ action: 'thaw' }, ctx);
@@ -137,8 +137,9 @@ describe('game_time tool', () => {
         tree_paused: true,
         engine_time_scale: 1.0,
         physics_ticks_per_second: 60,
-        frozen_for_ms: 12345,
+        frozen_wall_ms: 12345,
         freeze_transitions: 0,
+        launched_frozen: true,
       });
       const ctx = createToolContext(mock);
 
@@ -146,7 +147,8 @@ describe('game_time tool', () => {
       expect(mock.calls[0].command).toBe('game_time_status');
       const data = structuredOf(result);
       expect(data.frozen).toBe(true);
-      expect(data.frozen_for_ms).toBe(12345);
+      expect(data.frozen_wall_ms).toBe(12345);
+      expect(data.launched_frozen).toBe(true);
     });
   });
 });

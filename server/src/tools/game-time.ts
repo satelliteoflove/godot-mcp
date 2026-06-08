@@ -48,7 +48,7 @@ const GameTimeSchema = z
     z.object({
       action: z
         .literal('status')
-        .describe('Report the freeze state: frozen, the game\'s own pause intent, time scale, and whether game code is contesting the freeze.'),
+        .describe('Report the freeze state: `frozen` is authoritative for the current state; `frozen_wall_ms` is real wall-clock held (not game time); `launched_frozen` is a historical flag (this run booted frozen) and stays true after thaw. Also reports the game\'s own pause intent, time scale, and whether game code is contesting the freeze.'),
     }),
   ])
   // Constraint a discriminated union can't express on its own, so it lives here:
@@ -106,13 +106,13 @@ export const gameTime = defineTool({
           frozen: boolean;
           was_frozen: boolean;
           game_paused: boolean;
-          frozen_for_ms?: number;
+          frozen_wall_ms?: number;
         }>('game_time_thaw');
         if (!result.was_frozen) {
           return 'Was not frozen; game continues in real time.';
         }
         const pausedNote = result.game_paused ? ' (game\'s own pause menu still open)' : '';
-        return `Thawed after ${result.frozen_for_ms}ms frozen. Real-time play resumed${pausedNote}.`;
+        return `Thawed after ${result.frozen_wall_ms}ms (wall-clock) frozen. Real-time play resumed${pausedNote}.`;
       }
 
       case 'status': {

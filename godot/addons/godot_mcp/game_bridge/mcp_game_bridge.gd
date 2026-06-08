@@ -1179,7 +1179,8 @@ func _handle_game_time_thaw(_data: Array) -> void:
 	var was_frozen := _frozen
 	var result: Dictionary = {"frozen": false, "was_frozen": was_frozen}
 	if was_frozen:
-		result["frozen_for_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
+		# Real wall-clock the freeze was held; game time did not advance while frozen.
+		result["frozen_wall_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
 		_frozen = false
 		get_tree().paused = _game_paused
 		_update_processing()
@@ -1197,10 +1198,14 @@ func _handle_game_time_status(_data: Array) -> void:
 		"engine_time_scale": Engine.time_scale,
 		"physics_ticks_per_second": Engine.physics_ticks_per_second,
 	}
+	# `frozen` is the authoritative current state. `launched_frozen` is a historical
+	# fact (this run booted frozen via GODOT_MCP_LAUNCH_FROZEN) and stays true after
+	# thaw, so it must not be read as the present freeze state.
 	if _launched_frozen:
-		result["launch_frozen"] = true
+		result["launched_frozen"] = true
 	if _frozen:
-		result["frozen_for_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
+		# Real wall-clock since freeze engaged, not game time (which is stopped).
+		result["frozen_wall_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
 		result["freeze_transitions"] = _freeze_transition_count
 		if _freeze_transition_count >= FREEZE_CONTESTED_THRESHOLD:
 			# Something (an ALWAYS-mode node?) is repeatedly unpausing under
