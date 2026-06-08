@@ -34,7 +34,7 @@ func _log_error(function: String, file: String, line: int, code: String,
 	for backtrace in script_backtraces:
 		for i in backtrace.get_frame_count():
 			frames.append({
-				"file": backtrace.get_frame_source(i),
+				"file": backtrace.get_frame_file(i),
 				"line": backtrace.get_frame_line(i),
 				"function": backtrace.get_frame_function(i),
 			})
