@@ -19,6 +19,7 @@ Control the Godot editor: get state, manage selection, run/stop project, capture
 | `action` | `get_state`, `get_selection`, `select`, `run`, `stop`, `get_log_messages`, `get_stack_trace`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d` | Yes |  |
 | `node_path` | string | No | Path to node to select |
 | `scene_path` | string | No | Scene to run (optional, defaults to main scene) |
+| `frozen` | boolean | No | Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance. |
 | `clear` | boolean | No | Clear buffer after reading |
 | `limit` | integer | No | Maximum number of messages to return (default: 50) |
 | `max_width` | integer | No | Maximum width in pixels (default: 900) |
