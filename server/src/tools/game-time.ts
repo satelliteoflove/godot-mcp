@@ -1,0 +1,126 @@
+import { z } from 'zod';
+import { defineTool } from '../core/define-tool.js';
+import { structured } from '../core/structured.js';
+import { InputActionSchema } from './input.js';
+import type { AnyToolDefinition } from '../core/types.js';
+
+// Bridge-side step caps (see mcp_game_bridge.gd). The editor relay times out
+// at 28s and the server command timeout is 30s, so a step request must stay
+// well inside both.
+const STEP_MAX_MS = 20000;
+const STEP_MAX_FRAMES = 1200;
+
+const GameTimeSchema = z
+  .discriminatedUnion('action', [
+    z.object({
+      action: z
+        .literal('freeze')
+        .describe('Pause the game under agent control. All observation tools (screenshots, runtime state, find_nodes) keep working while frozen — take as long as you need.'),
+    }),
+    z.object({
+      action: z
+        .literal('step')
+        .describe('Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call.'),
+      duration_ms: z
+        .number()
+        .int()
+        .min(1)
+        .max(STEP_MAX_MS)
+        .optional()
+        .describe(`Game time to advance in milliseconds (max ${STEP_MAX_MS}; loop steps for longer). Scaled by Engine.time_scale like normal play.`),
+      frames: z
+        .number()
+        .int()
+        .min(1)
+        .max(STEP_MAX_FRAMES)
+        .optional()
+        .describe(`Frames to advance instead of a duration (max ${STEP_MAX_FRAMES}). frames: 1 is a single-frame advance.`),
+      inputs: z
+        .array(InputActionSchema)
+        .optional()
+        .describe('Input timeline executed inside the window; start_ms is game time from window start. Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
+    }),
+    z.object({
+      action: z
+        .literal('thaw')
+        .describe('Resume real-time play, restoring the game\'s own pause state (an open pause menu stays open).'),
+    }),
+    z.object({
+      action: z
+        .literal('status')
+        .describe('Report the freeze state: frozen, the game\'s own pause intent, time scale, and whether game code is contesting the freeze.'),
+    }),
+  ])
+  // Constraint a discriminated union can't express on its own, so it lives here:
+  .refine((data) => (data.action === 'step' ? (data.duration_ms !== undefined) !== (data.frames !== undefined) : true), {
+    message: 'step requires exactly one of duration_ms or frames',
+  });
+
+type GameTimeArgs = z.infer<typeof GameTimeSchema>;
+
+interface StepResult {
+  completed: boolean;
+  frozen: boolean;
+  elapsed_ms: number;
+  gameplay_ms: number;
+  frames: number;
+  physics_ticks: number;
+  game_paused: boolean;
+  events_fired?: number;
+  forced_releases?: number;
+  events_dropped?: number;
+  pause_transitions?: Array<{ at_ms: number; paused: boolean }>;
+  wall_budget_exceeded?: boolean;
+}
+
+export const gameTime = defineTool({
+  name: 'godot_game_time',
+  annotations: { title: 'Game Time Control', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  description:
+    'Make game time answer to your clock instead of racing ahead between tool calls: freeze the running game, observe it at leisure (screenshots and state digests work while frozen), then step forward a bounded slice of game time with inputs riding inside the window. The game\'s own pause menu is layered correctly: freezing over it, stepping under it, and thawing back to it all preserve the game\'s pause intent.',
+  schema: GameTimeSchema,
+  async execute(args: GameTimeArgs, { godot }) {
+    switch (args.action) {
+      case 'freeze': {
+        const result = await godot.sendCommand<{
+          frozen: boolean;
+          was_frozen: boolean;
+          game_paused: boolean;
+        }>('game_time_freeze');
+        const note = result.was_frozen ? ' (was already frozen)' : '';
+        const paused = result.game_paused ? ' Game\'s own pause menu is open; step will not advance gameplay until it is dismissed.' : '';
+        return `Frozen${note}. Game time is stopped; observe freely, then step or thaw.${paused}`;
+      }
+
+      case 'step': {
+        const result = await godot.sendCommand<StepResult>('game_time_step', {
+          duration_ms: args.duration_ms,
+          frames: args.frames,
+          inputs: args.inputs,
+        });
+        return structured(result);
+      }
+
+      case 'thaw': {
+        const result = await godot.sendCommand<{
+          frozen: boolean;
+          was_frozen: boolean;
+          game_paused: boolean;
+          frozen_for_ms?: number;
+        }>('game_time_thaw');
+        if (!result.was_frozen) {
+          return 'Was not frozen; game continues in real time.';
+        }
+        const pausedNote = result.game_paused ? ' (game\'s own pause menu still open)' : '';
+        return `Thawed after ${result.frozen_for_ms}ms frozen. Real-time play resumed${pausedNote}.`;
+      }
+
+      case 'status': {
+        const result = await godot.sendCommand<Record<string, unknown>>('game_time_status');
+        return structured(result);
+      }
+    }
+  },
+});
+
+export const gameTimeTools = [gameTime] as AnyToolDefinition[];

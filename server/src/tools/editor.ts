@@ -45,6 +45,10 @@ const EditorSchema = z
     z.object({
       action: z.literal('run').describe('Run the project'),
       scene_path: z.string().optional().describe('Scene to run (optional, defaults to main scene)'),
+      frozen: z
+        .boolean()
+        .optional()
+        .describe('Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance.'),
     }),
     z.object({ action: z.literal('stop').describe('Stop the running project') }),
     z.object({
@@ -136,8 +140,11 @@ export const editor = defineTool({
       }
 
       case 'run': {
-        await godot.sendCommand('run_project', { scene_path: args.scene_path });
-        return args.scene_path ? `Running scene: ${args.scene_path}` : 'Running project';
+        await godot.sendCommand('run_project', { scene_path: args.scene_path, frozen: args.frozen });
+        const target = args.scene_path ? `scene: ${args.scene_path}` : 'project';
+        return args.frozen
+          ? `Running ${target} frozen from frame 0 — use godot_game_time step/thaw to advance`
+          : `Running ${target}`;
       }
 
       case 'stop': {

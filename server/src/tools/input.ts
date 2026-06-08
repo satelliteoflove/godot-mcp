@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
-const InputActionSchema = z.object({
+export const InputActionSchema = z.object({
   action_name: z.string().describe('The input action name from the project Input Map'),
   start_ms: z.number().int().min(0).optional().default(0).describe('When to start the input (milliseconds from sequence start)'),
   duration_ms: z.number().int().min(0).optional().default(0).describe('How long to hold the input (0 = instant tap)'),

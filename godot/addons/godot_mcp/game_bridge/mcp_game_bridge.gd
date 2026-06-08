@@ -27,7 +27,17 @@ func _ready() -> void:
 	_sampler = MCPRuntimeStateSampler.new()
 	add_child(_sampler)
 	EngineDebugger.register_message_capture("godot_mcp", _on_debugger_message)
+	set_physics_process(false)  # only counts ticks during a step window
 	MCPLog.info("Game bridge initialized")
+
+	# Launch-frozen: the editor sets this env var just before spawning the game
+	# (godot_editor run with frozen=true), so the freeze lands before the first
+	# process frame — agent latency between run and the first input costs the
+	# game nothing. Scene _ready callbacks still run; processing does not start.
+	if OS.get_environment(LAUNCH_FROZEN_ENV) == "1":
+		_launched_frozen = true
+		_engage_freeze()
+		MCPLog.info("Game bridge: launched frozen")
 
 
 func _exit_tree() -> void:
@@ -40,7 +50,19 @@ func _exit_tree() -> void:
 			EngineDebugger.unregister_profiler("mcp_frame_profiler")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_game_time_process(delta)
+	_sequence_process()
+
+
+# Processing is needed by three independent features; only switch it off when
+# none of them is active (the frozen monitor must run every frame, so the old
+# "disable after the sequence" shortcut no longer applies unconditionally).
+func _update_processing() -> void:
+	set_process(_sequence_running or _frozen or _step_active)
+
+
+func _sequence_process() -> void:
 	if not _sequence_running or _sequence_events.is_empty():
 		return
 
@@ -61,7 +83,7 @@ func _process(_delta: float) -> void:
 
 	if _sequence_events.is_empty():
 		_sequence_running = false
-		set_process(false)
+		_update_processing()
 		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
 			"completed": true,
 			"actions_executed": _actions_completed,
@@ -141,6 +163,18 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"watch_stop":
 			_handle_watch_stop()
+			return true
+		"game_time_freeze":
+			_handle_game_time_freeze(data)
+			return true
+		"game_time_step":
+			_handle_game_time_step(data)
+			return true
+		"game_time_thaw":
+			_handle_game_time_thaw(data)
+			return true
+		"game_time_status":
+			_handle_game_time_status(data)
 			return true
 	return false
 
@@ -965,7 +999,7 @@ func _handle_execute_input_sequence(data: Array) -> void:
 
 	_sequence_start_time = Time.get_ticks_msec()
 	_sequence_running = true
-	set_process(true)
+	_update_processing()
 
 
 func _handle_type_text(data: Array) -> void:
@@ -1022,3 +1056,319 @@ func _type_text_async(text: String, delay_ms: int, submit: bool) -> void:
 		"chars_typed": text.length(),
 		"submitted": submit,
 	}])
+
+
+# ---------------------------------------------------------------------------
+# Game-time control (freeze / step / thaw / status)
+#
+# Real-time games race ahead of high-latency agents: 10-40s of consequences
+# land between every observation and the action it informs. These primitives
+# make game time answer to the agent's clock instead: freeze the tree, think
+# arbitrarily long (all observation tools work while frozen — rendering
+# continues during pause), then step forward a bounded slice of game time
+# with inputs riding inside the window.
+#
+# tree.paused is a single bit that two parties now write: the game's own
+# pause menu and this freeze. The bridge layers them — effective state is
+# (game_paused OR frozen) — by observing and re-asserting: it cannot
+# intercept writes, but it processes every frame (PROCESS_MODE_ALWAYS, and
+# as an autoload it runs BEFORE the scene), so a game-code flip is caught on
+# the next frame, recorded as the game layer's new intent, and overridden
+# while frozen. step/thaw restore the game's wish, not whatever we found.
+#
+# What freeze means: exactly what runs during the game's own pause menu runs
+# during freeze (WHEN_PAUSED/ALWAYS nodes, process_always timers). A game
+# with a correct pause menu has already partitioned pause-immune from
+# pausable code; freeze rides that contract. Games that "pause" by writing
+# Engine.time_scale = 0 instead are frozen solid too, but their pause is
+# invisible to the layer model (it looks like gameplay state, not pause
+# state) — documented limitation.
+# ---------------------------------------------------------------------------
+
+const LAUNCH_FROZEN_ENV := "GODOT_MCP_LAUNCH_FROZEN"
+# Timeout cascade: step request <= 20s game time, wall budget 25s, editor
+# relay 28s, server command timeout 30s. Each layer answers before the one
+# above it gives up.
+const STEP_MAX_MS := 20000
+const STEP_MAX_FRAMES := 1200
+const STEP_WALL_BUDGET_MS := 25000
+const STEP_MAX_TRANSITIONS := 50
+const FREEZE_CONTESTED_THRESHOLD := 10
+
+var _frozen := false
+var _game_paused := false  # the game layer's own pause intent, inferred by observation
+var _launched_frozen := false
+var _freeze_started_ticks := 0
+var _freeze_transition_count := 0
+
+var _step_active := false
+var _step_finish_pending := false
+var _step_needs_settle := false
+var _step_wall_exceeded := false
+var _step_target_ms := 0.0
+var _step_target_frames := 0
+var _step_elapsed_ms := 0.0  # accumulated scaled delta = game time (wall-of-step, includes game-paused stretches)
+var _step_gameplay_ms := 0.0  # the unpaused portion: what gameplay actually experienced
+var _step_frames := 0
+var _step_physics_ticks := 0
+var _step_wall_start := 0
+var _step_events: Array = []  # in-step input timeline, scheduled on the game-time clock
+var _step_events_fired := 0
+var _step_transitions: Array = []
+var _step_last_tree_paused := false
+
+
+func _send_game_time_response(msg_type: String, result: Dictionary) -> void:
+	EngineDebugger.send_message("godot_mcp:game_response", [msg_type, result])
+
+
+func _engage_freeze() -> void:
+	if _frozen:
+		return
+	var tree := get_tree()
+	_game_paused = tree.paused
+	_frozen = true
+	_freeze_started_ticks = Time.get_ticks_msec()
+	_freeze_transition_count = 0
+	tree.paused = true
+	_update_processing()
+
+
+# Per-frame monitor: dispatches to the step runner during a window, otherwise
+# holds the freeze against game-code writes.
+func _game_time_process(delta: float) -> void:
+	if _step_active:
+		_step_process(delta)
+		return
+	if not _frozen:
+		return
+	var tree := get_tree()
+	if not tree.paused:
+		# Game code unpaused under the freeze (a WHEN_PAUSED resume button, an
+		# auto-unpausing cutscene). Record the game layer's new intent and
+		# re-assert — the freeze answers to the agent; the game's wish is
+		# restored on step/thaw. Only unpause flips are observable here: while
+		# frozen, tree.paused is already true.
+		_game_paused = false
+		_freeze_transition_count += 1
+		tree.paused = true
+
+
+func _physics_process(_delta: float) -> void:
+	if _step_active and not _step_finish_pending and not get_tree().paused:
+		_step_physics_ticks += 1
+
+
+func _handle_game_time_freeze(_data: Array) -> void:
+	if _step_active:
+		_send_game_time_response("game_time_freeze", {"error": "Step in progress"})
+		return
+	var was_frozen := _frozen
+	_engage_freeze()
+	_send_game_time_response("game_time_freeze", {
+		"frozen": true,
+		"was_frozen": was_frozen,
+		"game_paused": _game_paused,
+	})
+
+
+func _handle_game_time_thaw(_data: Array) -> void:
+	if _step_active:
+		_send_game_time_response("game_time_thaw", {"error": "Step in progress"})
+		return
+	var was_frozen := _frozen
+	var result: Dictionary = {"frozen": false, "was_frozen": was_frozen}
+	if was_frozen:
+		result["frozen_for_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
+		_frozen = false
+		get_tree().paused = _game_paused
+		_update_processing()
+	result["game_paused"] = _game_paused if was_frozen else get_tree().paused
+	_send_game_time_response("game_time_thaw", result)
+
+
+func _handle_game_time_status(_data: Array) -> void:
+	var tree := get_tree()
+	var tree_paused: bool = tree.paused if tree else false
+	var result: Dictionary = {
+		"frozen": _frozen,
+		"game_paused": _game_paused if _frozen else tree_paused,
+		"tree_paused": tree_paused,
+		"engine_time_scale": Engine.time_scale,
+		"physics_ticks_per_second": Engine.physics_ticks_per_second,
+	}
+	if _launched_frozen:
+		result["launch_frozen"] = true
+	if _frozen:
+		result["frozen_for_ms"] = Time.get_ticks_msec() - _freeze_started_ticks
+		result["freeze_transitions"] = _freeze_transition_count
+		if _freeze_transition_count >= FREEZE_CONTESTED_THRESHOLD:
+			# Something (an ALWAYS-mode node?) is repeatedly unpausing under
+			# the freeze. Each re-assert can leak up to one frame; report the
+			# contest rather than pretend the freeze is airtight.
+			result["freeze_contested"] = true
+	if _step_active:
+		result["step_active"] = true
+	_send_game_time_response("game_time_status", result)
+
+
+func _handle_game_time_step(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	if _step_active:
+		_send_game_time_response("game_time_step", {"error": "Step already in progress"})
+		return
+
+	var duration_ms: int = int(params.get("duration_ms", 0))
+	var frames: int = int(params.get("frames", 0))
+	if duration_ms <= 0 and frames <= 0:
+		_send_game_time_response("game_time_step", {"error": "step requires duration_ms or frames"})
+		return
+	duration_ms = mini(duration_ms, STEP_MAX_MS)
+	frames = mini(frames, STEP_MAX_FRAMES)
+
+	# Validate and schedule the in-step input timeline (start_ms is game-time
+	# from window start). Inputs must ride inside the step: an event injected
+	# while frozen lands on a frame gameplay never processes, so its
+	# is_action_just_pressed edge would be silently missed.
+	var inputs: Array = params.get("inputs", [])
+	var events: Array = []
+	for input in inputs:
+		var action_name: String = input.get("action_name", "")
+		if action_name.is_empty():
+			continue
+		if not InputMap.has_action(action_name):
+			_send_game_time_response("game_time_step", {"error": "Unknown action: %s" % action_name})
+			return
+		var start_ms: int = int(input.get("start_ms", 0))
+		var dur: int = int(input.get("duration_ms", 0))
+		events.append({"time": start_ms, "action": action_name, "is_press": true})
+		events.append({"time": start_ms + dur, "action": action_name, "is_press": false})
+	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.time < b.time
+	)
+
+	# Step from a running game is allowed — it freezes first, so "advance
+	# 500ms then wait for me" is a single atomic call.
+	_engage_freeze()
+
+	_step_target_ms = float(duration_ms)
+	_step_target_frames = frames
+	_step_elapsed_ms = 0.0
+	_step_gameplay_ms = 0.0
+	_step_frames = 0
+	_step_physics_ticks = 0
+	_step_events = events
+	_step_events_fired = 0
+	_step_transitions = []
+	_step_needs_settle = false
+	_step_finish_pending = false
+	_step_wall_exceeded = false
+	_step_wall_start = Time.get_ticks_msec()
+	_step_active = true
+
+	# Open the window: restore the game layer's own pause wish for the
+	# duration. If the game's menu is holding it paused, the window still
+	# elapses (and reports gameplay_ms ~0) — never deadlock waiting for
+	# gameplay time that cannot come.
+	var tree := get_tree()
+	tree.paused = _game_paused
+	_step_last_tree_paused = tree.paused
+	set_physics_process(true)
+	_update_processing()
+
+
+func _step_process(delta: float) -> void:
+	var tree := get_tree()
+
+	# The bridge processes before the scene, so a frame is counted here BEFORE
+	# gameplay runs it. Ending the window therefore always defers one frame:
+	# pausing in the same _process call would steal the frame just counted.
+	if _step_finish_pending:
+		_finish_step()
+		return
+
+	# Game-layer pause flips during the window are the game's own doing (a
+	# stepped input opened the menu, an auto-pausing cutscene). Track intent
+	# and report; never fight it mid-window.
+	if tree.paused != _step_last_tree_paused:
+		_step_last_tree_paused = tree.paused
+		_game_paused = tree.paused
+		if _step_transitions.size() < STEP_MAX_TRANSITIONS:
+			_step_transitions.append({"at_ms": roundi(_step_elapsed_ms), "paused": tree.paused})
+
+	_step_frames += 1
+	_step_elapsed_ms += delta * 1000.0
+	if not tree.paused:
+		_step_gameplay_ms += delta * 1000.0
+
+	while _step_events.size() > 0 and _step_events[0].time <= _step_elapsed_ms:
+		var ev: Dictionary = _step_events.pop_front()
+		var input_event := InputEventAction.new()
+		input_event.action = ev.action
+		input_event.pressed = ev.is_press
+		input_event.strength = 1.0 if ev.is_press else 0.0
+		Input.parse_input_event(input_event)
+		_step_events_fired += 1
+		_step_needs_settle = true
+		if ev.is_press:
+			_held_actions[ev.action] = true
+		else:
+			_held_actions.erase(ev.action)
+
+	var done := false
+	if _step_target_frames > 0:
+		done = _step_frames >= _step_target_frames
+	else:
+		done = _step_elapsed_ms >= _step_target_ms
+	if Time.get_ticks_msec() - _step_wall_start > STEP_WALL_BUDGET_MS:
+		# Slow-mo, Engine.time_scale = 0, or a pause-held window can starve
+		# the game-time clock; the wall budget guarantees the call returns
+		# (partial, honestly reported) before the editor relay gives up.
+		_step_wall_exceeded = true
+		done = true
+
+	if done:
+		if _step_needs_settle:
+			# Injected events flush at the top of the NEXT frame; gameplay
+			# needs that frame unpaused or the final just_pressed edge is
+			# lost. Run exactly one settle frame, then finish.
+			_step_needs_settle = false
+		else:
+			_step_finish_pending = true
+
+
+func _finish_step() -> void:
+	# Releases are guaranteed cleanup, never queued steps: no holds survive
+	# across the freeze boundary (cross-step holds are a deliberate non-goal).
+	var forced := _held_actions.size()
+	_release_held_actions()
+	var dropped := _step_events.size()
+	_step_events.clear()
+
+	get_tree().paused = true  # the freeze layer re-engages
+	_step_last_tree_paused = true
+	_step_active = false
+	_step_finish_pending = false
+	set_physics_process(false)
+	_update_processing()
+
+	var result: Dictionary = {
+		"completed": true,
+		"frozen": true,
+		"elapsed_ms": roundi(_step_elapsed_ms),
+		"gameplay_ms": roundi(_step_gameplay_ms),
+		"frames": _step_frames,
+		"physics_ticks": _step_physics_ticks,
+		"game_paused": _game_paused,
+	}
+	if _step_events_fired > 0:
+		result["events_fired"] = _step_events_fired
+	if forced > 0:
+		result["forced_releases"] = forced
+	if dropped > 0:
+		result["events_dropped"] = dropped
+	if not _step_transitions.is_empty():
+		result["pause_transitions"] = _step_transitions
+	if _step_wall_exceeded:
+		result["wall_budget_exceeded"] = true
+	_send_game_time_response("game_time_step", result)

@@ -64,6 +64,16 @@ describe('editor tool', () => {
         .toBe('Running scene: res://test.tscn');
       expect(await editor.execute({ action: 'stop' }, ctx)).toBe('Stopped project');
     });
+
+    it('passes frozen through to run_project and says so', async () => {
+      mock.mockResponse({});
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'run', frozen: true }, ctx);
+      expect(result).toContain('frozen from frame 0');
+      expect(mock.calls[0].command).toBe('run_project');
+      expect(mock.calls[0].params.frozen).toBe(true);
+    });
   });
 
   describe('get_log_messages', () => {

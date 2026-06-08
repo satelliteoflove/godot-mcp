@@ -3,6 +3,8 @@ extends MCPBaseCommand
 class_name MCPDebugCommands
 
 const DEBUG_OUTPUT_TIMEOUT := 5.0
+# Keep in sync with LAUNCH_FROZEN_ENV in mcp_game_bridge.gd.
+const LAUNCH_FROZEN_ENV := "GODOT_MCP_LAUNCH_FROZEN"
 
 var _debug_output_result: PackedStringArray = []
 var _debug_output_pending: bool = false
@@ -21,15 +23,32 @@ func get_commands() -> Dictionary:
 
 func run_project(params: Dictionary) -> Dictionary:
 	var scene_path: String = params.get("scene_path", "")
+	var frozen: bool = params.get("frozen", false)
 
 	MCPLogger.clear()
+
+	# Launch-frozen: the spawned game inherits the editor's environment, so
+	# setting this before play makes the bridge freeze the tree in _ready —
+	# before the first process frame. Deterministic, unlike sending a freeze
+	# message after the debug session comes up (which races the game's first
+	# frames against the agent's latency).
+	if frozen:
+		OS.set_environment(LAUNCH_FROZEN_ENV, "1")
 
 	if scene_path.is_empty():
 		EditorInterface.play_main_scene()
 	else:
 		EditorInterface.play_custom_scene(scene_path)
 
-	return _success({})
+	if frozen:
+		# The child captured its environment at spawn; clear promptly so a
+		# manual F5 run doesn't inherit the freeze. Two frames covers a
+		# deferred spawn. (Godot has no unset; empty fails the == "1" check.)
+		await Engine.get_main_loop().process_frame
+		await Engine.get_main_loop().process_frame
+		OS.set_environment(LAUNCH_FROZEN_ENV, "")
+
+	return _success({"frozen": frozen})
 
 
 func stop_project(_params: Dictionary) -> Dictionary:
