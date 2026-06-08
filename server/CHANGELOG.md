@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.9.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.8.0...godot-mcp-v3.9.0) (2026-06-08)
+
+
+### Features
+
+* step_until predicate stepping for godot_game_time ([#262](https://github.com/satelliteoflove/godot-mcp/issues/262)) ([ef4e909](https://github.com/satelliteoflove/godot-mcp/commit/ef4e909e38db72a3bf6780e51092a265867b8e6f))
+
 ## [3.8.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.7.1...godot-mcp-v3.8.0) (2026-06-08)
 
 
