@@ -33,6 +33,25 @@ describe('game_time tool', () => {
       }).success).toBe(true);
     });
 
+    it('step_until requires a non-empty until expression', () => {
+      expect(gameTime.schema.safeParse({ action: 'step_until' }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: '' }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'G.wave > 1' }).success).toBe(true);
+    });
+
+    it('step_until caps max_ms and accepts report expressions and an input timeline', () => {
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 20000 }).success).toBe(true);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 20001 }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 0 }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: ['G.wave', 'G.score'] }).success).toBe(true);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: [''] }).success).toBe(false);
+      expect(gameTime.schema.safeParse({
+        action: 'step_until',
+        until: 'true',
+        inputs: [{ action_name: 'move_up', start_ms: 0, duration_ms: 500 }],
+      }).success).toBe(true);
+    });
+
     it('freeze, thaw, and status take no extra arguments', () => {
       expect(gameTime.schema.safeParse({ action: 'freeze' }).success).toBe(true);
       expect(gameTime.schema.safeParse({ action: 'thaw' }).success).toBe(true);
@@ -107,6 +126,68 @@ describe('game_time tool', () => {
       expect(data.pause_transitions).toHaveLength(1);
       expect(data.game_paused).toBe(true);
       expect(data.gameplay_ms).toBe(120);
+    });
+  });
+
+  describe('step_until', () => {
+    it('forwards the predicate and report, and surfaces a met result with its readings', async () => {
+      mock.mockResponse({
+        completed: true,
+        frozen: true,
+        elapsed_ms: 4317,
+        gameplay_ms: 4317,
+        frames: 259,
+        physics_ticks: 259,
+        game_paused: false,
+        predicate_met: true,
+        report: { 'G.wave': 1 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step_until',
+        until: 'tree.get_nodes_in_group("enemies").size() >= 1',
+        max_ms: 8000,
+        report: ['G.wave'],
+      }, ctx);
+
+      expect(mock.calls[0].command).toBe('game_time_step_until');
+      expect(mock.calls[0].params.until).toBe('tree.get_nodes_in_group("enemies").size() >= 1');
+      expect(mock.calls[0].params.max_ms).toBe(8000);
+      expect(mock.calls[0].params.report).toEqual(['G.wave']);
+      const data = structuredOf(result);
+      expect(data.predicate_met).toBe(true);
+      expect(data.report).toEqual({ 'G.wave': 1 });
+      expect(data.elapsed_ms).toBe(4317);
+    });
+
+    it('reports predicate_met false when the cap is hit first', async () => {
+      mock.mockResponse({
+        completed: true,
+        frozen: true,
+        elapsed_ms: 8000,
+        gameplay_ms: 8000,
+        frames: 480,
+        physics_ticks: 480,
+        game_paused: false,
+        predicate_met: false,
+        report: { 'G.wave': 3 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({ action: 'step_until', until: 'G.wave > 5', max_ms: 8000, report: ['G.wave'] }, ctx);
+      const data = structuredOf(result);
+      expect(data.predicate_met).toBe(false);
+      expect(data.report).toEqual({ 'G.wave': 3 });
+    });
+
+    it('propagates a bridge-side predicate rejection', async () => {
+      mock.mockError(new Error('predicate failed to evaluate: Invalid named index'));
+      const ctx = createToolContext(mock);
+
+      await expect(
+        gameTime.execute({ action: 'step_until', until: 'Bogus.foo > 1' }, ctx),
+      ).rejects.toThrow('predicate failed to evaluate');
     });
   });
 

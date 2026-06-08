@@ -170,6 +170,9 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"game_time_step":
 			_handle_game_time_step(data)
 			return true
+		"game_time_step_until":
+			_handle_game_time_step_until(data)
+			return true
 		"game_time_thaw":
 			_handle_game_time_thaw(data)
 			return true
@@ -1117,6 +1120,18 @@ var _step_events_fired := 0
 var _step_transitions: Array = []
 var _step_last_tree_paused := false
 
+# step_until adds a predicate evaluated each frame. _step_predicate is null for a
+# fixed-budget step, set for step_until; _step_response_type routes _finish_step's
+# reply to the matching command (the relay correlates by message type). _step_report
+# is the optional readings the agent wants back at stop time (in one round-trip,
+# instead of a separate observation call) — each is [{src: String, expr: Expression}].
+var _step_predicate: Expression = null
+var _step_predicate_inputs: Array = []
+var _step_predicate_met := false
+var _step_predicate_error := ""
+var _step_report: Array = []
+var _step_response_type := "game_time_step"
+
 
 func _send_game_time_response(msg_type: String, result: Dictionary) -> void:
 	EngineDebugger.send_message("godot_mcp:game_response", [msg_type, result])
@@ -1235,22 +1250,10 @@ func _handle_game_time_step(data: Array) -> void:
 	# from window start). Inputs must ride inside the step: an event injected
 	# while frozen lands on a frame gameplay never processes, so its
 	# is_action_just_pressed edge would be silently missed.
-	var inputs: Array = params.get("inputs", [])
-	var events: Array = []
-	for input in inputs:
-		var action_name: String = input.get("action_name", "")
-		if action_name.is_empty():
-			continue
-		if not InputMap.has_action(action_name):
-			_send_game_time_response("game_time_step", {"error": "Unknown action: %s" % action_name})
-			return
-		var start_ms: int = int(input.get("start_ms", 0))
-		var dur: int = int(input.get("duration_ms", 0))
-		events.append({"time": start_ms, "action": action_name, "is_press": true})
-		events.append({"time": start_ms + dur, "action": action_name, "is_press": false})
-	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return a.time < b.time
-	)
+	var compiled := _compile_step_events(params.get("inputs", []))
+	if compiled.has("error"):
+		_send_game_time_response("game_time_step", {"error": compiled["error"]})
+		return
 
 	# Step from a running game is allowed — it freezes first, so "advance
 	# 500ms then wait for me" is a single atomic call.
@@ -1262,19 +1265,202 @@ func _handle_game_time_step(data: Array) -> void:
 	_step_gameplay_ms = 0.0
 	_step_frames = 0
 	_step_physics_ticks = 0
-	_step_events = events
+	_step_events = compiled["events"]
 	_step_events_fired = 0
 	_step_transitions = []
 	_step_needs_settle = false
 	_step_finish_pending = false
 	_step_wall_exceeded = false
 	_step_wall_start = Time.get_ticks_msec()
+	_step_predicate = null
+	_step_response_type = "game_time_step"
 	_step_active = true
 
 	# Open the window: restore the game layer's own pause wish for the
 	# duration. If the game's menu is holding it paused, the window still
 	# elapses (and reports gameplay_ms ~0) — never deadlock waiting for
 	# gameplay time that cannot come.
+	var tree := get_tree()
+	tree.paused = _game_paused
+	_step_last_tree_paused = tree.paused
+	set_physics_process(true)
+	_update_processing()
+
+
+func _compile_step_events(inputs: Array) -> Dictionary:
+	# Builds the press/release timeline shared by step and step_until. start_ms
+	# is game time from window start; returns {"error": ...} on an unknown action.
+	var events: Array = []
+	for input in inputs:
+		var action_name: String = input.get("action_name", "")
+		if action_name.is_empty():
+			continue
+		if not InputMap.has_action(action_name):
+			return {"error": "Unknown action: %s" % action_name}
+		var start_ms: int = int(input.get("start_ms", 0))
+		var dur: int = int(input.get("duration_ms", 0))
+		events.append({"time": start_ms, "action": action_name, "is_press": true})
+		events.append({"time": start_ms + dur, "action": action_name, "is_press": false})
+	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.time < b.time
+	)
+	return {"events": events}
+
+
+func _build_predicate_context() -> Dictionary:
+	# Exposes the running game to a step_until predicate: every autoload by its
+	# own name (so `G.wave > 1` just works), plus `tree` (SceneTree) and `root`
+	# (root Window) for tree queries like
+	# `tree.get_nodes_in_group("enemies").size() >= 1`. Chained calls must run on
+	# these input objects, not the Expression base instance, so they are inputs.
+	var names: Array = []
+	var inputs: Array = []
+	var tree := get_tree()
+	for prop in ProjectSettings.get_property_list():
+		var key: String = prop.get("name", "")
+		if not key.begins_with("autoload/"):
+			continue
+		var autoload_name := key.substr("autoload/".length())
+		var node := tree.root.get_node_or_null(NodePath(autoload_name))
+		if node == null or node == self:
+			continue  # skip the bridge's own autoload and any unresolved entry
+		names.append(autoload_name)
+		inputs.append(node)
+	if not names.has("tree"):
+		names.append("tree")
+		inputs.append(tree)
+	if not names.has("root"):
+		names.append("root")
+		inputs.append(tree.root)
+	return {"names": PackedStringArray(names), "inputs": inputs}
+
+
+func _sanitize_value(v: Variant) -> Variant:
+	# Report values ride back over the debugger channel. Pass primitives through;
+	# never try to serialize Objects/containers — a short string stand-in is
+	# enough for the agent to see what an expression evaluated to.
+	match typeof(v):
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME:
+			return v
+		_:
+			return str(v).substr(0, 200)
+
+
+func _compile_report(report: Array, names: PackedStringArray, inputs: Array) -> Dictionary:
+	# Compile + validate each report expression in the predicate context. Returns
+	# {"error": ...} if any fails up front, else {"report": [{src, expr}, ...]}.
+	var compiled: Array = []
+	for item in report:
+		var s := str(item).strip_edges()
+		if s.is_empty():
+			continue
+		var e := Expression.new()
+		if e.parse(s, names) != OK:
+			return {"error": "report expression parse error (%s): %s" % [s, e.get_error_text()]}
+		e.execute(inputs, self)
+		if e.has_execute_failed():
+			return {"error": "report expression failed to evaluate (%s): %s" % [s, e.get_error_text()]}
+		compiled.append({"src": s, "expr": e})
+	return {"report": compiled}
+
+
+func _evaluate_report(report_exprs: Array, inputs: Array) -> Dictionary:
+	# Evaluate the compiled report expressions at stop time into {src: value}.
+	var out: Dictionary = {}
+	for item in report_exprs:
+		var e: Expression = item["expr"]
+		var v: Variant = e.execute(inputs, self)
+		if e.has_execute_failed():
+			out[item["src"]] = "<error: %s>" % e.get_error_text()
+		else:
+			out[item["src"]] = _sanitize_value(v)
+	return out
+
+
+func _handle_game_time_step_until(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	if _step_active:
+		_send_game_time_response("game_time_step_until", {"error": "Step already in progress"})
+		return
+
+	var src: String = str(params.get("until", "")).strip_edges()
+	if src.is_empty():
+		_send_game_time_response("game_time_step_until", {"error": "step_until requires a non-empty `until` expression"})
+		return
+
+	var max_ms: int = int(params.get("max_ms", STEP_MAX_MS))
+	if max_ms <= 0:
+		max_ms = STEP_MAX_MS
+	max_ms = mini(max_ms, STEP_MAX_MS)
+
+	# Compile and validate the predicate against the live tree before committing
+	# to a step. Expression.parse() is lenient (a malformed string can parse
+	# clean), so a dry-run execute is what actually catches unknown identifiers
+	# and bad member access.
+	var ctx := _build_predicate_context()
+	var ctx_names: PackedStringArray = ctx["names"]
+	var ctx_inputs: Array = ctx["inputs"]
+	var expr := Expression.new()
+	if expr.parse(src, ctx_names) != OK:
+		_send_game_time_response("game_time_step_until", {"error": "predicate parse error: %s" % expr.get_error_text()})
+		return
+	var first_value: Variant = expr.execute(ctx_inputs, self)
+	if expr.has_execute_failed():
+		_send_game_time_response("game_time_step_until", {"error": "predicate failed to evaluate: %s" % expr.get_error_text()})
+		return
+
+	# Optional readings to return at stop time, validated up front in the same context.
+	var report_result := _compile_report(params.get("report", []), ctx_names, ctx_inputs)
+	if report_result.has("error"):
+		_send_game_time_response("game_time_step_until", {"error": report_result["error"]})
+		return
+	var report_compiled: Array = report_result["report"]
+
+	var compiled := _compile_step_events(params.get("inputs", []))
+	if compiled.has("error"):
+		_send_game_time_response("game_time_step_until", {"error": compiled["error"]})
+		return
+
+	_engage_freeze()
+
+	# Predicate already holds: advance nothing, stay frozen, report it.
+	if bool(first_value):
+		var sc_result: Dictionary = {
+			"completed": true,
+			"frozen": true,
+			"elapsed_ms": 0,
+			"gameplay_ms": 0,
+			"frames": 0,
+			"physics_ticks": 0,
+			"game_paused": _game_paused,
+			"predicate_met": true,
+		}
+		if not report_compiled.is_empty():
+			sc_result["report"] = _evaluate_report(report_compiled, ctx_inputs)
+		_send_game_time_response("game_time_step_until", sc_result)
+		return
+
+	_step_target_ms = float(max_ms)
+	_step_target_frames = 0
+	_step_elapsed_ms = 0.0
+	_step_gameplay_ms = 0.0
+	_step_frames = 0
+	_step_physics_ticks = 0
+	_step_events = compiled["events"]
+	_step_events_fired = 0
+	_step_transitions = []
+	_step_needs_settle = false
+	_step_finish_pending = false
+	_step_wall_exceeded = false
+	_step_wall_start = Time.get_ticks_msec()
+	_step_predicate = expr
+	_step_predicate_inputs = ctx_inputs
+	_step_predicate_met = false
+	_step_predicate_error = ""
+	_step_report = report_compiled
+	_step_response_type = "game_time_step_until"
+	_step_active = true
+
 	var tree := get_tree()
 	tree.paused = _game_paused
 	_step_last_tree_paused = tree.paused
@@ -1325,6 +1511,19 @@ func _step_process(delta: float) -> void:
 		done = _step_frames >= _step_target_frames
 	else:
 		done = _step_elapsed_ms >= _step_target_ms
+
+	# step_until: re-evaluate the predicate each frame against the advancing
+	# game. A truthy result stops the window early; a runtime failure (e.g. a
+	# watched node was freed mid-window) ends it honestly with the error attached.
+	if _step_predicate != null:
+		var v: Variant = _step_predicate.execute(_step_predicate_inputs, self)
+		if _step_predicate.has_execute_failed():
+			_step_predicate_error = _step_predicate.get_error_text()
+			done = true
+		elif bool(v):
+			_step_predicate_met = true
+			done = true
+
 	if Time.get_ticks_msec() - _step_wall_start > STEP_WALL_BUDGET_MS:
 		# Slow-mo, Engine.time_scale = 0, or a pause-held window can starve
 		# the game-time clock; the wall budget guarantees the call returns
@@ -1376,4 +1575,19 @@ func _finish_step() -> void:
 		result["pause_transitions"] = _step_transitions
 	if _step_wall_exceeded:
 		result["wall_budget_exceeded"] = true
-	_send_game_time_response("game_time_step", result)
+	if _step_predicate != null:
+		# step_until: predicate_met is the headline. report carries the readings the
+		# agent asked for (the "what advanced" hint, so it need not re-observe). A
+		# non-met return means the cap or wall budget ran out first.
+		result["predicate_met"] = _step_predicate_met
+		if not _step_report.is_empty():
+			result["report"] = _evaluate_report(_step_report, _step_predicate_inputs)
+		if not _step_predicate_error.is_empty():
+			result["predicate_error"] = _step_predicate_error
+
+	# Route the reply to the originating command — the relay correlates by type.
+	var response_type := _step_response_type
+	_step_predicate = null
+	_step_predicate_inputs = []
+	_step_report = []
+	_send_game_time_response(response_type, result)

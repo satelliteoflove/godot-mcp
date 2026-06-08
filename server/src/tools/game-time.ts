@@ -42,6 +42,30 @@ const GameTimeSchema = z
     }),
     z.object({
       action: z
+        .literal('step_until')
+        .describe('Advance game time until a GDScript predicate becomes true (or a safety cap is hit), then re-freeze. Freezes first if the game is running, so it is a safe first call. Use this instead of step when you do not know how long to advance to reach the state worth observing.'),
+      until: z
+        .string()
+        .min(1)
+        .describe('A GDScript boolean expression, re-evaluated against the running game every frame; stepping stops the frame it is truthy. Autoloads are in scope by name (e.g. `G.wave > 1`, `GameState.tick_count % 12 == 11`), plus `tree` (the SceneTree) and `root` (the root Window) for tree queries (e.g. `tree.get_nodes_in_group("enemies").size() >= 1`). Must parse and evaluate without error against the current state or the call is rejected up front.'),
+      max_ms: z
+        .number()
+        .int()
+        .min(1)
+        .max(STEP_MAX_MS)
+        .optional()
+        .describe(`Safety cap on game time to advance while waiting (max ${STEP_MAX_MS}, default ${STEP_MAX_MS}). If the predicate never holds within this budget (or the wall-clock budget), the call returns with predicate_met: false instead of hanging.`),
+      report: z
+        .array(z.string().min(1))
+        .optional()
+        .describe('Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. ["G.wave", "tree.get_nodes_in_group(\\"enemies\\").size()"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse and evaluate without error up front.'),
+      inputs: z
+        .array(InputActionSchema)
+        .optional()
+        .describe('Optional input timeline driven inside the window, exactly like step (e.g. hold "move forward" while waiting for an enemy to appear). Holds are released by window end.'),
+    }),
+    z.object({
+      action: z
         .literal('thaw')
         .describe('Resume real-time play, restoring the game\'s own pause state (an open pause menu stays open).'),
     }),
@@ -71,13 +95,17 @@ interface StepResult {
   events_dropped?: number;
   pause_transitions?: Array<{ at_ms: number; paused: boolean }>;
   wall_budget_exceeded?: boolean;
+  // step_until only:
+  predicate_met?: boolean;
+  report?: Record<string, unknown>;
+  predicate_error?: string;
 }
 
 export const gameTime = defineTool({
   name: 'godot_game_time',
   annotations: { title: 'Game Time Control', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Make game time answer to your clock instead of racing ahead between tool calls: freeze the running game, observe it at leisure (screenshots and state digests work while frozen), then step forward a bounded slice of game time with inputs riding inside the window. The game\'s own pause menu is layered correctly: freezing over it, stepping under it, and thawing back to it all preserve the game\'s pause intent.',
+    'Make game time answer to your clock instead of racing ahead between tool calls: freeze the running game, observe it at leisure (screenshots and state digests work while frozen), then step forward a bounded slice of game time (step) — or until a condition you specify holds (step_until) — with inputs riding inside the window. The game\'s own pause menu is layered correctly: freezing over it, stepping under it, and thawing back to it all preserve the game\'s pause intent.',
   schema: GameTimeSchema,
   async execute(args: GameTimeArgs, { godot }) {
     switch (args.action) {
@@ -96,6 +124,16 @@ export const gameTime = defineTool({
         const result = await godot.sendCommand<StepResult>('game_time_step', {
           duration_ms: args.duration_ms,
           frames: args.frames,
+          inputs: args.inputs,
+        });
+        return structured(result);
+      }
+
+      case 'step_until': {
+        const result = await godot.sendCommand<StepResult>('game_time_step_until', {
+          until: args.until,
+          max_ms: args.max_ms,
+          report: args.report,
           inputs: args.inputs,
         });
         return structured(result);

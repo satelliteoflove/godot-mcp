@@ -2,11 +2,11 @@
 extends MCPBaseCommand
 class_name MCPGameTimeCommands
 
-# Game-time control relay: freeze / step / thaw / status execute in the game
-# bridge (see mcp_game_bridge.gd); this side only forwards over the debugger
-# channel and waits. Timeout cascade: the step request is capped at 20s of
-# game time and the bridge's wall budget returns by 25s, so the 28s relay
-# timeout below fires only if the bridge is gone — and stays under the
+# Game-time control relay: freeze / step / step_until / thaw / status execute in
+# the game bridge (see mcp_game_bridge.gd); this side only forwards over the
+# debugger channel and waits. Timeout cascade: a step/step_until request is
+# capped at 20s of game time and the bridge's wall budget returns by 25s, so the
+# 28s relay timeout below fires only if the bridge is gone — and stays under the
 # server's 30s command timeout so errors surface typed instead of generic.
 const BASE_TIMEOUT := 10.0
 const STEP_TIMEOUT := 28.0
@@ -18,6 +18,7 @@ func get_commands() -> Dictionary:
 	return {
 		"game_time_freeze": game_time_freeze,
 		"game_time_step": game_time_step,
+		"game_time_step_until": game_time_step_until,
 		"game_time_thaw": game_time_thaw,
 		"game_time_status": game_time_status,
 	}
@@ -29,6 +30,10 @@ func game_time_freeze(params: Dictionary) -> Dictionary:
 
 func game_time_step(params: Dictionary) -> Dictionary:
 	return await _relay("game_time_step", [params], STEP_TIMEOUT)
+
+
+func game_time_step_until(params: Dictionary) -> Dictionary:
+	return await _relay("game_time_step_until", [params], STEP_TIMEOUT)
 
 
 func game_time_thaw(params: Dictionary) -> Dictionary:
