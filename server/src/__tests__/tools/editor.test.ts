@@ -76,6 +76,47 @@ describe('editor tool', () => {
     });
   });
 
+  describe('restart', () => {
+    it('sends restart_editor with save=true by default and confirms reconnect', async () => {
+      mock.mockResponse({ restarting: true, save: true });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'restart' }, ctx);
+
+      expect(mock.calls[0].command).toBe('restart_editor');
+      expect(mock.calls[0].params.save).toBe(true);
+      expect(result).toContain('restarting');
+      expect(result).toContain('reconnect');
+    });
+
+    it('passes save=false through and says it will not save', async () => {
+      mock.mockResponse({ restarting: true, save: false });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'restart', save: false }, ctx);
+
+      expect(mock.calls[0].params.save).toBe(false);
+      expect(result).toContain('without saving');
+    });
+
+    it('treats a dropped connection as success (fire-and-forget)', async () => {
+      // The editor tears the bridge down as it restarts; sendCommand rejects
+      // with "Connection closed" mid-flight. That is the expected success path.
+      mock.mockError(new Error('Connection closed'));
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'restart' }, ctx);
+      expect(result).toContain('restarting');
+    });
+
+    it('rethrows a real error (e.g. command unknown to an older addon)', async () => {
+      mock.mockError(new Error('Unknown command: restart_editor'));
+      const ctx = createToolContext(mock);
+
+      await expect(editor.execute({ action: 'restart' }, ctx)).rejects.toThrow('Unknown command');
+    });
+  });
+
   describe('get_log_messages', () => {
     it('returns "No log messages" when empty', async () => {
       const ctx = createToolContext(mock);

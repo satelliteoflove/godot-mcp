@@ -52,6 +52,17 @@ const EditorSchema = z
     }),
     z.object({ action: z.literal('stop').describe('Stop the running project') }),
     z.object({
+      action: z
+        .literal('restart')
+        .describe(
+          'Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.'
+        ),
+      save: z
+        .boolean()
+        .optional()
+        .describe('Save the project before restarting (default: true). Set false to discard unsaved editor changes.'),
+    }),
+    z.object({
       action: z.literal('get_log_messages').describe('Get editor/game log messages'),
       clear: z.boolean().optional().describe('Clear buffer after reading'),
       limit: z.number().int().positive().optional().describe('Maximum number of messages to return (default: 50)'),
@@ -107,7 +118,7 @@ export const editor = defineTool({
   name: 'godot_editor',
   annotations: { title: 'Editor Control', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Control the Godot editor: get state, manage selection, run/stop project, capture screenshots, read log messages and stack traces, control 2D viewport',
+    'Control the Godot editor: get state, manage selection, run/stop project, restart the editor, capture screenshots, read log messages and stack traces, control 2D viewport',
   schema: EditorSchema,
   async execute(args: EditorArgs, { godot }) {
     switch (args.action) {
@@ -150,6 +161,24 @@ export const editor = defineTool({
       case 'stop': {
         await godot.sendCommand('stop_project');
         return 'Stopped project';
+      }
+
+      case 'restart': {
+        const save = args.save ?? true;
+        // Restarting tears down the bridge, so this is fire-and-forget: send the
+        // request and tolerate the connection dropping before the ack returns.
+        // The connection auto-reconnects once the editor is back. A drop here is
+        // the expected outcome; anything else (not connected to begin with, or an
+        // older addon that doesn't know the command) is a real failure.
+        try {
+          await godot.sendCommand('restart_editor', { save });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!message.includes('Connection closed')) {
+            throw err;
+          }
+        }
+        return `Editor is restarting${save ? ' (project saved first)' : ' without saving'}. The bridge reconnects automatically in a few seconds - retry your next command then.`;
       }
 
       case 'get_log_messages': {
