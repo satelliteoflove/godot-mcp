@@ -27,7 +27,13 @@ godot/.editorconfig
 # Godot
 .godot/
 *.import
+# Ignore .uid files in the throwaway test project, but TRACK the ones inside
+# the distributed addon: Godot expects plugin authors to ship script .uid
+# sidecars so the addon's resource identity is stable across machines (a
+# missing sidecar makes any uid:// reference to an addon script fall back to
+# path with a load warning). See Godot VCS docs / 4.4 release notes.
 *.uid
+!godot/addons/godot_mcp/**/*.uid
 
 # Environment
 .env
