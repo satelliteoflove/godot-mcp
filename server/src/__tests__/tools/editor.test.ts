@@ -221,7 +221,7 @@ describe('editor tool', () => {
       const ctx = createToolContext(mock);
 
       const result = await editor.execute({ action: 'screenshot_game' }, ctx);
-      expect(result).toEqual({ type: 'image', data: base64, mimeType: 'image/jpeg' });
+      expect(result).toEqual({ type: 'image', data: base64, mimeType: 'image/png' });
     });
 
     it('passes viewport and max_width params for editor screenshot', async () => {

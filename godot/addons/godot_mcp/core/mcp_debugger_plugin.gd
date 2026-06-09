@@ -124,14 +124,14 @@ func is_bridge_ready() -> bool:
 	return _bridge_ready and has_active_session()
 
 
-func request_screenshot(max_width: int = 1024, quality: float = 0.75) -> void:
+func request_screenshot(max_width: int = 1024) -> void:
 	if _active_session_id < 0:
 		screenshot_received.emit(false, "", 0, 0, "No active game session")
 		return
 	_pending_screenshot = true
 	var session := get_session(_active_session_id)
 	if session:
-		session.send_message("godot_mcp:take_screenshot", [max_width, quality])
+		session.send_message("godot_mcp:take_screenshot", [max_width])
 	else:
 		_pending_screenshot = false
 		screenshot_received.emit(false, "", 0, 0, "Could not get debugger session")

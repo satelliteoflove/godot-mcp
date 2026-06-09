@@ -3,7 +3,6 @@ extends MCPBaseCommand
 class_name MCPScreenshotCommands
 
 const DEFAULT_MAX_WIDTH := 900
-const DEFAULT_JPEG_QUALITY := 75
 const SCREENSHOT_TIMEOUT := 5.0
 
 var _screenshot_result: Dictionary = {}
@@ -22,7 +21,6 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 		return _error("NOT_RUNNING", "No game is currently running. Use run_project first.")
 
 	var max_width: int = params.get("max_width", DEFAULT_MAX_WIDTH)
-	var quality: float = params.get("quality", DEFAULT_JPEG_QUALITY) / 100.0
 
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null:
@@ -35,7 +33,7 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 	_screenshot_result = {}
 
 	debugger_plugin.screenshot_received.connect(_on_screenshot_received, CONNECT_ONE_SHOT)
-	debugger_plugin.request_screenshot(max_width, quality)
+	debugger_plugin.request_screenshot(max_width)
 
 	var start_time := Time.get_ticks_msec()
 	while _screenshot_pending:
@@ -64,7 +62,6 @@ func _on_screenshot_received(success: bool, image_base64: String, width: int, he
 func capture_editor_screenshot(params: Dictionary) -> Dictionary:
 	var viewport_type: String = params.get("viewport", "")
 	var max_width: int = params.get("max_width", DEFAULT_MAX_WIDTH)
-	var quality: float = params.get("quality", DEFAULT_JPEG_QUALITY) / 100.0
 
 	var viewport: SubViewport = null
 
@@ -80,10 +77,12 @@ func capture_editor_screenshot(params: Dictionary) -> Dictionary:
 		return _error("NO_VIEWPORT", "Could not find editor viewport")
 
 	var image := viewport.get_texture().get_image()
-	return _process_and_encode_image(image, max_width, quality)
+	return _process_and_encode_image(image, max_width)
 
 
-func _process_and_encode_image(image: Image, max_width: int, quality: float = 0.75) -> Dictionary:
+# Lossless PNG, not JPEG: vision-token cost is set by resolution, not codec, so
+# JPEG only added compression artifacts. max_width bounds the resolution cost.
+func _process_and_encode_image(image: Image, max_width: int) -> Dictionary:
 	if image == null:
 		return _error("CAPTURE_FAILED", "Failed to capture image from viewport")
 
@@ -92,8 +91,8 @@ func _process_and_encode_image(image: Image, max_width: int, quality: float = 0.
 		var new_height := int(image.get_height() * scale_factor)
 		image.resize(max_width, new_height, Image.INTERPOLATE_LANCZOS)
 
-	var jpg_buffer := image.save_jpg_to_buffer(quality)
-	var base64 := Marshalls.raw_to_base64(jpg_buffer)
+	var png_buffer := image.save_png_to_buffer()
+	var base64 := Marshalls.raw_to_base64(png_buffer)
 
 	return _success({
 		"image_base64": base64,

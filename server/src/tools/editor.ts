@@ -30,7 +30,7 @@ function toImageContent(base64: string): ImageContent {
   return {
     type: 'image',
     data: base64,
-    mimeType: 'image/jpeg',
+    mimeType: 'image/png',
   };
 }
 
@@ -83,15 +83,13 @@ const EditorSchema = z
     }),
     z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
     z.object({
-      action: z.literal('screenshot_game').describe('Capture a JPEG screenshot of the running game'),
-      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900)'),
-      quality: z.number().int().min(1).max(100).optional().describe('JPEG quality 1-100 (default: 75)'),
+      action: z.literal('screenshot_game').describe('Capture a lossless PNG screenshot of the running game'),
+      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context.'),
     }),
     z.object({
-      action: z.literal('screenshot_editor').describe('Capture a JPEG screenshot of an editor viewport'),
+      action: z.literal('screenshot_editor').describe('Capture a lossless PNG screenshot of an editor viewport'),
       viewport: z.enum(['2d', '3d']).optional().describe('Which editor viewport to capture'),
-      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900)'),
-      quality: z.number().int().min(1).max(100).optional().describe('JPEG quality 1-100 (default: 75)'),
+      max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context.'),
     }),
     z.object({
       action: z.literal('set_viewport_2d').describe('Center and zoom the 2D editor viewport'),
@@ -237,7 +235,7 @@ export const editor = defineTool({
       case 'screenshot_game': {
         const result = await godot.sendCommand<ScreenshotResponse>(
           'capture_game_screenshot',
-          { max_width: args.max_width, quality: args.quality }
+          { max_width: args.max_width }
         );
         return toImageContent(result.image_base64);
       }
@@ -245,7 +243,7 @@ export const editor = defineTool({
       case 'screenshot_editor': {
         const result = await godot.sendCommand<ScreenshotResponse>(
           'capture_editor_screenshot',
-          { viewport: args.viewport, max_width: args.max_width, quality: args.quality }
+          { viewport: args.viewport, max_width: args.max_width }
         );
         return toImageContent(result.image_base64);
       }
