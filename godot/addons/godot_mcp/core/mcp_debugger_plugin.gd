@@ -229,14 +229,14 @@ func _handle_input_map_result(data: Array) -> void:
 	input_map_received.emit(actions, error)
 
 
-func request_input_sequence(inputs: Array) -> void:
+func request_input_sequence(inputs: Array, report: Array = []) -> void:
 	if _active_session_id < 0:
 		input_sequence_completed.emit({"error": "No active game session"})
 		return
 	_pending_input_sequence = true
 	var session := get_session(_active_session_id)
 	if session:
-		session.send_message("godot_mcp:execute_input_sequence", [inputs])
+		session.send_message("godot_mcp:execute_input_sequence", [inputs, report])
 	else:
 		_pending_input_sequence = false
 		input_sequence_completed.emit({"error": "Could not get debugger session"})

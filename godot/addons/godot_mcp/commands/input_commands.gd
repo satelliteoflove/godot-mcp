@@ -131,6 +131,7 @@ func _on_input_map_received(actions: Array, error: String) -> void:
 
 func execute_input_sequence(params: Dictionary) -> Dictionary:
 	var inputs: Array = params.get("inputs", [])
+	var report: Array = params.get("report", [])
 	if inputs.is_empty():
 		return _error("INVALID_PARAMS", "inputs array is required and must not be empty")
 
@@ -155,7 +156,7 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	_sequence_result = {}
 
 	debugger_plugin.input_sequence_completed.connect(_on_sequence_completed, CONNECT_ONE_SHOT)
-	debugger_plugin.request_input_sequence(inputs)
+	debugger_plugin.request_input_sequence(inputs, report)
 
 	var start_time := Time.get_ticks_msec()
 	while _sequence_pending:

@@ -18,6 +18,20 @@ const InputSchema = z.discriminatedUnion('action', [
       .array(InputActionSchema)
       .min(1)
       .describe('Array of inputs to execute'),
+    report: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Optional effect probe: GDScript expressions evaluated once before the first input and ' +
+        'again after the last, to prove the inputs actually changed something (vs. falling into ' +
+        'the void — player dead, UI focus elsewhere, wrong action). Reference autoloads by name ' +
+        '(e.g. "G.shots", "G.wave") plus `tree`/`root` (e.g. ' +
+        '"tree.get_nodes_in_group(\'enemies\').size()"), same context as godot_game_time step_until. ' +
+        'Each expression returns {before, after, changed}; the result also carries any_changed. ' +
+        'Expressions do NOT short-circuit and a parse/eval error rejects the call. The after-reading ' +
+        'is sampled a couple frames past the final input, so only near-immediate effects register — ' +
+        'for slower effects use godot_game_time or runtime_state watch.'
+      ),
   }),
   z.object({
     action: z.literal('type_text').describe('Type text into the focused UI element'),
@@ -51,7 +65,7 @@ export const input = defineTool({
   name: 'godot_input',
   annotations: { title: 'Input Injection', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.',
+    'Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.',
   schema: InputSchema,
   async execute(args: InputArgs, { godot }) {
     switch (args.action) {
@@ -78,8 +92,15 @@ export const input = defineTool({
         const result = await godot.sendCommand<{
           completed: boolean;
           actions_executed: number;
+          scene?: string;
+          tree_paused?: boolean;
+          frozen?: boolean;
+          gameplay_ms?: number;
+          wall_ms?: number;
+          report?: Record<string, { before: unknown; after: unknown; changed: boolean }>;
+          any_changed?: boolean;
           error?: string;
-        }>('execute_input_sequence', { inputs });
+        }>('execute_input_sequence', { inputs, report: args.report });
 
         if (result.error) {
           throw new Error(result.error);
@@ -88,7 +109,43 @@ export const input = defineTool({
         const totalDuration = Math.max(...inputs.map((i) => (i.start_ms ?? 0) + (i.duration_ms ?? 0)));
         const actionNames = [...new Set(inputs.map((i) => i.action_name))].join(', ');
 
-        return `Input sequence completed: ${result.actions_executed} action(s) executed [${actionNames}] over ${totalDuration}ms`;
+        const lines = [
+          `Input sequence completed: ${result.actions_executed} action(s) executed [${actionNames}] over ${totalDuration}ms.`,
+        ];
+
+        // Always-on context: a sequence that ran under a pause/freeze advanced no
+        // gameplay, so its inputs almost certainly did nothing — surface that
+        // without the caller having to ask.
+        const ctx: string[] = [];
+        if (result.scene !== undefined) ctx.push(`scene ${result.scene || '(none)'}`);
+        if (result.gameplay_ms !== undefined && result.wall_ms !== undefined) {
+          ctx.push(`gameplay ${result.gameplay_ms}ms / wall ${result.wall_ms}ms`);
+        }
+        if (ctx.length > 0) lines.push(`Context: ${ctx.join(', ')}.`);
+        if (result.tree_paused) {
+          lines.push(
+            `WARNING: the scene tree was PAUSED at completion${result.frozen ? ' (godot_game_time freeze active)' : ''} — ` +
+            `gameplay did not advance, so these inputs likely had no effect. Thaw/unpause first, or drive a paused ` +
+            `tree with godot_game_time step inputs.`
+          );
+        }
+
+        // Effect probe (#240): the headline "did it do anything" signal.
+        if (result.report) {
+          lines.push('Effect probe (before -> after):');
+          for (const [expr, d] of Object.entries(result.report)) {
+            const tag = d.changed ? 'changed' : 'no change';
+            lines.push(`  ${expr}: ${JSON.stringify(d.before)} -> ${JSON.stringify(d.after)}  (${tag})`);
+          }
+          if (result.any_changed === false) {
+            lines.push(
+              'No probed expression changed — the inputs may have had no effect (player dead/disabled, ' +
+              'UI focus elsewhere, wrong action, or the effect is slower than the probe window).'
+            );
+          }
+        }
+
+        return lines.join('\n');
       }
 
       case 'type_text': {

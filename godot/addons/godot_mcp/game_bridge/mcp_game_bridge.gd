@@ -95,7 +95,7 @@ func _emit_bridge_ready(scene_path: String) -> void:
 
 func _process(delta: float) -> void:
 	_game_time_process(delta)
-	_sequence_process()
+	_sequence_process(delta)
 
 
 # Processing is needed by three independent features; only switch it off when
@@ -105,9 +105,30 @@ func _update_processing() -> void:
 	set_process(_sequence_running or _frozen or _step_active)
 
 
-func _sequence_process() -> void:
-	if not _sequence_running or _sequence_events.is_empty():
+func _sequence_process(delta: float) -> void:
+	if not _sequence_running:
 		return
+
+	var tree := get_tree()
+
+	# Drain phase: the timeline is exhausted, but a requested effect probe still
+	# needs its `after` reading. The bridge runs BEFORE the scene and injected
+	# events flush at the top of the NEXT frame, so a snapshot taken the instant
+	# the queue empties would precede gameplay processing the final input — a real
+	# effect would read as a no-op. Let a couple of gameplay frames elapse first.
+	if _sequence_draining:
+		if tree and not tree.paused:
+			_sequence_gameplay_ms += delta * 1000.0
+		_sequence_settle_remaining -= 1
+		if _sequence_settle_remaining <= 0:
+			_emit_sequence_result()
+		return
+
+	# Game time the sequence actually advanced (unpaused, scaled) vs. wall time
+	# is a no-setup no-op signal: a sequence that ran entirely under a pause or
+	# freeze shows gameplay_ms ~= 0 against a full wall_ms.
+	if tree and not tree.paused:
+		_sequence_gameplay_ms += delta * 1000.0
 
 	var elapsed := Time.get_ticks_msec() - _sequence_start_time
 
@@ -125,12 +146,61 @@ func _sequence_process() -> void:
 			_actions_completed += 1
 
 	if _sequence_events.is_empty():
-		_sequence_running = false
-		_update_processing()
-		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
-			"completed": true,
-			"actions_executed": _actions_completed,
-		}])
+		if _sequence_report.is_empty():
+			_emit_sequence_result()
+		else:
+			# Defer the result so the effect probe's `after` reflects the final input.
+			_sequence_draining = true
+			_sequence_settle_remaining = SEQUENCE_SETTLE_FRAMES
+
+
+# Assemble and send the input-sequence result, then reset probe state. Carries an
+# effect signal (#240): always-on context (scene / pause / freeze / game-vs-wall
+# time) plus, when the caller attached a `report`, the per-expression before->after
+# delta and an `any_changed` summary — enough to tell "inputs changed the world"
+# from "inputs fell into the void" in one round-trip.
+func _emit_sequence_result() -> void:
+	_sequence_running = false
+	_sequence_draining = false
+	_update_processing()
+
+	var tree := get_tree()
+	var result: Dictionary = {
+		"completed": true,
+		"actions_executed": _actions_completed,
+		"scene": tree.current_scene.scene_file_path if tree and tree.current_scene else "",
+		"tree_paused": tree.paused if tree else false,
+		"frozen": _frozen,
+		"gameplay_ms": roundi(_sequence_gameplay_ms),
+		"wall_ms": Time.get_ticks_msec() - _sequence_start_time,
+	}
+
+	if not _sequence_report.is_empty():
+		var after := _evaluate_report(_sequence_report, _sequence_report_inputs)
+		result.merge(_compute_report_deltas(_sequence_report_before, after))
+
+	_sequence_report = []
+	_sequence_report_inputs = []
+	_sequence_report_before = {}
+
+	EngineDebugger.send_message("godot_mcp:input_sequence_result", [result])
+
+
+# Pure before/after diff over the probe expressions: {report: {src: {before, after,
+# changed}}, any_changed}. A missing `after` (expression started erroring) reads as
+# null and so counts as changed — the world did move. Kept side-effect-free so the
+# headless test can assert it directly.
+func _compute_report_deltas(before: Dictionary, after: Dictionary) -> Dictionary:
+	var deltas: Dictionary = {}
+	var any_changed := false
+	for src in before:
+		var b: Variant = before[src]
+		var a: Variant = after.get(src, null)
+		var changed: bool = b != a
+		if changed:
+			any_changed = true
+		deltas[src] = {"before": b, "after": a, "changed": changed}
+	return {"report": deltas, "any_changed": any_changed}
 
 
 var _sequence_events: Array = []
@@ -138,6 +208,20 @@ var _sequence_start_time: int = 0
 var _sequence_running: bool = false
 var _actions_completed: int = 0
 var _actions_total: int = 0
+# Game time (unpaused, scaled) accumulated across the sequence window — compared
+# against wall time in the result to flag a sequence that ran under a pause/freeze.
+var _sequence_gameplay_ms: float = 0.0
+# Drain phase: after the timeline empties, hold for a few frames so an effect
+# probe's `after` reflects the final input before the result is sent.
+var _sequence_draining: bool = false
+var _sequence_settle_remaining: int = 0
+const SEQUENCE_SETTLE_FRAMES := 2
+# Optional effect probe (#240): compiled GDScript expressions [{src, expr}]
+# evaluated in the step_until predicate context, once before the first input and
+# again after the last, to prove the sequence changed something.
+var _sequence_report: Array = []
+var _sequence_report_inputs: Array = []
+var _sequence_report_before: Dictionary = {}
 # Actions whose press has been injected but whose paired release has not yet
 # fired. Used to guarantee a release even if the queue is cleared mid-flight
 # (new sequence) or the node leaves the tree — otherwise the dropped release
@@ -999,12 +1083,29 @@ func _event_to_string(event: InputEvent) -> String:
 
 func _handle_execute_input_sequence(data: Array) -> void:
 	var inputs: Array = data[0] if data.size() > 0 else []
+	var report: Array = data[1] if data.size() > 1 and data[1] is Array else []
 
 	if inputs.is_empty():
 		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
 			"error": "No inputs provided",
 		}])
 		return
+
+	# Compile the optional effect probe up front, before touching any input state,
+	# so a bad expression rejects the call cleanly (same contract as step_until's
+	# report). Reuses the predicate context: autoloads by name, plus `tree`/`root`.
+	var report_compiled: Array = []
+	var report_inputs: Array = []
+	if not report.is_empty():
+		var ctx := _build_predicate_context()
+		var rr := _compile_report(report, ctx["names"], ctx["inputs"])
+		if rr.has("error"):
+			EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+				"error": rr["error"],
+			}])
+			return
+		report_compiled = rr["report"]
+		report_inputs = ctx["inputs"]
 
 	# Release anything still held from a prior, interrupted sequence BEFORE
 	# clearing the queue — otherwise that sequence's unfired releases are dropped
@@ -1013,6 +1114,9 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	_sequence_events.clear()
 	_actions_completed = 0
 	_actions_total = inputs.size()
+	_sequence_gameplay_ms = 0.0
+	_sequence_draining = false
+	_sequence_settle_remaining = 0
 
 	for input in inputs:
 		var action_name: String = input.get("action_name", "")
@@ -1042,6 +1146,11 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	_sequence_events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a.time < b.time
 	)
+
+	# Baseline the effect probe at the last possible moment before any input fires.
+	_sequence_report = report_compiled
+	_sequence_report_inputs = report_inputs
+	_sequence_report_before = _evaluate_report(report_compiled, report_inputs) if not report_compiled.is_empty() else {}
 
 	_sequence_start_time = Time.get_ticks_msec()
 	_sequence_running = true
