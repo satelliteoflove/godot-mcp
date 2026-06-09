@@ -2,21 +2,27 @@ extends SceneTree
 
 ## Headless test for the project.godot staleness diff (core/mcp_utils.gd, #245).
 ##
-## Exercises the PURE diff_project_staleness(disk_autoloads, mem_autoloads,
-## disk_input_keys, mem_input_keys) — the false-positive-proof content compare
-## behind godot_project check_stale and the get_log_messages / get_input_map
-## advisories. The I/O layer (reading project.godot off disk + ProjectSettings)
-## needs a live editor and is exercised by the live MCP validation, not here.
+## Two layers:
+##   1. The PURE diff_project_staleness(disk_autoloads, mem_autoloads,
+##      disk_input_keys, mem_input_keys) — the false-positive-proof content compare
+##      behind godot_project check_stale and the get_log_messages / get_input_map
+##      advisories.
+##   2. An integration pass running the REAL I/O readers (the regex scan of
+##      project.godot + the ProjectSettings read) against THIS project. A freshly
+##      launched headless process always reads project.godot fresh, so it is
+##      in-sync by construction — which makes this the repeatable no-false-positive
+##      guard for the fiddliest, most format-sensitive code. (The stale path itself
+##      is covered by the pure diffs above and by live MCP validation.)
 ##
 ## Diff contract:
 ##   - autoloads: symmetric — added (disk∖mem), removed (mem∖disk), changed
 ##     (raw value differs, incl. the "*" singleton prefix).
 ##   - input: additive only — added (disk∖mem); a key only in memory is NOT stale
 ##     (built-in ui_* / editor-only actions live there). ui_* filtering itself
-##     happens in the I/O readers, so the inputs handed here are already filtered.
+##     happens in the I/O readers, so the inputs handed the pure diff are filtered.
 ##
-## Not wired into CI (CI has no Godot). Run on demand against a project that has
-## the addon copied/junctioned in:
+## Not wired into CI (CI has no Godot). Run on demand against an addon-enabled
+## project (the integration pass expects the addon's MCPGameBridge autoload):
 ##
 ##   & "<godot.exe>" --headless --path "<project-with-addon>" \
 ##       --script "res://addons/godot_mcp/test/project_staleness_diff_test.gd"
@@ -38,6 +44,7 @@ func _initialize() -> void:
 	_test_input_added()
 	_test_input_additive_only()
 	_test_empty_disk_autoloads_reports_removed()
+	_test_io_against_real_project()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -116,6 +123,37 @@ func _test_empty_disk_autoloads_reports_removed() -> void:
 	var r := MCPUtils.diff_project_staleness({}, {"G": "*res://g.gd"}, [], [])
 	_check("empty disk autoloads: stale", r["stale"], true)
 	_check("empty disk autoloads: all reported removed", r["autoload"]["removed"], ["G"])
+
+
+func _test_io_against_real_project() -> void:
+	# Run the REAL readers against this project's actual project.godot + in-memory
+	# ProjectSettings. Project-agnostic invariants only, so this holds for any
+	# addon-enabled project, not just run-n-gun.
+	var disk := MCPUtils._read_disk_project_sections()
+	_check("io: project.godot was read", disk.is_empty(), false)
+	_check("io: [autoload] section found on disk", disk.get("has_autoload_section", false), true)
+	# The addon registers its own bridge autoload in every project it runs in.
+	_check("io: disk scan finds the bridge autoload", disk.get("autoload", {}).has("MCPGameBridge"), true)
+	# The disk [input] scan must never surface built-in ui_* actions.
+	var disk_ui: Array = disk.get("input_keys", []).filter(func(k): return str(k).begins_with("ui_"))
+	_check("io: disk input scan excludes ui_*", disk_ui, [])
+
+	var mem := MCPUtils._read_mem_sections()
+	_check("io: memory scan finds the bridge autoload", mem["autoload"].has("MCPGameBridge"), true)
+	var mem_ui: Array = mem["input_keys"].filter(func(k): return str(k).begins_with("ui_"))
+	_check("io: memory input scan excludes ui_*", mem_ui, [])
+
+	# The point: a fresh, in-sync project must report NOT stale — disk and memory
+	# agree across both sections. A regression in either real reader breaks this.
+	var report := MCPUtils.detect_project_staleness()
+	_check("io: in-sync project is not stale", report["stale"], false)
+	_check("io: in-sync autoload added empty", report["autoload"]["added"], [])
+	_check("io: in-sync autoload removed empty", report["autoload"]["removed"], [])
+	_check("io: in-sync input added empty", report["input"]["added"], [])
+
+	# _unquote round-trips the on-disk autoload value format.
+	_check("io: _unquote strips surrounding quotes", MCPUtils._unquote("\"*res://x.gd\""), "*res://x.gd")
+	_check("io: _unquote leaves an unquoted value", MCPUtils._unquote("res://x.gd"), "res://x.gd")
 
 
 func _check(label: String, got: Variant, expected: Variant) -> void:

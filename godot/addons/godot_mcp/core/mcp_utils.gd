@@ -219,7 +219,8 @@ static func detect_project_staleness() -> Dictionary:
 	if disk.is_empty():
 		return {"stale": false, "note": "Could not read res://project.godot to check staleness."}
 
-	var mem_autoloads := _read_mem_autoloads()
+	var mem := _read_mem_sections()
+	var mem_autoloads: Dictionary = mem["autoload"]
 	var disk_autoloads: Dictionary = disk.get("autoload", {})
 	# A project with autoloads always writes the [autoload] section (the addon
 	# writes its own bridge autoload at startup). If the section is absent, treat
@@ -229,7 +230,7 @@ static func detect_project_staleness() -> Dictionary:
 
 	return diff_project_staleness(
 		disk_autoloads, mem_autoloads,
-		disk.get("input_keys", []), _read_mem_input_keys())
+		disk.get("input_keys", []), mem["input_keys"])
 
 
 # Scan project.godot once, section-aware. Returns
@@ -275,24 +276,21 @@ static func _read_disk_project_sections() -> Dictionary:
 	return {"autoload": autoloads, "input_keys": input_keys, "has_autoload_section": has_autoload}
 
 
-static func _read_mem_autoloads() -> Dictionary:
-	var out := {}
+# Single pass over ProjectSettings (it carries hundreds of entries) collecting
+# both the in-memory autoloads ({Name: value}) and the non-builtin input action
+# names. Returns { autoload: Dictionary, input_keys: Array }.
+static func _read_mem_sections() -> Dictionary:
+	var autoloads := {}
+	var input_keys := []
 	for prop in ProjectSettings.get_property_list():
 		var pname: String = prop["name"]
 		if pname.begins_with("autoload/"):
-			out[pname.substr(9)] = str(ProjectSettings.get_setting(pname, ""))
-	return out
-
-
-static func _read_mem_input_keys() -> Array:
-	var out := []
-	for prop in ProjectSettings.get_property_list():
-		var pname: String = prop["name"]
-		if pname.begins_with("input/"):
+			autoloads[pname.substr(9)] = str(ProjectSettings.get_setting(pname, ""))
+		elif pname.begins_with("input/"):
 			var action := pname.substr(6)
 			if not action.begins_with("ui_"):
-				out.append(action)
-	return out
+				input_keys.append(action)
+	return {"autoload": autoloads, "input_keys": input_keys}
 
 
 static func _unquote(s: String) -> String:
