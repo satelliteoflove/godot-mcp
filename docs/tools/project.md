@@ -16,7 +16,7 @@ Get project information and settings
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `action` | `get_info`, `get_settings`, `addon_status` | Yes |  |
+| `action` | `get_info`, `get_settings`, `addon_status`, `check_stale` | Yes |  |
 | `category` | string | No | Settings category to filter by (use "input" for input mappings) |
 | `include_builtin` | boolean | No | Include built-in ui_* actions (with category="input") |
 
@@ -27,6 +27,8 @@ Get project information and settings
 #### `get_settings`
 
 #### `addon_status`
+
+#### `check_stale`
 
 ### Examples
 
@@ -50,6 +52,8 @@ Get project information and settings
   "action": "addon_status"
 }
 ```
+
+*1 more actions available: `check_stale`*
 
 ---
 
