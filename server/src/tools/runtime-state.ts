@@ -180,15 +180,13 @@ export function buildTimeline(
     }
   }
 
+  // No further tiebreakers on purpose: sort() is spec-stable (ES2019), so
+  // same-t_ms same-kind entries keep buffer order — which for signals IS
+  // emission order, real information a name/source tiebreak would destroy
+  // (sub-ms bursts land on one t_ms).
   timeline.sort((a, b) => {
     if (a.t_ms !== b.t_ms) return a.t_ms - b.t_ms;
-    if (TIMELINE_KIND_RANK[a.kind] !== TIMELINE_KIND_RANK[b.kind]) {
-      return TIMELINE_KIND_RANK[a.kind] - TIMELINE_KIND_RANK[b.kind];
-    }
-    if (a.source !== b.source) return a.source < b.source ? -1 : 1;
-    const aLabel = a.kind === 'signal' ? a.name : a.kind === 'field_change' ? a.field : '';
-    const bLabel = b.kind === 'signal' ? b.name : b.kind === 'field_change' ? b.field : '';
-    return aLabel < bLabel ? -1 : aLabel > bLabel ? 1 : 0;
+    return TIMELINE_KIND_RANK[a.kind] - TIMELINE_KIND_RANK[b.kind];
   });
 
   return timeline;

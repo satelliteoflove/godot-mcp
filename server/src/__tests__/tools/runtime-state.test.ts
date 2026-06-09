@@ -523,6 +523,21 @@ describe('buildTimeline', () => {
     ]);
   });
 
+  it('preserves emission order for same-millisecond signal bursts (stable sort)', () => {
+    const events = [
+      { t_ms: 100, source: '/root/G', signal: 'score_changed', args: '[111]' },
+      { t_ms: 100, source: '/root/G', signal: 'wave_changed', args: '[2]' },
+      { t_ms: 100, source: '/root/G', signal: 'score_changed', args: '[222]' },
+    ];
+    // An alphabetical tiebreak would reorder to score, score, wave and destroy
+    // the real emission order — buffer order must survive the sort.
+    expect(buildTimeline(events, {}).map((e) => (e.kind === 'signal' ? e.args : ''))).toEqual([
+      '[111]',
+      '[2]',
+      '[222]',
+    ]);
+  });
+
   it('ignores numeric field summaries entirely', () => {
     const fields = {
       '/root/P:vel.x': {
