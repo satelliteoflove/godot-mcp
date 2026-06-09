@@ -1117,6 +1117,12 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	_sequence_gameplay_ms = 0.0
 	_sequence_draining = false
 	_sequence_settle_remaining = 0
+	# Clear probe state up front so an early return below (unknown action) cannot
+	# leave a stale report to be drained against an interrupted window. It is
+	# re-armed from report_compiled once the timeline is validated.
+	_sequence_report = []
+	_sequence_report_inputs = []
+	_sequence_report_before = {}
 
 	for input in inputs:
 		var action_name: String = input.get("action_name", "")
