@@ -49,7 +49,7 @@ func _run() -> void:
 	var offs: Array = bridge._sequence_capture_offsets.duplicate()
 	_check("offsets sorted ascending (first)", offs[0], 50)
 	_check("offsets sorted ascending (second)", offs[1], 200)
-	_check("offset clamped to SEQUENCE_MAX_CAPTURE_OFFSET_MS", offs[2], 60000)
+	_check("offset clamped to SEQUENCE_MAX_CAPTURE_OFFSET_MS", offs[2], 20000)
 
 	# --- 2. cap at SEQUENCE_MAX_CAPTURES ------------------------------------
 	bridge._handle_execute_input_sequence([

@@ -284,7 +284,10 @@ var _sequence_capture_offsets: Array = []
 var _sequence_captures_pending: int = 0
 var _sequence_capture_max_width: int = 640
 const SEQUENCE_MAX_CAPTURES := 8
-const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 60000
+# Capped well under the 30s server command timeout: the sequence runs until its
+# last capture offset, so a larger value would let the whole call time out
+# server-side. 20s is already far longer than any transient-visual capture needs.
+const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 20000
 # Actions whose press has been injected but whose paired release has not yet
 # fired. Used to guarantee a release even if the queue is cleared mid-flight
 # (new sequence) or the node leaves the tree — otherwise the dropped release
