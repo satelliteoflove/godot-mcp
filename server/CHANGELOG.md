@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.10.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.10.0...godot-mcp-v3.10.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* wait for game bridge readiness before injecting input ([#269](https://github.com/satelliteoflove/godot-mcp/issues/269)) ([ab1b998](https://github.com/satelliteoflove/godot-mcp/commit/ab1b998cac0254cf9760b15c01bc8568fe19608f))
+
 ## [3.10.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.9.0...godot-mcp-v3.10.0) (2026-06-09)
 
 
