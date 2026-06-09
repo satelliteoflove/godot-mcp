@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.10.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.9.0...godot-mcp-v3.10.0) (2026-06-09)
+
+
+### Features
+
+* add editor restart action to godot_editor ([#250](https://github.com/satelliteoflove/godot-mcp/issues/250)) ([#266](https://github.com/satelliteoflove/godot-mcp/issues/266)) ([700ba78](https://github.com/satelliteoflove/godot-mcp/commit/700ba78aa75cf4f8231b718a3971dd875416d348))
+* add severity and incremental filtering to editor log messages ([#244](https://github.com/satelliteoflove/godot-mcp/issues/244)) ([#267](https://github.com/satelliteoflove/godot-mcp/issues/267)) ([3391bf5](https://github.com/satelliteoflove/godot-mcp/commit/3391bf59ff904b77ef5df2ac38a6b629fb2adf63))
+
+
+### Bug Fixes
+
+* protect active bridge client instead of replacing it ([#237](https://github.com/satelliteoflove/godot-mcp/issues/237)) ([#264](https://github.com/satelliteoflove/godot-mcp/issues/264)) ([899ba88](https://github.com/satelliteoflove/godot-mcp/commit/899ba88faa01ba52436fb5047cccc615e384ac1b))
+
 ## [3.9.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.8.0...godot-mcp-v3.9.0) (2026-06-08)
 
 
