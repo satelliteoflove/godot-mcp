@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.11.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.10.1...godot-mcp-v3.11.0) (2026-06-09)
+
+
+### Features
+
+* surface an effect signal on input sequence results ([#272](https://github.com/satelliteoflove/godot-mcp/issues/272)) ([7cf8a74](https://github.com/satelliteoflove/godot-mcp/commit/7cf8a74c5a1df8619512066eba3cd489a7ea108d))
+
 ## [3.10.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.10.0...godot-mcp-v3.10.1) (2026-06-09)
 
 

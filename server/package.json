@@ -1,6 +1,6 @@
 {
   "name": "@satelliteoflove/godot-mcp",
-  "version": "3.10.1",
+  "version": "3.11.0",
   "description": "MCP server for Godot Engine integration",
   "type": "module",
   "main": "dist/index.js",
