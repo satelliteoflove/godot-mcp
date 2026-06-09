@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.16.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.15.0...godot-mcp-v3.16.0) (2026-06-09)
+
+
+### Features
+
+* add opt-in signal event timeline to the runtime_state watch lifecycle ([#284](https://github.com/satelliteoflove/godot-mcp/issues/284)) ([903751a](https://github.com/satelliteoflove/godot-mcp/commit/903751a0b6be3713984c7a2af4cc1ab9f081b973))
+
 ## [3.15.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.14.0...godot-mcp-v3.15.0) (2026-06-09)
 
 
