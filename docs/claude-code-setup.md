@@ -2,6 +2,8 @@
 
 Add a `CLAUDE.md` file to your Godot project root so Claude Code knows when to use MCP tools vs direct file editing.
 
+While you're setting up, add [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) to your MCP config alongside godot-mcp. The two are complementary: godot-mcp handles editor, scene, and runtime control; minimal-godot-mcp handles static GDScript diagnostics (LSP) and the running game's console output, with no addon. See [Works Well With](../README.md#works-well-with).
+
 ## Recommended CLAUDE.md Template
 
 ```markdown
@@ -27,7 +29,7 @@ This project uses godot-mcp for AI-assisted development.
 
 ### Companion Server
 
-For language server diagnostics and raw console output, use [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) alongside this server. They complement each other without overlap.
+This project also uses [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp). Use it for static GDScript diagnostics (LSP) and the running game's console output and stderr; use godot-mcp for editor and scene control, runtime state, input injection, and editor-side errors.
 ```
 
 Adjust to fit your project. The model already has access to tool descriptions and will figure out workflows on its own - this template just covers the non-obvious stuff.
