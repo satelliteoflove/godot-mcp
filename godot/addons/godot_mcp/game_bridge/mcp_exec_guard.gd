@@ -62,6 +62,14 @@ static func scan_source(source: String) -> Dictionary:
 			"token": "",
 			"message": "NO_CODE: exec source contains no executable code (comments only or empty)",
 		}
+	# Normalize the SCAN copy (never the wrapper input) so the two formatter-
+	# plausible token splits — `OS . execute` and a line continuation after the
+	# dot — still match. Over-matching here only over-blocks, which is the safe
+	# direction for an accident guard.
+	stripped = stripped.replace("\\\n", "")
+	var dot_ws := RegEx.new()
+	dot_ws.compile("\\s*\\.\\s*")
+	stripped = dot_ws.sub(stripped, ".", true)
 	if _token_re("await").search(stripped) != null:
 		return {
 			"ok": false,

@@ -35,6 +35,7 @@ func _initialize() -> void:
 	_test_scan_sync_only_and_no_code()
 	_test_wrapper_compiles_and_runs()
 	_test_mechanics_pins()
+	_test_logger_mark_survives_trim()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -86,6 +87,12 @@ func _test_scan_strings_and_comments() -> void:
 	_check("scan: hash inside a string is not a comment",
 		MCPExecGuardScript.scan_source("var s = \"a#b\"; DirAccess.open(\"res://\")").get("token"),
 		"DirAccess")
+	# Formatter-plausible token splits: whitespace around the dot, and a line
+	# continuation after the dot — both valid GDScript, both must still match.
+	_check("scan: whitespace around the dot is still caught",
+		MCPExecGuardScript.scan_source("OS . execute(\"cmd\", [])").get("token"), "OS.execute")
+	_check("scan: line continuation after the dot is still caught",
+		MCPExecGuardScript.scan_source("OS.\\\nexecute(\"cmd\", [])").get("token"), "OS.execute")
 
 
 func _test_scan_sync_only_and_no_code() -> void:
@@ -249,6 +256,41 @@ func _test_mechanics_pins() -> void:
 		_check("mechanics: suspended call is a GDScriptFunctionState",
 			result.get_class(), "GDScriptFunctionState")
 	holder.free()
+
+
+# ── logger mark stability across ring-buffer trims ───────────────────────────
+
+const BridgeScript := preload("res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd")
+
+
+func _test_logger_mark_survives_trim() -> void:
+	# Exec's runtime-error window holds a mark across the user script's run. If
+	# the script logs past the 1000-line ring buffer, a raw index would drift
+	# and misattribute lines; the absolute mark (dropped + size) must instead
+	# detect the overflow and say so.
+	var bridge: Node = BridgeScript.new()
+	var logger = BridgeScript._MCPGameLogger.new()
+	bridge._logger = logger
+
+	# No-trim case: lines after the mark are returned, lines before are not.
+	logger._log_message("before-mark noise", true)
+	var mark: int = bridge._exec_logger_mark()
+	logger._log_message("after-mark error", true)
+	var delta: Array = bridge._exec_logger_delta(mark)
+	_check("logger: delta has only post-mark lines", delta, ["after-mark error"])
+
+	# Trim case: blow past the ring buffer between mark and read.
+	mark = bridge._exec_logger_mark()
+	for i in 1100:
+		logger._log_message("flood %d" % i, false)
+	logger._log_message("final error", true)
+	delta = bridge._exec_logger_delta(mark)
+	_check("logger: overflow is reported, not silent",
+		str(delta[0]).contains("log buffer overflowed"), true)
+	_check("logger: post-overflow errors still captured", delta[-1], "final error")
+	_check("logger: dropped counter advanced", logger.get_dropped() > 0, true)
+
+	bridge.free()
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────

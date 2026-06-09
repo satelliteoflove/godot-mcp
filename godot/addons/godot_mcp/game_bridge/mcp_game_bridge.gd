@@ -1087,6 +1087,10 @@ func _handle_watch_stop() -> void:
 class _MCPGameLogger extends Logger:
 	var _output: PackedStringArray = []
 	var _max_lines := 1000
+	# Lines trimmed off the front of the ring buffer, ever. Lets a caller hold a
+	# STABLE mark (dropped + size) across trims instead of a raw index that
+	# silently drifts when the buffer overflows (exec's runtime-error window).
+	var _dropped := 0
 	var _mutex := Mutex.new()
 
 	func _log_message(message: String, error: bool) -> void:
@@ -1095,6 +1099,7 @@ class _MCPGameLogger extends Logger:
 		_output.append(prefix + message)
 		if _output.size() > _max_lines:
 			_output.remove_at(0)
+			_dropped += 1
 		_mutex.unlock()
 
 	func _log_error(function: String, file: String, line: int, code: String,
@@ -1105,13 +1110,18 @@ class _MCPGameLogger extends Logger:
 		_output.append("[ERROR] " + msg)
 		if _output.size() > _max_lines:
 			_output.remove_at(0)
+			_dropped += 1
 		_mutex.unlock()
 
 	func get_output() -> PackedStringArray:
 		return _output
 
+	func get_dropped() -> int:
+		return _dropped
+
 	func clear() -> void:
 		_mutex.lock()
+		_dropped += _output.size()  # cleared lines are gone the same as trimmed ones
 		_output.clear()
 		_mutex.unlock()
 
@@ -1903,15 +1913,27 @@ func _ensure_exec_holder() -> Node:
 	return _exec_holder
 
 
-# The window of logger lines produced since `mark`, error lines only. This is
-# process-wide, not per-script: a concurrent game error inside the window rides
-# along — acceptable for an honest "what went wrong" echo.
+# A stable position in the logger stream (survives ring-buffer trims): lines
+# appended ever = dropped + currently held.
+func _exec_logger_mark() -> int:
+	return (_logger.get_dropped() + _logger.get_output().size()) if _logger else 0
+
+
+# The window of logger lines produced since `mark` (an _exec_logger_mark
+# value), error lines only. Process-wide, not per-script: a concurrent game
+# error inside the window rides along — acceptable for an honest "what went
+# wrong" echo. If the ring buffer trimmed past the mark (a >1000-line script),
+# the lost stretch is reported instead of silently misattributed.
 func _exec_logger_delta(mark: int) -> Array:
 	var out: Array = []
 	if _logger == null:
 		return out
 	var lines := _logger.get_output()
-	for i in range(mark, lines.size()):
+	var start := mark - _logger.get_dropped()
+	if start < 0:
+		out.append("... (log buffer overflowed; %d earlier lines lost — see the game console)" % -start)
+		start = 0
+	for i in range(start, lines.size()):
 		if not lines[i].begins_with("[ERROR] "):
 			continue
 		if out.size() >= EXEC_MAX_ERROR_LINES:
@@ -1948,7 +1970,7 @@ func _handle_exec_run(data: Array) -> void:
 	var script := GDScript.new()
 	script.source_code = MCPExecGuard.build_wrapper(source, ctx["names"])
 
-	var mark: int = _logger.get_output().size() if _logger else 0
+	var mark := _exec_logger_mark()
 	if script.reload() != OK or not script.can_instantiate():
 		var detail := "; ".join(PackedStringArray(_exec_logger_delta(mark)))
 		var msg := "exec compile error"
@@ -1960,7 +1982,7 @@ func _handle_exec_run(data: Array) -> void:
 		return
 
 	var inst: Object = script.new()
-	mark = _logger.get_output().size() if _logger else 0
+	mark = _exec_logger_mark()
 	var t0 := Time.get_ticks_msec()
 	# Synchronous and non-preemptible: an infinite loop here hangs the game (the
 	# relay/server time out; godot_editor stop kills the process). That is the
@@ -2005,7 +2027,10 @@ func _handle_exec_list(data: Array) -> void:
 				"class": child.get_class(),
 				"script_chars": script_chars,
 				"age_ms": now - int(child.get_meta("mcp_exec_attached_ms", now)),
-				"processing": child.is_processing() or child.is_physics_processing(),
+				# Internal processing too: Timers and tweened nodes drive
+				# themselves internally and would otherwise read as idle.
+				"processing": child.is_processing() or child.is_physics_processing() \
+					or child.is_processing_internal() or child.is_physics_processing_internal(),
 			})
 	_send_exec_response("exec_list", {"nodes": nodes, "count": nodes.size()}, params)
 
