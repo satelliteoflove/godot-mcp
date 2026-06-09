@@ -61,7 +61,7 @@ Fetch Godot Engine documentation with smart extraction
 
 Input injection for testing running games (action-based, no mouse/coordinates yet)
 
-- `godot_input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing, or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
+- `godot_input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
 
 ## [Profiler](profiler.md)
 
