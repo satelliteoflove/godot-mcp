@@ -12,6 +12,7 @@ import { inputTools } from './input.js';
 import { profilerTools } from './profiler.js';
 import { runtimeStateTools } from './runtime-state.js';
 import { gameTimeTools } from './game-time.js';
+import { execTools } from './exec.js';
 
 export function registerAllTools(): void {
   registry.registerTools(sceneTools);
@@ -27,6 +28,7 @@ export function registerAllTools(): void {
   registry.registerTools(profilerTools);
   registry.registerTools(runtimeStateTools);
   registry.registerTools(gameTimeTools);
+  registry.registerTools(execTools);
 }
 
 export { sceneTools } from './scene.js';
@@ -42,3 +44,4 @@ export { inputTools } from './input.js';
 export { profilerTools } from './profiler.js';
 export { runtimeStateTools } from './runtime-state.js';
 export { gameTimeTools } from './game-time.js';
+export { execTools } from './exec.js';

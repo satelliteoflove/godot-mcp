@@ -95,3 +95,4 @@ export function deriveTimeouts(inGameBudgetMs: number, opts: DeriveOptions = {})
 // the published cap can never time out server-side.
 export const STEP_BUDGET_CAP_MS = 50_000;    // game_time step / step_until (no ready-wait)
 export const INPUT_BUDGET_CAP_MS = 40_000;   // godot_input sequence span / capture offsets / type_text duration (ready-wait)
+export const EXEC_BUDGET_CAP_MS = 30_000;    // godot_exec run (no ready-wait; scripts should be fast, the cap is patience not enforcement)

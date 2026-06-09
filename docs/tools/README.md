@@ -75,3 +75,9 @@ Observe live game entity state as structured JSON — positions, velocities, ani
 
 - `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup.
 
+## [Game Script Execution](exec.md)
+
+Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.
+
+- `godot_exec` - Execute GDScript inside the RUNNING game process — the scenario-setup primitive: grant weapons, skip waves, spawn entities, arm persistent test bots, without baking debug hooks into game code. Errors when no game is running. For launch-time setup, compose: godot_editor run frozen=true -> godot_exec run (mutate state, attach bots under `holder`) -> godot_game_time thaw. A static denylist rejects accidental process/file-write escape (OS.execute, DirAccess, write-mode FileAccess, ResourceSaver, ProjectSettings.save, ...) and names the offending token — an accident guard, NOT a security boundary. Compile errors reject the call with the parser message; runtime errors come back in runtime_errors with the call still completing.
+

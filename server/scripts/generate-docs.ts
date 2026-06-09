@@ -14,6 +14,7 @@ import { docsTools } from '../src/tools/docs.js';
 import { inputTools } from '../src/tools/input.js';
 import { profilerTools } from '../src/tools/profiler.js';
 import { runtimeStateTools } from '../src/tools/runtime-state.js';
+import { execTools } from '../src/tools/exec.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
@@ -45,6 +46,7 @@ const categories: ToolCategory[] = [
   { name: 'Input', filename: 'input', description: 'Input injection for testing running games (action-based, no mouse/coordinates yet)', tools: inputTools },
   { name: 'Profiler', filename: 'profiler', description: 'Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections', tools: profilerTools },
   { name: 'Runtime State', filename: 'runtime-state', description: 'Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Much cheaper than screenshots.', tools: runtimeStateTools },
+  { name: 'Game Script Execution', filename: 'exec', description: 'Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.', tools: execTools },
 ];
 
 const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];
