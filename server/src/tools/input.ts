@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
-import { deriveTimeouts, maxInGameBudgetMs } from '../connection/timeouts.js';
+import { deriveTimeouts, INPUT_BUDGET_CAP_MS } from '../connection/timeouts.js';
 import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
 export const InputActionSchema = z.object({
@@ -42,7 +42,8 @@ const InputSchema = z.discriminatedUnion('action', [
         'frame DURING the real-time run. The bridge owns the sequence clock, so it grabs each frame ' +
         'at the right moment and returns them with the result — letting you catch transient visuals ' +
         '(muzzle flashes, explosions, kill banners) that fade long before a separate screenshot ' +
-        'call could land. Up to 8 frames, each returned as an image labeled with its actual offset. ' +
+        'call could land. Up to 8 frames, each returned as an image labeled with its actual offset; ' +
+        `an offset (like the whole sequence) must fall within the ${INPUT_BUDGET_CAP_MS}ms single-call window. ` +
         'COST: each frame costs vision tokens by RESOLUTION (~width*height/750), independent of ' +
         'format, and persists in context on every following turn — so prefer a few frames at a ' +
         'modest screenshot_max_width over many large ones. For frozen/precise inspection prefer ' +
@@ -123,7 +124,7 @@ export const input = defineTool({
         const lastInputEnd = inputs.reduce((m, i) => Math.max(m, (i.start_ms ?? 0) + (i.duration_ms ?? 0)), 0);
         const lastShot = (args.screenshot_at_ms ?? []).reduce((m, o) => Math.max(m, o), 0);
         const budget = Math.max(lastInputEnd, lastShot);
-        const cap = maxInGameBudgetMs({ readyWait: true });
+        const cap = INPUT_BUDGET_CAP_MS;
         if (budget > cap) {
           throw new Error(
             `Input sequence spans ${budget}ms but a single call can cover at most ${cap}ms ` +
@@ -157,8 +158,10 @@ export const input = defineTool({
           report: args.report,
           screenshot_at_ms: args.screenshot_at_ms,
           screenshot_max_width: args.screenshot_max_width,
+          // The bridge's sequence path has no wall guard (the editor relay is its
+          // effective deadline), so only the relay budget is pushed; sizing the
+          // server socket from it is enough. wall_budget_ms is a step-only concept.
           relay_timeout_ms: t.relayMs,
-          wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
 
         if (result.error) {
@@ -235,7 +238,7 @@ export const input = defineTool({
         // span (and the bridge-ready wait that precedes typing) so a long type
         // can't hit the quick default and get killed mid-stream.
         const budget = args.text.length * (args.delay_ms ?? 50);
-        const cap = maxInGameBudgetMs({ readyWait: true });
+        const cap = INPUT_BUDGET_CAP_MS;
         if (budget > cap) {
           throw new Error(
             `Typing ${args.text.length} chars at ${args.delay_ms ?? 50}ms each spans ${budget}ms, over the ` +

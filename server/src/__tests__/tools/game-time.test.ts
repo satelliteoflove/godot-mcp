@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
 import { gameTime } from '../../tools/game-time.js';
+import { deriveTimeouts } from '../../connection/timeouts.js';
 
 describe('game_time tool', () => {
   let mock: MockGodotConnection;
@@ -137,10 +138,10 @@ describe('game_time tool', () => {
 
       await gameTime.execute({ action: 'step', duration_ms: 500 }, ctx);
       const call = mock.calls[0];
-      // budget 500 (no ready-wait) -> bridgeWall 5500, relay 7500, server 9500.
-      expect(call.params.wall_budget_ms).toBe(5500);
-      expect(call.params.relay_timeout_ms).toBe(7500);
-      expect(call.opts?.timeoutMs).toBe(9500);
+      const t = deriveTimeouts(500); // game_time has no ready-wait
+      expect(call.params.wall_budget_ms).toBe(t.bridgeWallMs);
+      expect(call.params.relay_timeout_ms).toBe(t.relayMs);
+      expect(call.opts?.timeoutMs).toBe(t.serverMs);
     });
   });
 
@@ -214,11 +215,25 @@ describe('game_time tool', () => {
 
       await gameTime.execute({ action: 'step_until', until: 'true', max_ms: 8000 }, ctx);
       const call = mock.calls[0];
-      // budget 8000 (no ready-wait) -> bridgeWall 13000, relay 15000, server 17000.
+      const t = deriveTimeouts(8000); // budget = explicit max_ms, no ready-wait
       expect(call.params.max_ms).toBe(8000);
-      expect(call.params.wall_budget_ms).toBe(13000);
-      expect(call.params.relay_timeout_ms).toBe(15000);
-      expect(call.opts?.timeoutMs).toBe(17000);
+      expect(call.params.wall_budget_ms).toBe(t.bridgeWallMs);
+      expect(call.params.relay_timeout_ms).toBe(t.relayMs);
+      expect(call.opts?.timeoutMs).toBe(t.serverMs);
+    });
+
+    it('defaults max_ms to a modest 20s, decoupled from the 50s cap, when omitted (#276)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 20000, gameplay_ms: 20000,
+        frames: 1200, physics_ticks: 1200, game_paused: false, predicate_met: false,
+      });
+      const ctx = createToolContext(mock);
+
+      await gameTime.execute({ action: 'step_until', until: 'false' }, ctx);
+      const call = mock.calls[0];
+      // Omitted max_ms must not inherit the 50s cap: a wrong predicate gives up in ~20s.
+      expect(call.params.max_ms).toBe(20000);
+      expect(call.opts?.timeoutMs).toBe(deriveTimeouts(20000).serverMs);
     });
   });
 

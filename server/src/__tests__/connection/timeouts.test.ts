@@ -7,7 +7,7 @@ import {
   READY_WAIT_MS,
   BRIDGE_WALL_SLOP_MS,
   STEP_BUDGET_CAP_MS,
-  SEQUENCE_BUDGET_CAP_MS,
+  INPUT_BUDGET_CAP_MS,
 } from '../../connection/timeouts.js';
 
 describe('timeout cascade (#276)', () => {
@@ -21,7 +21,7 @@ describe('timeout cascade (#276)', () => {
       { label: 'at step cap', budget: STEP_BUDGET_CAP_MS, readyWait: false },
       { label: 'over cap, no ready', budget: 10_000_000, readyWait: false },
       { label: 'zero budget, ready', budget: 0, readyWait: true },
-      { label: 'at sequence cap', budget: SEQUENCE_BUDGET_CAP_MS, readyWait: true },
+      { label: 'at input cap', budget: INPUT_BUDGET_CAP_MS, readyWait: true },
       { label: 'over cap, ready', budget: 999_999, readyWait: true },
     ];
 
@@ -63,8 +63,8 @@ describe('timeout cascade (#276)', () => {
     it('step cap <= max in-game budget (no ready-wait)', () => {
       expect(STEP_BUDGET_CAP_MS).toBeLessThanOrEqual(maxInGameBudgetMs({ readyWait: false }));
     });
-    it('sequence cap <= max in-game budget (with ready-wait)', () => {
-      expect(SEQUENCE_BUDGET_CAP_MS).toBeLessThanOrEqual(maxInGameBudgetMs({ readyWait: true }));
+    it('input cap <= max in-game budget (with ready-wait)', () => {
+      expect(INPUT_BUDGET_CAP_MS).toBeLessThanOrEqual(maxInGameBudgetMs({ readyWait: true }));
     });
   });
 

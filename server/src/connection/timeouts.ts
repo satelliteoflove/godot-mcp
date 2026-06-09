@@ -88,8 +88,10 @@ export function deriveTimeouts(inGameBudgetMs: number, opts: DeriveOptions = {})
   return { bridgeWallMs, relayMs, serverMs, clampedBudgetMs };
 }
 
-// Published per-tool caps (kept as clean round numbers for the schemas/UX). Each
-// must stay <= maxInGameBudgetMs for its readyWait class — asserted by a unit
-// test so they cannot silently exceed the ceiling if the margins above change.
-export const STEP_BUDGET_CAP_MS = 50_000;       // game_time step / step_until (no ready-wait)
-export const SEQUENCE_BUDGET_CAP_MS = 40_000;   // input sequence span / capture offsets (ready-wait)
+// Published per-tool-family caps — the clean round numbers the tools actually
+// enforce (game_time schema .max(), godot_input span/offset reject) and surface
+// to callers. Each sits at or below maxInGameBudgetMs for its readyWait class
+// (asserted by a unit test), leaving headroom under the ceiling so a request at
+// the published cap can never time out server-side.
+export const STEP_BUDGET_CAP_MS = 50_000;    // game_time step / step_until (no ready-wait)
+export const INPUT_BUDGET_CAP_MS = 40_000;   // godot_input sequence span / capture offsets / type_text duration (ready-wait)
