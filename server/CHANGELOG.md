@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.13.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.12.0...godot-mcp-v3.13.0) (2026-06-09)
+
+
+### Features
+
+* derive per-request command timeouts from a single-source cascade ([#278](https://github.com/satelliteoflove/godot-mcp/issues/278)) ([d500d30](https://github.com/satelliteoflove/godot-mcp/commit/d500d30bd7292d65f1afe6d3d2714541aca9ba3b))
+
 ## [3.12.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.11.0...godot-mcp-v3.12.0) (2026-06-09)
 
 
