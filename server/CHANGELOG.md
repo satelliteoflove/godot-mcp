@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.15.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.14.0...godot-mcp-v3.15.0) (2026-06-09)
+
+
+### Features
+
+* add godot_exec to run GDScript in the running game for test scenario setup ([#282](https://github.com/satelliteoflove/godot-mcp/issues/282)) ([2531f61](https://github.com/satelliteoflove/godot-mcp/commit/2531f6193a24a223fec1c0d324729d47520328a9))
+
 ## [3.14.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.13.0...godot-mcp-v3.14.0) (2026-06-09)
 
 
