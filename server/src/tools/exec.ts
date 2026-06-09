@@ -29,8 +29,9 @@ const ExecSchema = z.discriminatedUnion('action', [
         'back (there is no implicit return). Function bodies cannot declare top-level func/class — ' +
         'use lambdas for callbacks, or build a sub-script with GDScript.new() and set_script() it ' +
         'onto a holder child for _process-driven behavior. No `await` (synchronous-only; compose ' +
-        'with godot_game_time to wait). Avoid assert() — a failed assert pauses the game under the ' +
-        'editor debugger and hangs the call.'
+        'with godot_game_time to wait). A runtime error or failed assert() breaks the game into ' +
+        'the editor debugger mid-call; the relay auto-resumes it and the error comes back in ' +
+        'runtime_errors.'
       ),
     budget_ms: z
       .number()
@@ -66,7 +67,8 @@ interface ExecRunResult {
   duration_ms: number;
   holder_children: number;
   // Error lines the game logged during the call (a runtime error aborts the
-  // script but the call still completes). Window is process-wide, so a
+  // script but the call still completes — the editor relay auto-resumes the
+  // debugger break a script error triggers). Window is process-wide, so a
   // concurrent game error can ride along.
   runtime_errors?: string[];
 }

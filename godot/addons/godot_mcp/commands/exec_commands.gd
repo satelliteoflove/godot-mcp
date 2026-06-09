@@ -77,9 +77,21 @@ func _send_and_wait(msg_type: String, args: Array, timeout: float):
 	var start_time := Time.get_ticks_msec()
 	while not debugger_plugin.has_response(msg_type):
 		await Engine.get_main_loop().process_frame
+		# A hard runtime error (or failed assert, or breakpoint) hit by exec'd
+		# code breaks the game into the editor debugger, suspending the bridge
+		# handler mid-call — left alone, the game sits paused and this relay
+		# times out. Auto-continue: the handler resumes, the error lands in its
+		# logger window, and the response arrives with runtime_errors as
+		# designed. Scoped to exec relays: only here is the break, by contract,
+		# the agent's own injected code.
+		if debugger_plugin.is_session_breaked():
+			debugger_plugin.continue_session()
 		if (Time.get_ticks_msec() - start_time) / 1000.0 > timeout:
 			debugger_plugin.clear_response(msg_type)
-			_last_error = _error("TIMEOUT", "Timed out waiting for %s response" % msg_type)
+			var hint := ""
+			if debugger_plugin.is_session_breaked():
+				hint = " (the game is paused in the editor debugger and did not resume; press Continue in the editor or run godot_editor stop)"
+			_last_error = _error("TIMEOUT", "Timed out waiting for %s response%s" % [msg_type, hint])
 			return null
 
 	var response = debugger_plugin.get_response(msg_type)

@@ -326,3 +326,27 @@ func toggle_frame_profiler(enable: bool) -> void:
 	var session := get_session(_active_session_id)
 	if session:
 		session.toggle_profiler("mcp_frame_profiler", enable)
+
+
+# True when the debugger has paused the running game (script error, failed
+# assert, or breakpoint). A break suspends whatever bridge handler was running
+# mid-call, so relays that would otherwise time out can detect and recover.
+func is_session_breaked() -> bool:
+	if _active_session_id < 0:
+		return false
+	var session := get_session(_active_session_id)
+	return session != null and session.is_breaked()
+
+
+# Resume a debugger-paused game. EditorDebuggerSession exposes no continue API,
+# but the raw "continue" command is the same wire message the editor's Continue
+# button sends (ScriptEditorDebugger::_put_msg), and the game's RemoteDebugger
+# handles it in its break loop. Returns false when there is nothing to resume.
+func continue_session() -> bool:
+	if _active_session_id < 0:
+		return false
+	var session := get_session(_active_session_id)
+	if session == null or not session.is_breaked():
+		return false
+	session.send_message("continue", [])
+	return true
