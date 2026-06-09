@@ -287,6 +287,7 @@ const SEQUENCE_MAX_CAPTURES := 8
 # Capped well under the 30s server command timeout: the sequence runs until its
 # last capture offset, so a larger value would let the whole call time out
 # server-side. 20s is already far longer than any transient-visual capture needs.
+# This bound is a placeholder for the global-timeout fix tracked in godot-mcp#276.
 const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 20000
 # Actions whose press has been injected but whose paired release has not yet
 # fired. Used to guarantee a release even if the queue is cleared mid-flight
