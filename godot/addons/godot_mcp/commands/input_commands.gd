@@ -101,7 +101,16 @@ func _get_editor_input_map() -> Dictionary:
 			"name": action_name,
 			"events": event_strings,
 		})
-	return _success({"actions": actions, "source": "editor"})
+	# This map is read from the editor's in-memory InputMap, which is loaded at
+	# startup and goes stale if project.godot's [input] section is edited on disk
+	# (#245). Flag that so the caller knows the map may be incomplete and can
+	# recover with `godot_editor restart`. The game-running path above reads fresh
+	# from the bridge, so it never carries this.
+	var result := {"actions": actions, "source": "editor"}
+	var staleness := MCPUtils.detect_project_staleness()
+	if staleness.get("stale", false):
+		result["staleness"] = staleness
+	return _success(result)
 
 
 func _event_to_string(event: InputEvent) -> String:

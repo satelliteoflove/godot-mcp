@@ -125,6 +125,15 @@ func get_log_messages(params: Dictionary) -> Dictionary:
 	if clear:
 		MCPLogger.clear_errors()
 
+	# The phantom "Identifier not found: <autoload>" errors that mislead agents
+	# come from the editor running stale after project.godot was edited on disk
+	# (#245). When that divergence is present, attach it here so the caller reads
+	# the log and the "your editor is stale, restart it" advisory in one shot,
+	# instead of chasing compile errors that do not exist at runtime.
+	var staleness := MCPUtils.detect_project_staleness()
+	if staleness.get("stale", false):
+		result["staleness"] = staleness
+
 	return _success(result)
 
 

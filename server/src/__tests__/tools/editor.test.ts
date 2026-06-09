@@ -192,6 +192,45 @@ describe('editor tool', () => {
       const result = await editor.execute({ action: 'get_log_messages', since: 4, severity: 'error' }, ctx);
       expect(result).toBe('No new error messages since cursor 4.');
     });
+
+    it('surfaces a stale-project advisory alongside the messages when the addon flags it (#245)', async () => {
+      const ctx = createToolContext(mock);
+      const staleness = {
+        stale: true,
+        summary: 'project.godot was edited on disk after the editor loaded it: 1 autoload(s) added on disk (FX). Run `godot_editor restart` to reload.',
+        autoload: { added: ['FX'], removed: [], changed: [] },
+        input: { added: [] },
+      };
+      mock.mockResponse({
+        total_count: 1, match_count: 1, returned_count: 1, cursor: 1,
+        messages: [{ timestamp: 1, type: 'Parser Error', message: 'Identifier not found: FX', file: 'res://a.gd', line: 1, error_type: 0, frames: [] }],
+        staleness,
+      });
+      const result = await editor.execute({ action: 'get_log_messages' }, ctx);
+      const structured = structuredOf(result);
+      expect(structured.advisory).toContain('STALE PROJECT SETTINGS:');
+      expect(structured.advisory).toContain('godot_editor restart');
+      expect(structured.staleness).toEqual(staleness);
+    });
+
+    it('appends the stale-project advisory even when no log lines matched', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({
+        total_count: 0, match_count: 0, returned_count: 0, cursor: 3, messages: [],
+        staleness: { stale: true, summary: 'autoload FX added on disk.' },
+      });
+      const result = await editor.execute({ action: 'get_log_messages', since: 3 }, ctx);
+      expect(result).toContain('No new messages since cursor 3.');
+      expect(result).toContain('STALE PROJECT SETTINGS:');
+    });
+
+    it('adds nothing when the addon reports the project is not stale', async () => {
+      const ctx = createToolContext(mock);
+      const responseData = { total_count: 0, match_count: 0, returned_count: 0, cursor: 0, messages: [], staleness: { stale: false } };
+      mock.mockResponse(responseData);
+      const result = await editor.execute({ action: 'get_log_messages' }, ctx);
+      expect(result).toBe('No messages (cursor 0).');
+    });
   });
 
   describe('get_stack_trace', () => {

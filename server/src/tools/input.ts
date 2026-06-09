@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { deriveTimeouts, INPUT_BUDGET_CAP_MS } from '../connection/timeouts.js';
+import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
 import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
 export const InputActionSchema = z.object({
@@ -101,10 +102,16 @@ export const input = defineTool({
         const result = await godot.sendCommand<{
           actions: InputMapAction[];
           source: string;
+          // Editor-sourced maps carry this when project.godot's [input] section was
+          // edited on disk after load (#245), so the map below may be incomplete.
+          // The game-sourced path reads fresh from the bridge and never sets it.
+          staleness?: ProjectStaleness;
         }>('get_input_map');
+        const advisory = staleAdvisory(result.staleness);
 
         if (result.actions.length === 0) {
-          return 'No custom input actions defined. Games should define actions in Project Settings > Input Map.';
+          const base = 'No custom input actions defined. Games should define actions in Project Settings > Input Map.';
+          return advisory ? `${base}\n${advisory}` : base;
         }
 
         const lines = [`Input actions (source: ${result.source}):`];
@@ -112,6 +119,7 @@ export const input = defineTool({
           const events = action.events.length > 0 ? action.events.join(', ') : 'no bindings';
           lines.push(`  ${action.name}: ${events}`);
         }
+        if (advisory) lines.push(advisory);
         return lines.join('\n');
       }
 

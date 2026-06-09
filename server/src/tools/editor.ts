@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
+import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
 import type { AnyToolDefinition, ImageContent, Vector3 } from '../core/types.js';
 
 interface ScreenshotResponse {
@@ -126,6 +127,10 @@ interface LogMessagesResponse {
   returned_count: number; // after the limit
   cursor: number; // highest seq issued so far; pass back as `since` for an incremental read
   messages: LogMessage[];
+  // Present only when project.godot was edited on disk after the editor loaded it
+  // (#245): the "Identifier not found" errors above may be phantom — see the
+  // surfaced advisory and run godot_editor restart.
+  staleness?: ProjectStaleness;
 }
 
 export const editor = defineTool({
@@ -205,17 +210,22 @@ export const editor = defineTool({
             since: args.since ?? 0,
           }
         );
+        // Surface a stale-project advisory whether or not any log lines matched:
+        // when stale, the phantom "Identifier not found" errors that mislead the
+        // caller live in this very buffer, so the fix belongs in the same reply.
+        const advisory = staleAdvisory(result.staleness);
         if (result.returned_count === 0) {
           // Nothing matched - but always hand back the cursor so the caller can
           // start (or continue) incremental reads from here. Without it, the
           // common "first check after a clean run" case would have no cursor to
           // poll from and would fall back to re-reading the whole buffer.
           const sev = args.severity && args.severity !== 'all' ? `${args.severity} ` : '';
-          return args.since !== undefined
+          const base = args.since !== undefined
             ? `No new ${sev}messages since cursor ${result.cursor}.`
             : `No ${sev}messages (cursor ${result.cursor}).`;
+          return advisory ? `${base}\n${advisory}` : base;
         }
-        return structured(result);
+        return advisory ? structured({ ...result, advisory }) : structured(result);
       }
 
       case 'get_stack_trace': {

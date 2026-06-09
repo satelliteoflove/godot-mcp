@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
+import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
 import type { AnyToolDefinition } from '../core/types.js';
 import { getServerVersion } from '../version.js';
 
@@ -21,6 +22,16 @@ const ProjectSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('addon_status').describe('Check addon/server version compatibility'),
+  }),
+  z.object({
+    action: z
+      .literal('check_stale')
+      .describe(
+        'Check whether project.godot was edited on disk after the editor loaded it, leaving the ' +
+        'editor with stale autoloads / input map (and phantom "Identifier not found" errors in its ' +
+        'log that do not exist at runtime). Returns the disk-vs-editor divergence; run godot_editor ' +
+        'restart to reload. Useful right after editing project.godot as a file.'
+      ),
   }),
 ]);
 
@@ -85,6 +96,12 @@ export const project = defineTool({
               : `Version mismatch. Close Godot and run: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`,
           }
         );
+      }
+
+      case 'check_stale': {
+        const result = await godot.sendCommand<ProjectStaleness>('get_project_staleness');
+        const advisory = staleAdvisory(result);
+        return advisory ? structured({ ...result, advisory }) : structured(result);
       }
     }
   },

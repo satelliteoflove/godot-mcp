@@ -6,8 +6,16 @@ class_name MCPProjectCommands
 func get_commands() -> Dictionary:
 	return {
 		"get_project_info": get_project_info,
-		"get_project_settings": get_project_settings
+		"get_project_settings": get_project_settings,
+		"get_project_staleness": get_project_staleness,
 	}
+
+
+# Detect whether project.godot was edited on disk after the editor loaded it,
+# leaving the editor's in-memory ProjectSettings / InputMap stale (#245). Always
+# returns the full report (stale or not); recovery is `godot_editor restart`.
+func get_project_staleness(_params: Dictionary) -> Dictionary:
+	return _success(MCPUtils.detect_project_staleness())
 
 
 func get_project_info(_params: Dictionary) -> Dictionary:
