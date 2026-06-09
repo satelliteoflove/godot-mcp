@@ -118,10 +118,10 @@ describe('editor tool', () => {
   });
 
   describe('get_log_messages', () => {
-    it('returns "No log messages" when empty', async () => {
+    it('returns the cursor even when empty, so a first check can start polling', async () => {
       const ctx = createToolContext(mock);
-      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
-      expect(await editor.execute({ action: 'get_log_messages' }, ctx)).toBe('No log messages');
+      mock.mockResponse({ total_count: 0, match_count: 0, returned_count: 0, cursor: 0, messages: [] });
+      expect(await editor.execute({ action: 'get_log_messages' }, ctx)).toBe('No messages (cursor 0).');
     });
 
     it('returns JSON with messages when present', async () => {
@@ -144,6 +144,53 @@ describe('editor tool', () => {
       mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
       await editor.execute({ action: 'get_log_messages', limit: 10 }, ctx);
       expect(mock.calls[0].params.limit).toBe(10);
+    });
+
+    it('defaults severity to "all" and since to 0', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ total_count: 0, match_count: 0, returned_count: 0, cursor: 0, messages: [] });
+      await editor.execute({ action: 'get_log_messages' }, ctx);
+      expect(mock.calls[0].params.severity).toBe('all');
+      expect(mock.calls[0].params.since).toBe(0);
+    });
+
+    it('passes severity and since filters through to Godot', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ total_count: 5, match_count: 0, returned_count: 0, cursor: 5, messages: [] });
+      await editor.execute({ action: 'get_log_messages', severity: 'error', since: 3 }, ctx);
+      expect(mock.calls[0].params.severity).toBe('error');
+      expect(mock.calls[0].params.since).toBe(3);
+    });
+
+    it('surfaces cursor and match_count in the structured response', async () => {
+      const ctx = createToolContext(mock);
+      const responseData = {
+        total_count: 7,
+        match_count: 2,
+        returned_count: 2,
+        cursor: 7,
+        messages: [
+          { timestamp: 1, type: 'Error', message: 'boom', file: 'res://a.gd', line: 1, error_type: 0, frames: [] },
+          { timestamp: 2, type: 'Error', message: 'bang', file: 'res://b.gd', line: 2, error_type: 0, frames: [] },
+        ],
+      };
+      mock.mockResponse(responseData);
+      const result = await editor.execute({ action: 'get_log_messages', severity: 'error' }, ctx);
+      expect(structuredOf(result)).toEqual(responseData);
+    });
+
+    it('reports "no new messages" with the cursor when reading incrementally and nothing matched', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ total_count: 4, match_count: 0, returned_count: 0, cursor: 4, messages: [] });
+      const result = await editor.execute({ action: 'get_log_messages', since: 4 }, ctx);
+      expect(result).toBe('No new messages since cursor 4.');
+    });
+
+    it('names the severity in the "no new messages" reply when filtering', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ total_count: 4, match_count: 0, returned_count: 0, cursor: 4, messages: [] });
+      const result = await editor.execute({ action: 'get_log_messages', since: 4, severity: 'error' }, ctx);
+      expect(result).toBe('No new error messages since cursor 4.');
     });
   });
 

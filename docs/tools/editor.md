@@ -21,8 +21,10 @@ Control the Godot editor: get state, manage selection, run/stop project, restart
 | `scene_path` | string | No | Scene to run (optional, defaults to main scene) |
 | `frozen` | boolean | No | Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance. |
 | `save` | boolean | No | Save the project before restarting (default: true). Set false to discard unsaved editor changes. |
-| `clear` | boolean | No | Clear buffer after reading |
+| `clear` | boolean | No | Clear the editor error buffer after reading |
 | `limit` | integer | No | Maximum number of messages to return (default: 50) |
+| `severity` | `all`, `error`, `warning` | No | Filter by severity: "error" drops warnings (the "did anything actually break?" check), "warning" returns only warnings, "all" (default) returns both. |
+| `since` | integer | No | Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning). |
 | `max_width` | integer | No | Maximum width in pixels (default: 900) |
 | `quality` | integer | No | JPEG quality 1-100 (default: 75) |
 | `viewport` | `2d`, `3d` | No | Which editor viewport to capture |

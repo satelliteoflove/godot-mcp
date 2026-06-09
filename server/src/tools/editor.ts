@@ -63,9 +63,23 @@ const EditorSchema = z
         .describe('Save the project before restarting (default: true). Set false to discard unsaved editor changes.'),
     }),
     z.object({
-      action: z.literal('get_log_messages').describe('Get editor/game log messages'),
-      clear: z.boolean().optional().describe('Clear buffer after reading'),
+      action: z
+        .literal('get_log_messages')
+        .describe(
+          'Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp\'s get_console_output (game console via DAP). Filter by severity (errors-only = "did my change break the editor?") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty.'
+        ),
+      clear: z.boolean().optional().describe('Clear the editor error buffer after reading'),
       limit: z.number().int().positive().optional().describe('Maximum number of messages to return (default: 50)'),
+      severity: z
+        .enum(['all', 'error', 'warning'])
+        .optional()
+        .describe('Filter by severity: "error" drops warnings (the "did anything actually break?" check), "warning" returns only warnings, "all" (default) returns both.'),
+      since: z
+        .number()
+        .int()
+        .nonnegative()
+        .optional()
+        .describe('Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning).'),
     }),
     z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
     z.object({
@@ -109,8 +123,10 @@ interface LogMessage {
 }
 
 interface LogMessagesResponse {
-  total_count: number;
-  returned_count: number;
+  total_count: number; // everything in the buffer, before filtering
+  match_count: number; // matched the severity/since filters, before the limit
+  returned_count: number; // after the limit
+  cursor: number; // highest seq issued so far; pass back as `since` for an incremental read
   messages: LogMessage[];
 }
 
@@ -187,10 +203,19 @@ export const editor = defineTool({
           {
             clear: args.clear ?? false,
             limit: args.limit ?? 50,
+            severity: args.severity ?? 'all',
+            since: args.since ?? 0,
           }
         );
         if (result.returned_count === 0) {
-          return 'No log messages';
+          // Nothing matched - but always hand back the cursor so the caller can
+          // start (or continue) incremental reads from here. Without it, the
+          // common "first check after a clean run" case would have no cursor to
+          // poll from and would fall back to re-reading the whole buffer.
+          const sev = args.severity && args.severity !== 'all' ? `${args.severity} ` : '';
+          return args.since !== undefined
+            ? `No new ${sev}messages since cursor ${result.cursor}.`
+            : `No ${sev}messages (cursor ${result.cursor}).`;
         }
         return structured(result);
       }

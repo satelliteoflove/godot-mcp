@@ -116,24 +116,16 @@ func _on_debug_output_received(output: PackedStringArray) -> void:
 
 func get_log_messages(params: Dictionary) -> Dictionary:
 	var clear: bool = params.get("clear", false)
-	var limit: int = params.get("limit", 50)
+	var limit: int = int(params.get("limit", 50))
+	var severity: String = params.get("severity", "all")
+	var since: int = int(params.get("since", 0))
 
-	var all_messages := MCPLogger.get_errors()
-	var total_count := all_messages.size()
-
-	var limited: Array[Dictionary] = []
-	var start_index := maxi(0, total_count - limit)
-	for i in range(start_index, total_count):
-		limited.append(all_messages[i])
+	var result := MCPLogger.query(since, severity, limit)
 
 	if clear:
 		MCPLogger.clear_errors()
 
-	return _success({
-		"total_count": total_count,
-		"returned_count": limited.size(),
-		"messages": limited,
-	})
+	return _success(result)
 
 
 func get_errors(params: Dictionary) -> Dictionary:
