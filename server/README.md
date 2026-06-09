@@ -14,6 +14,8 @@ This MCP gives Claude direct access to your Godot editor. It can see your scene 
 
 Add godot-mcp to your MCP client. See the [Installation Guide](INSTALL.md) for config examples (Claude Desktop, Claude Code, VSCode/Copilot, and more).
 
+While you're at it, add [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) too — it's a complementary server that covers static GDScript diagnostics and the running game's console output. See [Works Well With](#works-well-with).
+
 ### 2. Install the Godot addon
 
 ```bash
@@ -28,7 +30,7 @@ Open your Godot project, restart your AI assistant, and start building.
 
 ## What Claude Can Do
 
-- **See** your editor, scenes, running game, errors, and performance
+- **See** your editor, scenes, running game, editor errors, and performance
 - **Inspect** nodes, resources, animations, tilemaps, 3D spatial data
 - **Modify** scenes, nodes, scripts, animations, tilemaps directly
 - **Test** by running the game and injecting input
@@ -36,9 +38,11 @@ Open your Godot project, restart your AI assistant, and start building.
 
 ## Works Well With
 
-[minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) by [@ryanmazzolini](https://github.com/ryanmazzolini) is another MCP server for Godot. It focuses on language server diagnostics and console output via DAP, with no addon required. This project focuses on runtime control, scene manipulation, and everything that needs a direct line into the editor.
+[minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) by [@ryanmazzolini](https://github.com/ryanmazzolini) is another MCP server for Godot, and it's worth running alongside this one. This server drives the editor through an addon — scene and node manipulation, running the game, input injection, runtime state, screenshots, and editor-side errors (`@tool`, import, and addon failures). minimal-godot-mcp needs no addon and provides exactly the functionality this server does not implement: LSP diagnostics for fast static `.gd` checking, and the running game's console output and stderr over DAP.
 
-They don't overlap much, and they don't conflict. Run them side by side for the best coverage.
+Neither duplicates the other, and they don't conflict. Install both and you get static analysis and the live game console alongside full editor and runtime control.
+
+**One godot-mcp client at a time, though.** A Godot editor bridge serves a single godot-mcp connection. If a second godot-mcp client connects - for example, a subagent that inherited the same MCP config - it is rejected while the first is active rather than displacing it, so the original session keeps working. The second client retries and connects automatically once the first disconnects. A client that crashes without closing its socket is taken over after a short idle timeout, so a dead session never permanently blocks new connections.
 
 ## Documentation
 
