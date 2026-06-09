@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.12.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.11.0...godot-mcp-v3.12.0) (2026-06-09)
+
+
+### Features
+
+* capture frames mid-input-sequence for transient visuals ([#274](https://github.com/satelliteoflove/godot-mcp/issues/274)) ([d1a9061](https://github.com/satelliteoflove/godot-mcp/commit/d1a9061ed0eacad16bf2703f8584fcaa011e27e8))
+* emit screenshots as lossless PNG instead of JPEG ([#275](https://github.com/satelliteoflove/godot-mcp/issues/275)) ([ad4af24](https://github.com/satelliteoflove/godot-mcp/commit/ad4af2465ddb4ca0247b651aa7fa92c50e33c354))
+
 ## [3.11.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.10.1...godot-mcp-v3.11.0) (2026-06-09)
 
 
