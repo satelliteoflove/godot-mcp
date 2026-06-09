@@ -123,6 +123,15 @@ describe('runtimeState tool', () => {
         runtimeState.schema.safeParse({ action: 'watch_start', signals: [{ path: '/root/G' }] }).success
       ).toBe(false);
     });
+
+    it('rejects blank signal paths and names (blank entries would skew the drop detection)', () => {
+      expect(
+        runtimeState.schema.safeParse({ action: 'watch_start', signals: [{ path: '', signal: 'died' }] }).success
+      ).toBe(false);
+      expect(
+        runtimeState.schema.safeParse({ action: 'watch_start', signals: [{ path: '/root/G', signal: '' }] }).success
+      ).toBe(false);
+    });
   });
 
   // ── digest ───────────────────────────────────────────────────────────────
@@ -224,8 +233,8 @@ describe('runtimeState tool', () => {
   // ── watch_start ──────────────────────────────────────────────────────────
 
   describe('watch_start', () => {
-    it('calls watch_start with specs, hz, duration_ms and returns confirmation', async () => {
-      mock.mockResponse({ started: true });
+    it('calls watch_start with specs, hz, duration_ms and returns a structured confirmation', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 2 });
       const ctx = createToolContext(mock);
 
       const result = await runtimeState.execute(
@@ -238,8 +247,11 @@ describe('runtimeState tool', () => {
         ctx
       );
 
-      expect(typeof result).toBe('string');
-      expect(result).toContain('500');
+      const data = structuredOf(result);
+      expect(data.started).toBe(true);
+      expect(data.note).toContain('500');
+      expect(data.resolved_fields).toBe(2);
+      expect(data.warnings).toEqual([]);
       expect(mock.calls[0].command).toBe('watch_start');
       expect(mock.calls[0].params.hz).toBe(30);
       expect(mock.calls[0].params.duration_ms).toBe(500);
@@ -277,7 +289,7 @@ describe('runtimeState tool', () => {
       expect(mock.calls[1].params.specs).toEqual([]);
     });
 
-    it('reports connected signal count in the confirmation text', async () => {
+    it('reports the connected signal count structurally', async () => {
       mock.mockResponse({ started: true, resolved_fields: 0, connected_signals: 2, unresolved_signals: [] });
       const ctx = createToolContext(mock);
 
@@ -291,10 +303,13 @@ describe('runtimeState tool', () => {
         },
         ctx
       );
-      expect(result).toContain('Connected 2 signal(s)');
+      const data = structuredOf(result);
+      expect(data.connected_signals).toBe(2);
+      expect(data.unresolved_signals).toEqual([]);
+      expect(data.warnings).toEqual([]);
     });
 
-    it('names unresolved signals with their reasons', async () => {
+    it('passes unresolved signals through structurally and names them in warnings', async () => {
       mock.mockResponse({
         started: true,
         resolved_fields: 0,
@@ -307,7 +322,9 @@ describe('runtimeState tool', () => {
         { action: 'watch_start', signals: [{ path: '/root/Bogus', signal: 'died' }] },
         ctx
       );
-      expect(result).toContain('/root/Bogus:died (node_not_found)');
+      const data = structuredOf(result);
+      expect(data.unresolved_signals).toEqual([{ path: '/root/Bogus', signal: 'died', reason: 'node_not_found' }]);
+      expect(data.warnings.some((w: string) => w.includes('/root/Bogus:died (node_not_found)'))).toBe(true);
     });
 
     it('does not warn about 0 fields on a signals-only watch', async () => {
@@ -318,7 +335,7 @@ describe('runtimeState tool', () => {
         { action: 'watch_start', signals: [{ path: '/root/G', signal: 'wave_started' }] },
         ctx
       );
-      expect(result).not.toContain('0 fields resolved');
+      expect(structuredOf(result).warnings).toEqual([]);
     });
 
     it('still warns when specs were requested but none resolved', async () => {
@@ -329,7 +346,67 @@ describe('runtimeState tool', () => {
         { action: 'watch_start', specs: [{ path: '/root/Nope', fields: ['pos.x'] }] },
         ctx
       );
-      expect(result).toContain('0 fields resolved');
+      expect(structuredOf(result).warnings.some((w: string) => w.includes('0 fields resolved'))).toBe(true);
+    });
+
+    it('detects an addon that predates the timeline (signals silently ignored)', async () => {
+      // Old game bridge: response has no connected_signals key at all.
+      mock.mockResponse({ started: true, resolved_fields: 1 });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        {
+          action: 'watch_start',
+          specs: [{ path: '/root/Player', fields: ['pos.x'] }],
+          signals: [{ path: '/root/G', signal: 'wave_started' }],
+        },
+        ctx
+      );
+      const data = structuredOf(result);
+      expect(data.warnings.some((w: string) => w.includes('update the godot-mcp addon'))).toBe(true);
+    });
+
+    it('detects a stale editor relay dropping signal specs in transit', async () => {
+      // New bridge (keys present) but fewer accounted-for signals than requested:
+      // the editor-loaded relay predates the 4th wire element.
+      mock.mockResponse({ started: true, resolved_fields: 0, connected_signals: 0, unresolved_signals: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        {
+          action: 'watch_start',
+          signals: [
+            { path: '/root/G', signal: 'wave_started' },
+            { path: '/root/G', signal: 'score_changed' },
+          ],
+        },
+        ctx
+      );
+      const data = structuredOf(result);
+      expect(data.warnings.some((w: string) => w.includes('restart the Godot editor'))).toBe(true);
+    });
+
+    it('raises no skew warning when every requested signal is accounted for', async () => {
+      mock.mockResponse({
+        started: true,
+        resolved_fields: 0,
+        connected_signals: 1,
+        unresolved_signals: [{ path: '/root/Bogus', signal: 'nope', reason: 'node_not_found' }],
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        {
+          action: 'watch_start',
+          signals: [
+            { path: '/root/G', signal: 'wave_started' },
+            { path: '/root/Bogus', signal: 'nope' },
+          ],
+        },
+        ctx
+      );
+      const data = structuredOf(result);
+      expect(data.warnings.some((w: string) => w.includes('restart') || w.includes('update'))).toBe(false);
     });
   });
 

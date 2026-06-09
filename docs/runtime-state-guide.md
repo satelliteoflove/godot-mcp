@@ -281,18 +281,27 @@ per-field summaries:
 ]
 ```
 
-- `signal` entries are exact emission times; built-in signals (`body_entered`, ...) work the
-  same as script signals. Signal connections live for the whole window — until `duration_ms`
-  elapses or `watch_stop` — regardless of mid-window `watch_collect` calls.
+- `signal` entries carry emission-time stamps (millisecond resolution); built-in signals
+  (`body_entered`, ...) work the same as script signals. Signal connections live for the whole
+  window — until `duration_ms` elapses or `watch_stop` — regardless of mid-window
+  `watch_collect` calls. Same-millisecond signal entries keep emission order; the order of
+  same-millisecond entries of *different* kinds is a fixed presentation order (signal,
+  anim_transition, field_change), not chronology.
 - `anim_transition` and `field_change` entries come from the sampled string fields, so their
-  timestamps are detection times at the sample rate. Watching the `anim` field on an
-  `AnimationPlayer`, `AnimatedSprite2D`, or `AnimationTree` (state-machine root; other roots
-  such as BlendTree yield nothing) gets you state transitions on the timeline for free — as
-  does any string key you expose via `_mcp_state()`.
+  timestamps are detection times at the sample rate — the change happened up to one sample
+  interval earlier. Do not infer cross-kind ordering from nearby timestamps. Watching the
+  `anim` field on an `AnimationPlayer`, `AnimatedSprite2D`, or `AnimationTree` (state-machine
+  root; other roots such as BlendTree yield nothing) gets you state transitions on the
+  timeline for free — as does any string key you expose via `_mcp_state()`.
 - Caps: 16 signal connections per watch, 200 events per window (`timeline_truncated: true`
   when exceeded — beware high-frequency signals like `body_shape_entered`), signal args
   stringified to ~100 chars. Bad paths/names, duplicates, and signals with more than 5
   parameters are skipped and reported by name in `unresolved_signals`.
+- Limitations: signals must be emitted on the main thread (worker-thread or
+  threaded-physics emissions are unsupported). Sampled-field history is capped at 200
+  samples per field, so at `hz` above 40 a 5-second window saturates before it ends and
+  late `anim_transition`/`field_change` entries silently stop — `timeline_truncated` covers
+  only the signal-event budget.
 
 ---
 

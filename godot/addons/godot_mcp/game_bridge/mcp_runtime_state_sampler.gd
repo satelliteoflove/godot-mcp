@@ -74,19 +74,21 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 		var sig_name: String = str(sig_spec.get("signal", ""))
 		if sig_path.is_empty() or sig_name.is_empty():
 			continue
-		var dedupe_key := sig_path + "\n" + sig_name
-		# Duplicate specs would double-connect (our lambdas are distinct Callables,
-		# so connect() would not reject the second one) and double-record.
+		var emitter := _resolve_node(sig_path)
+		if emitter == null:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "node_not_found"})
+			continue
+		# Dedupe on the RESOLVED node, not the path string: two spellings of the
+		# same node ("/root/Scene/Child" vs "Child") would otherwise both
+		# connect (our lambdas are distinct Callables, so connect() would not
+		# reject the second one) and double-record every emission.
+		var dedupe_key := str(emitter.get_instance_id()) + "\n" + sig_name
 		if seen.has(dedupe_key):
 			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "duplicate"})
 			continue
 		seen[dedupe_key] = true
 		if connected >= MAX_SIGNALS:
 			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "signal_cap"})
-			continue
-		var emitter := _resolve_node(sig_path)
-		if emitter == null:
-			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "node_not_found"})
 			continue
 		var arg_count := _signal_arg_count(emitter, sig_name)
 		if arg_count < 0:
@@ -96,8 +98,13 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "unsupported_arity"})
 			continue
 		var cb := _make_recorder(sig_path, sig_name, arg_count)
-		# Immediate (not deferred) connect: exact emission-time recording, and the
-		# recorder only appends to an Array -- safe inside physics callbacks.
+		# Immediate (not deferred) connect: emission-time recording, and the
+		# recorder only appends to an Array -- safe inside main-thread physics
+		# callbacks. NOT safe for signals emitted off the main thread (worker
+		# threads, run_on_separate_thread physics): the append races collect().
+		# Deferred connect would fix that but quantizes t_ms to frame
+		# boundaries, destroying the exact-timing property -- documented as a
+		# main-thread-emission limitation instead.
 		if emitter.connect(StringName(sig_name), cb) != OK:
 			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "connect_failed"})
 			continue
@@ -245,7 +252,10 @@ func collect() -> Dictionary:
 
 func stop() -> Dictionary:
 	_active = false
-	_stop_time = Time.get_ticks_msec()
+	# Don't clobber an auto-stop's timestamp: a late manual stop would inflate
+	# window_ms to the call time instead of the actual window end.
+	if _stop_time == 0:
+		_stop_time = Time.get_ticks_msec()
 	set_process(false)
 	_disconnect_all()
 	return collect()

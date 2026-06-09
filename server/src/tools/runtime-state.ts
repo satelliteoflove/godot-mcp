@@ -142,8 +142,10 @@ export type TimelineEntry =
   | { t_ms: number; kind: 'field_change'; source: string; field: string; from: string; to: string };
 
 const TIMELINE_KIND_RANK: Record<TimelineEntry['kind'], number> = {
-  // Signal timestamps are exact emission times; sampled transitions are
-  // detected at sample time — exact events lead on t_ms ties.
+  // PRESENTATION order for same-t_ms entries, not chronology: cross-kind order
+  // at a tie is unknowable (signal t_ms is emission time, sampled t_ms is
+  // detection time — the change may have happened earlier). Any fixed choice
+  // is fine; what matters is determinism.
   signal: 0,
   anim_transition: 1,
   field_change: 2,
@@ -294,9 +296,11 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         z.object({
           path: z
             .string()
+            .min(1)
             .describe('Node path; absolute /root/... paths reach autoloads (e.g. "/root/G")'),
           signal: z
             .string()
+            .min(1)
             .describe('Signal name on that node — script or built-in (e.g. "body_entered")'),
         })
       )
@@ -308,7 +312,9 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'flag; args stringified to ~100 chars). watch_collect merges these with string-field ' +
         'transitions into a time-sorted `timeline`. Signals with more than 5 parameters are ' +
         'skipped and reported in unresolved_signals, as are bad paths/names. Connections stay ' +
-        'live until duration_ms elapses or watch_stop.'
+        'live until duration_ms elapses or watch_stop. Signals must be emitted on the main ' +
+        'thread (worker-thread emissions are unsupported). At least one of specs/signals is ' +
+        'required.'
       ),
     hz: z
       .number()
@@ -334,7 +340,10 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'Collect the current sampler buffer and return a per-field summary ' +
         '(start/end/min/max/mean/slope for numeric fields; transition events for string fields) ' +
         'plus a time-sorted `timeline` merging watched signal emissions with string-field ' +
-        'transitions (kinds: signal, anim_transition, field_change). ' +
+        'transitions (kinds: signal, anim_transition, field_change). TIMESTAMPS: signal t_ms is ' +
+        'emission time (ms resolution); anim/field t_ms is DETECTION time at the sample rate — ' +
+        'the change happened up to one sample interval earlier, so do not infer cross-kind ' +
+        'ordering from nearby timestamps. ' +
         'Safe to call before auto-stop — returns whatever has been recorded so far; ' +
         'signal connections stay live until the window ends.'
       ),
@@ -396,22 +405,42 @@ export const runtimeState = defineTool({
           signals: args.signals ?? [],
         });
         const wantFields = (args.specs?.length ?? 0) > 0;
-        const wantSignals = (args.signals?.length ?? 0) > 0;
-        let msg = `Sampler started. Call watch_collect after ~${args.duration_ms ?? 1000}ms to get results.`;
-        if (wantFields) {
-          msg += (watchResult.resolved_fields ?? 0) === 0
-            ? ' Warning: 0 fields resolved — verify that all node paths in specs exist in the running scene.'
-            : ` Tracking ${watchResult.resolved_fields} field(s).`;
+        const requestedSignals = args.signals?.length ?? 0;
+        const unresolved = watchResult.unresolved_signals ?? [];
+        const warnings: string[] = [];
+        if (wantFields && (watchResult.resolved_fields ?? 0) === 0) {
+          warnings.push('0 fields resolved — verify that all node paths in specs exist in the running scene.');
         }
-        if (wantSignals) {
-          msg += ` Connected ${watchResult.connected_signals ?? 0} signal(s).`;
-          const unresolved = watchResult.unresolved_signals ?? [];
+        if (requestedSignals > 0) {
+          // Version-skew detection: without it, dropped signal specs read as
+          // "Connected 0 signal(s)" + an empty timeline, and the agent
+          // concludes the signals never fired — a confident lie about game
+          // behavior. Both stale layers are precisely distinguishable here.
+          if (watchResult.connected_signals === undefined) {
+            warnings.push(
+              'signals were IGNORED: the running addon predates the signal timeline feature — update the godot-mcp addon.'
+            );
+          } else if (watchResult.connected_signals + unresolved.length < requestedSignals) {
+            warnings.push(
+              `${requestedSignals - watchResult.connected_signals - unresolved.length} signal spec(s) were dropped in ` +
+              'transit: the addon on disk is newer than what the editor has loaded — restart the Godot editor.'
+            );
+          }
           if (unresolved.length > 0) {
-            const named = unresolved.map((u) => `${u.path}:${u.signal} (${u.reason})`).join(', ');
-            msg += ` Warning: unresolved signals: ${named}.`;
+            warnings.push(`unresolved signals: ${unresolved.map((u) => `${u.path}:${u.signal} (${u.reason})`).join(', ')}.`);
           }
         }
-        return msg;
+        // Structured with a stable shape (unresolved_signals/warnings always
+        // arrays): an agent must branch on unresolved reasons to retry
+        // correctly, which prose can't carry reliably.
+        return structured({
+          started: watchResult.started,
+          note: `Sampler started. Call watch_collect after ~${args.duration_ms ?? 1000}ms to get results.`,
+          resolved_fields: watchResult.resolved_fields ?? 0,
+          connected_signals: watchResult.connected_signals ?? 0,
+          unresolved_signals: unresolved,
+          warnings,
+        });
       }
 
       case 'watch_collect': {

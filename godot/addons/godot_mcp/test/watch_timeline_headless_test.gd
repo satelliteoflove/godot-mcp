@@ -54,6 +54,7 @@ func _run() -> void:
 	await _test_freed_field_node(sampler)
 	_test_reporting(sampler, emitter)
 	await _test_field_absolute_path(sampler)
+	_test_alias_dedupe(sampler)
 	_test_resolution_preservation(sampler)
 	await _test_animation_tree(sampler)
 
@@ -170,6 +171,15 @@ func _test_auto_stop(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void
 	_check("auto-stop: emission after window not recorded",
 		(sampler.collect().get("events") as Array).size(), 1)
 
+	# window_ms honesty: a late manual stop must NOT inflate the window to the
+	# call time (stop() used to clobber the auto-stop timestamp).
+	var settled: int = sampler.collect().get("window_ms")
+	await _pump_ms(200)
+	_check("auto-stop: window_ms stable across late collects",
+		sampler.collect().get("window_ms"), settled)
+	_check("auto-stop: late stop() keeps the auto-stop window_ms",
+		sampler.stop().get("window_ms"), settled)
+
 
 func _test_restart_cleanup(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
 	_start_signals(sampler, [{"path": "/root/FakeAutoload", "signal": "fired"}])
@@ -278,6 +288,34 @@ func _test_field_absolute_path(sampler: MCPRuntimeStateSampler) -> void:
 	_check("fields: autoload-style property sampled", samples.size() > 0, true)
 	if samples.size() > 0:
 		_check("fields: sampled value correct", samples[0].get("value"), 7)
+
+
+func _test_alias_dedupe(sampler: MCPRuntimeStateSampler) -> void:
+	# Two spellings of the SAME node must not double-connect: dedupe is on the
+	# resolved instance, not the path string.
+	var scene := Node.new()
+	scene.name = "AliasScene"
+	var child := _Emitter.new()
+	child.name = "AliasChild"
+	scene.add_child(child)
+	root.add_child(scene)
+	current_scene = scene
+
+	var res := _start_signals(sampler, [
+		{"path": "/root/AliasScene/AliasChild", "signal": "fired"},
+		{"path": "AliasChild", "signal": "fired"},
+	])
+	_check("alias: only one connection for two spellings", res.get("connected_signals"), 1)
+	var unresolved: Array = res.get("unresolved_signals", [])
+	_check("alias: second spelling reported as duplicate",
+		unresolved.size() == 1 and unresolved[0].get("reason") == "duplicate", true)
+	child.fired.emit()
+	_check("alias: one emission records one event",
+		(sampler.stop().get("events") as Array).size(), 1)
+
+	current_scene = null
+	root.remove_child(scene)
+	scene.free()
 
 
 func _test_resolution_preservation(sampler: MCPRuntimeStateSampler) -> void:
