@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.14.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.13.0...godot-mcp-v3.14.0) (2026-06-09)
+
+
+### Features
+
+* detect and report stale editor ProjectSettings after external project.godot edits ([#280](https://github.com/satelliteoflove/godot-mcp/issues/280)) ([e021ad6](https://github.com/satelliteoflove/godot-mcp/commit/e021ad688fd14668748531b0ee5e4451b0f0e420))
+
 ## [3.13.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.12.0...godot-mcp-v3.13.0) (2026-06-09)
 
 
