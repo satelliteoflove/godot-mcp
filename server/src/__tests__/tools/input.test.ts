@@ -50,6 +50,27 @@ describe('input tool', () => {
         report: [1, 2],
       }).success).toBe(false);
     });
+
+    it('accepts screenshot_at_ms offsets (max 8, non-negative ints)', () => {
+      expect(input.schema.safeParse({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire' }],
+        screenshot_at_ms: [0, 100, 300],
+        screenshot_max_width: 480,
+      }).success).toBe(true);
+      // more than 8 offsets is rejected
+      expect(input.schema.safeParse({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire' }],
+        screenshot_at_ms: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+      }).success).toBe(false);
+      // negative offsets are rejected
+      expect(input.schema.safeParse({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire' }],
+        screenshot_at_ms: [-1],
+      }).success).toBe(false);
+    });
   });
 
   describe('get_map', () => {
@@ -194,6 +215,65 @@ describe('input tool', () => {
 
       expect(result).toContain('PAUSED');
       expect(result).toContain('gameplay 0ms / wall 2000ms');
+    });
+
+    it('returns a multi-content result (summary + image blocks) when frames are captured', async () => {
+      mock.mockResponse({
+        completed: true,
+        actions_executed: 1,
+        scene: 'res://arena.tscn',
+        gameplay_ms: 320,
+        wall_ms: 322,
+        captures: [
+          { requested_ms: 50, actual_ms: 52, ok: true, image_base64: 'AAAA', width: 640, height: 360, error: '' },
+          { requested_ms: 200, actual_ms: 205, ok: true, image_base64: 'BBBB', width: 640, height: 360, error: '' },
+        ],
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 300 }],
+        screenshot_at_ms: [50, 200],
+      }, ctx);
+
+      expect(mock.calls[0].params.screenshot_at_ms).toEqual([50, 200]);
+      expect(Array.isArray(result)).toBe(true);
+      const blocks = result as Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+      // [summary, label, image, label, image]
+      expect(blocks).toHaveLength(5);
+      expect(blocks[0].type).toBe('text');
+      expect(blocks[0].text).toContain('Captured 2/2 frame(s)');
+      expect(blocks[2]).toEqual({ type: 'image', data: 'AAAA', mimeType: 'image/png' });
+      expect(blocks[4]).toEqual({ type: 'image', data: 'BBBB', mimeType: 'image/png' });
+      expect(blocks[1].text).toContain('@52ms (requested 50ms)');
+    });
+
+    it('renders a failed capture as a note, not an image block', async () => {
+      mock.mockResponse({
+        completed: true,
+        actions_executed: 1,
+        scene: 'res://arena.tscn',
+        captures: [
+          { requested_ms: 50, actual_ms: 51, ok: true, image_base64: 'AAAA', width: 640, height: 360, error: '' },
+          { requested_ms: 200, actual_ms: 0, ok: false, image_base64: '', width: 0, height: 0, error: 'CAPTURE_FAILED: could not read viewport image' },
+        ],
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 300 }],
+        screenshot_at_ms: [50, 200],
+      }, ctx);
+
+      expect(Array.isArray(result)).toBe(true);
+      const blocks = result as Array<{ type: string; text?: string }>;
+      // [summary, label, image, failure-note] — only one image
+      expect(blocks.filter((b) => b.type === 'image')).toHaveLength(1);
+      const noteBlock = blocks.find((b) => b.type === 'text' && b.text?.includes('capture failed'));
+      expect(noteBlock?.text).toContain('CAPTURE_FAILED');
+      expect((blocks[0].text)).toContain('Captured 1/2 frame(s)');
     });
   });
 

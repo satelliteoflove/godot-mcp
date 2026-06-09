@@ -17,7 +17,12 @@ export interface StructuredToolResult {
   structuredContent: Record<string, unknown>;
 }
 
-export type ToolExecuteResult = string | ToolResult | StructuredToolResult;
+// An ordered list of content blocks returned as the MCP result's `content`
+// array, for a single call that yields several observations at once — e.g. a
+// text summary followed by several captured frames (godot_input sequence).
+export type MultiContentResult = ToolResult[];
+
+export type ToolExecuteResult = string | ToolResult | MultiContentResult | StructuredToolResult;
 
 // MCP tool annotations: advisory hints clients use to label tools and decide
 // auto-approval. See the MCP spec's ToolAnnotations.

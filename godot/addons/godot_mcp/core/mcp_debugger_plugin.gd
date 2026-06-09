@@ -8,6 +8,7 @@ signal performance_metrics_received(metrics: Dictionary)
 signal find_nodes_received(matches: Array, count: int, error: String)
 signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
+signal sequence_capture_received(requested_ms: int, actual_ms: int, ok: bool, image_base64: String, width: int, height: int, error: String)
 signal type_text_completed(result: Dictionary)
 signal game_response(message_type: String, data: Variant)
 signal bridge_ready()
@@ -51,6 +52,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:input_sequence_result":
 			_handle_input_sequence_result(data)
+			return true
+		"godot_mcp:sequence_capture":
+			_handle_sequence_capture(data)
 			return true
 		"godot_mcp:type_text_result":
 			_handle_type_text_result(data)
@@ -229,14 +233,14 @@ func _handle_input_map_result(data: Array) -> void:
 	input_map_received.emit(actions, error)
 
 
-func request_input_sequence(inputs: Array, report: Array = []) -> void:
+func request_input_sequence(inputs: Array, report: Array = [], screenshots: Array = [], screenshot_max_width: int = 640) -> void:
 	if _active_session_id < 0:
 		input_sequence_completed.emit({"error": "No active game session"})
 		return
 	_pending_input_sequence = true
 	var session := get_session(_active_session_id)
 	if session:
-		session.send_message("godot_mcp:execute_input_sequence", [inputs, report])
+		session.send_message("godot_mcp:execute_input_sequence", [inputs, report, screenshots, screenshot_max_width])
 	else:
 		_pending_input_sequence = false
 		input_sequence_completed.emit({"error": "Could not get debugger session"})
@@ -246,6 +250,20 @@ func _handle_input_sequence_result(data: Array) -> void:
 	_pending_input_sequence = false
 	var result: Dictionary = data[0] if data.size() > 0 else {}
 	input_sequence_completed.emit(result)
+
+
+# A mid-sequence frame capture (#239) arriving on its own message. Re-emitted for
+# the editor command to collect; the final input_sequence_result follows once the
+# bridge has sent every requested frame.
+func _handle_sequence_capture(data: Array) -> void:
+	var requested_ms: int = int(data[0]) if data.size() > 0 else 0
+	var actual_ms: int = int(data[1]) if data.size() > 1 else 0
+	var ok: bool = bool(data[2]) if data.size() > 2 else false
+	var base64: String = String(data[3]) if data.size() > 3 else ""
+	var width: int = int(data[4]) if data.size() > 4 else 0
+	var height: int = int(data[5]) if data.size() > 5 else 0
+	var error: String = String(data[6]) if data.size() > 6 else ""
+	sequence_capture_received.emit(requested_ms, actual_ms, ok, base64, width, height, error)
 
 
 func request_type_text(text: String, delay_ms: int, submit: bool) -> void:

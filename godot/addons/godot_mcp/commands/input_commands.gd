@@ -14,6 +14,9 @@ var _input_map_pending: bool = false
 
 var _sequence_result: Dictionary = {}
 var _sequence_pending: bool = false
+# Frames captured mid-sequence (#239), collected from sequence_capture_received
+# signals and attached to the result once the sequence completes.
+var _sequence_captures: Array = []
 
 
 var _type_text_result: Dictionary = {}
@@ -132,6 +135,8 @@ func _on_input_map_received(actions: Array, error: String) -> void:
 func execute_input_sequence(params: Dictionary) -> Dictionary:
 	var inputs: Array = params.get("inputs", [])
 	var report: Array = params.get("report", [])
+	var screenshots: Array = params.get("screenshot_at_ms", [])
+	var screenshot_max_width: int = int(params.get("screenshot_max_width", 640))
 	if inputs.is_empty():
 		return _error("INVALID_PARAMS", "inputs array is required and must not be empty")
 
@@ -144,19 +149,27 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	if not await _await_bridge_ready(debugger_plugin):
 		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
 
+	# The window can extend past the last input if a frame capture is requested
+	# at a later offset, so factor capture offsets into the timeout too.
 	var max_end_time: float = 0.0
 	for input in inputs:
 		var start_ms: float = input.get("start_ms", 0.0)
 		var duration_ms: float = input.get("duration_ms", 0.0)
 		max_end_time = max(max_end_time, start_ms + duration_ms)
+	for shot_ms in screenshots:
+		max_end_time = max(max_end_time, float(shot_ms))
 
 	var timeout := max(INPUT_TIMEOUT, (max_end_time / 1000.0) + 5.0)
 
 	_sequence_pending = true
 	_sequence_result = {}
+	_sequence_captures = []
 
+	# Captures stream in as separate signals before the final result; collect
+	# them for the duration of the wait (not one-shot), then detach.
+	debugger_plugin.sequence_capture_received.connect(_on_sequence_capture)
 	debugger_plugin.input_sequence_completed.connect(_on_sequence_completed, CONNECT_ONE_SHOT)
-	debugger_plugin.request_input_sequence(inputs, report)
+	debugger_plugin.request_input_sequence(inputs, report, screenshots, screenshot_max_width)
 
 	var start_time := Time.get_ticks_msec()
 	while _sequence_pending:
@@ -165,10 +178,18 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 			_sequence_pending = false
 			if debugger_plugin.input_sequence_completed.is_connected(_on_sequence_completed):
 				debugger_plugin.input_sequence_completed.disconnect(_on_sequence_completed)
+			if debugger_plugin.sequence_capture_received.is_connected(_on_sequence_capture):
+				debugger_plugin.sequence_capture_received.disconnect(_on_sequence_capture)
 			return _error("TIMEOUT", "Timed out waiting for input sequence to complete")
+
+	if debugger_plugin.sequence_capture_received.is_connected(_on_sequence_capture):
+		debugger_plugin.sequence_capture_received.disconnect(_on_sequence_capture)
 
 	if _sequence_result.has("error"):
 		return _error("SEQUENCE_ERROR", _sequence_result.get("error", "Unknown error"))
+
+	if not _sequence_captures.is_empty():
+		_sequence_result["captures"] = _sequence_captures
 
 	return _success(_sequence_result)
 
@@ -176,6 +197,18 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 func _on_sequence_completed(result: Dictionary) -> void:
 	_sequence_pending = false
 	_sequence_result = result
+
+
+func _on_sequence_capture(requested_ms: int, actual_ms: int, ok: bool, image_base64: String, width: int, height: int, error: String) -> void:
+	_sequence_captures.append({
+		"requested_ms": requested_ms,
+		"actual_ms": actual_ms,
+		"ok": ok,
+		"image_base64": image_base64,
+		"width": width,
+		"height": height,
+		"error": error,
+	})
 
 
 func type_text(params: Dictionary) -> Dictionary:

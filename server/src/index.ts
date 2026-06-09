@@ -51,6 +51,13 @@ export async function main() {
           content: [{ type: 'text', text: result }],
         };
       }
+      // An array is a multi-content result (text + image blocks in order) —
+      // checked before isStructuredResult since arrays are objects too.
+      if (Array.isArray(result)) {
+        return {
+          content: result,
+        };
+      }
       if (isStructuredResult(result)) {
         return {
           content: [{ type: 'text', text: result.text }],

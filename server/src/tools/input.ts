@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
-import type { AnyToolDefinition } from '../core/types.js';
+import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
 export const InputActionSchema = z.object({
   action_name: z.string().describe('The input action name from the project Input Map'),
@@ -31,6 +31,32 @@ const InputSchema = z.discriminatedUnion('action', [
         'Expressions do NOT short-circuit and a parse/eval error rejects the call. The after-reading ' +
         'is sampled a couple frames past the final input, so only near-immediate effects register — ' +
         'for slower effects use godot_game_time or runtime_state watch.'
+      ),
+    screenshot_at_ms: z
+      .array(z.number().int().min(0))
+      .max(8)
+      .optional()
+      .describe(
+        'Optional: millisecond offsets (from sequence start) at which to capture a lossless PNG ' +
+        'frame DURING the real-time run. The bridge owns the sequence clock, so it grabs each frame ' +
+        'at the right moment and returns them with the result — letting you catch transient visuals ' +
+        '(muzzle flashes, explosions, kill banners) that fade long before a separate screenshot ' +
+        'call could land. Up to 8 frames, each returned as an image labeled with its actual offset. ' +
+        'COST: each frame costs vision tokens by RESOLUTION (~width*height/750), independent of ' +
+        'format, and persists in context on every following turn — so prefer a few frames at a ' +
+        'modest screenshot_max_width over many large ones. For frozen/precise inspection prefer ' +
+        'godot_game_time step + screenshot_game instead.'
+      ),
+    screenshot_max_width: z
+      .number()
+      .int()
+      .min(16)
+      .max(1920)
+      .optional()
+      .describe(
+        'Max width in px for captured frames (default 640). Resolution is the real vision-token ' +
+        'lever (cost ~width*height/750 per frame); lower it to spend less context, raise it only ' +
+        'when fine detail matters.'
       ),
   }),
   z.object({
@@ -99,8 +125,22 @@ export const input = defineTool({
           wall_ms?: number;
           report?: Record<string, { before: unknown; after: unknown; changed: boolean }>;
           any_changed?: boolean;
+          captures?: Array<{
+            requested_ms: number;
+            actual_ms: number;
+            ok: boolean;
+            image_base64: string;
+            width: number;
+            height: number;
+            error: string;
+          }>;
           error?: string;
-        }>('execute_input_sequence', { inputs, report: args.report });
+        }>('execute_input_sequence', {
+          inputs,
+          report: args.report,
+          screenshot_at_ms: args.screenshot_at_ms,
+          screenshot_max_width: args.screenshot_max_width,
+        });
 
         if (result.error) {
           throw new Error(result.error);
@@ -145,7 +185,30 @@ export const input = defineTool({
           }
         }
 
-        return lines.join('\n');
+        // Mid-sequence frame captures (#239): if none were requested, keep the
+        // plain-text result; otherwise return a summary plus one labeled image
+        // block per captured frame (a failed capture becomes a note, not an image).
+        if (!result.captures || result.captures.length === 0) {
+          return lines.join('\n');
+        }
+
+        const ok = result.captures.filter((c) => c.ok);
+        lines.push(
+          `Captured ${ok.length}/${result.captures.length} frame(s) at offsets ` +
+          `[${result.captures.map((c) => c.actual_ms).join(', ')}]ms ` +
+          `(requested [${result.captures.map((c) => c.requested_ms).join(', ')}]ms).`
+        );
+
+        const content: ToolResult[] = [{ type: 'text', text: lines.join('\n') }];
+        for (const c of result.captures) {
+          if (c.ok && c.image_base64) {
+            content.push({ type: 'text', text: `Frame @${c.actual_ms}ms (requested ${c.requested_ms}ms), ${c.width}x${c.height}:` });
+            content.push({ type: 'image', data: c.image_base64, mimeType: 'image/png' });
+          } else {
+            content.push({ type: 'text', text: `Frame @${c.requested_ms}ms: capture failed (${c.error || 'unknown error'}).` });
+          }
+        }
+        return content;
       }
 
       case 'type_text': {
