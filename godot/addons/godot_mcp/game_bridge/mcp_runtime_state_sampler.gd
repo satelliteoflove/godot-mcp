@@ -3,6 +3,11 @@ class_name MCPRuntimeStateSampler
 
 const MAX_FIELDS := 32
 const MAX_SAMPLES_PER_FIELD := 200
+const MAX_SIGNALS := 16
+const MAX_EVENTS := 200
+const MAX_ARGS_CHARS := 100    # total stringified-args cap per event
+const MAX_ARG_CHARS := 40      # per-arg cap before joining
+const MAX_SIGNAL_ARITY := 5
 
 var _active: bool = false
 var _specs: Array = []       # [{node, fields: [{key, resolver}]}]
@@ -13,11 +18,17 @@ var _stop_time: int = 0      # set on auto-stop or manual stop; 0 = still runnin
 var _frame_index: int = 0
 var _sample_interval: int = 1  # sample every N frames
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
+var _events: Array = []        # [{t_ms, source, signal, args?}] -- signal emissions this window
+var _events_truncated: bool = false
+var _connections: Array = []   # [{node, sig_name, callable}] -- live connections to tear down
 
 
-func start(specs: Array, hz: int, duration_ms: int) -> Dictionary:
+func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) -> Dictionary:
+	_disconnect_all()  # a restart while connections are live must tear the old ones down
 	_specs = []
 	_samples = {}
+	_events = []
+	_events_truncated = false
 	_hz = clampi(hz, 1, 60)
 	_duration_ms = clampi(duration_ms, 100, 5000)
 	_start_time = Time.get_ticks_msec()
@@ -52,7 +63,121 @@ func start(specs: Array, hz: int, duration_ms: int) -> Dictionary:
 	_stop_time = 0
 	_active = true
 	set_process(true)
-	return {"resolved_fields": field_count}
+
+	var connected := 0
+	var unresolved: Array = []
+	var seen := {}
+	for sig_spec in signal_specs:
+		if not sig_spec is Dictionary:
+			continue
+		var sig_path: String = str(sig_spec.get("path", ""))
+		var sig_name: String = str(sig_spec.get("signal", ""))
+		if sig_path.is_empty() or sig_name.is_empty():
+			continue
+		var dedupe_key := sig_path + "\n" + sig_name
+		# Duplicate specs would double-connect (our lambdas are distinct Callables,
+		# so connect() would not reject the second one) and double-record.
+		if seen.has(dedupe_key):
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "duplicate"})
+			continue
+		seen[dedupe_key] = true
+		if connected >= MAX_SIGNALS:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "signal_cap"})
+			continue
+		var emitter := _resolve_node(sig_path)
+		if emitter == null:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "node_not_found"})
+			continue
+		var arg_count := _signal_arg_count(emitter, sig_name)
+		if arg_count < 0:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "signal_not_found"})
+			continue
+		if arg_count > MAX_SIGNAL_ARITY:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "unsupported_arity"})
+			continue
+		var cb := _make_recorder(sig_path, sig_name, arg_count)
+		# Immediate (not deferred) connect: exact emission-time recording, and the
+		# recorder only appends to an Array -- safe inside physics callbacks.
+		if emitter.connect(StringName(sig_name), cb) != OK:
+			unresolved.append({"path": sig_path, "signal": sig_name, "reason": "connect_failed"})
+			continue
+		_connections.append({"node": emitter, "sig_name": sig_name, "callable": cb})
+		connected += 1
+
+	return {
+		"resolved_fields": field_count,
+		"connected_signals": connected,
+		"unresolved_signals": unresolved,
+	}
+
+
+func _signal_arg_count(node: Node, sig_name: String) -> int:
+	# Covers script signals AND built-ins (body_entered etc.). -1 = not found.
+	for info in node.get_signal_list():
+		if str(info.get("name", "")) == sig_name:
+			return (info.get("args", []) as Array).size()
+	return -1
+
+
+func _make_recorder(path: String, sig_name: String, arg_count: int) -> Callable:
+	# connect() requires the Callable arity to match the signal's; lambdas capture
+	# path/sig_name by value so no get_path() happens at record time.
+	match arg_count:
+		0: return func() -> void: _record_event(path, sig_name, [])
+		1: return func(a1) -> void: _record_event(path, sig_name, [a1])
+		2: return func(a1, a2) -> void: _record_event(path, sig_name, [a1, a2])
+		3: return func(a1, a2, a3) -> void: _record_event(path, sig_name, [a1, a2, a3])
+		4: return func(a1, a2, a3, a4) -> void: _record_event(path, sig_name, [a1, a2, a3, a4])
+		_: return func(a1, a2, a3, a4, a5) -> void: _record_event(path, sig_name, [a1, a2, a3, a4, a5])
+
+
+func _record_event(source: String, sig_name: String, args: Array) -> void:
+	if not _active:
+		return
+	if _events.size() >= MAX_EVENTS:
+		_events_truncated = true
+		return
+	var ev := {
+		"t_ms": Time.get_ticks_msec() - _start_time,
+		"source": source,
+		"signal": sig_name,
+	}
+	if not args.is_empty():
+		# Stringify AT RECORD TIME -- an arg object may be freed before collect().
+		# str() on an Object invokes its _to_string(); a _to_string() that mutates
+		# the tree is the game's bug, not ours.
+		ev["args"] = _stringify_args(args)
+	_events.append(ev)
+
+
+func _stringify_args(args: Array) -> String:
+	var parts: PackedStringArray = []
+	for a in args:
+		var s := str(a)
+		if s.length() > MAX_ARG_CHARS:
+			s = s.substr(0, MAX_ARG_CHARS) + "..."
+		parts.append(s)
+	var joined := "[" + ", ".join(parts) + "]"
+	if joined.length() > MAX_ARGS_CHARS:
+		joined = joined.substr(0, MAX_ARGS_CHARS) + "..."
+	return joined
+
+
+func _disconnect_all() -> void:
+	for c in _connections:
+		# UNTYPED on purpose: assigning a freed instance to a typed Node var is
+		# itself a script error that would abort this loop before
+		# is_instance_valid ever ran, leaving stale entries behind. Freed
+		# emitters drop their connections with the object; disconnecting a dead
+		# entry would error too, hence both guards.
+		var node = c.node
+		if is_instance_valid(node) and node.is_connected(StringName(c.sig_name), c.callable):
+			node.disconnect(StringName(c.sig_name), c.callable)
+	_connections.clear()
+
+
+func _exit_tree() -> void:
+	_disconnect_all()
 
 
 func _process(_delta: float) -> void:
@@ -65,6 +190,10 @@ func _process(_delta: float) -> void:
 		_active = false
 		_stop_time = Time.get_ticks_msec()
 		set_process(false)
+		# Window over: stop recording signal emissions too. An emission landing
+		# between duration_ms elapsing and this frame is recorded with t_ms
+		# slightly past the window -- harmless and honest.
+		_disconnect_all()
 		return
 
 	_frame_index += 1
@@ -72,7 +201,9 @@ func _process(_delta: float) -> void:
 		return
 
 	for spec in _specs:
-		var node: Node = spec.node
+		# Untyped: a typed assignment of a freed instance is a script error that
+		# would abort the whole sampling pass (same hazard as _disconnect_all).
+		var node = spec.node
 		if not is_instance_valid(node):
 			# node was freed — mark all fields and skip
 			for field_info in spec.fields:
@@ -105,6 +236,10 @@ func collect() -> Dictionary:
 		"window_ms": elapsed,
 		"sample_count": total_samples,
 		"fields": _samples.duplicate(true),
+		# duplicate: a mid-window collect leaves recording live, so the caller's
+		# copy must not alias the still-growing array.
+		"events": _events.duplicate(true),
+		"events_truncated": _events_truncated,
 	}
 
 
@@ -112,6 +247,7 @@ func stop() -> Dictionary:
 	_active = false
 	_stop_time = Time.get_ticks_msec()
 	set_process(false)
+	_disconnect_all()
 	return collect()
 
 
@@ -124,10 +260,24 @@ func _resolve_node(path: String) -> Node:
 	if tree == null:
 		return null
 	var scene_root := tree.current_scene
+
+	# "/" means the scene root, NOT the root Window -- keep ahead of the absolute
+	# attempt or a bare-/ NodePath would return the Window.
+	if path == "/":
+		return scene_root
+
+	# Absolute paths resolve from /root regardless of current_scene -- this is
+	# what makes autoloads (/root/G) watchable, including during scene
+	# transitions when current_scene is null.
+	if path.begins_with("/") and tree.root != null:
+		var abs_hit := tree.root.get_node_or_null(NodePath(path))
+		if abs_hit != null:
+			return abs_hit
+
 	if scene_root == null:
 		return null
 
-	if path == "/root/" + scene_root.name or path == "/":
+	if path == "/root/" + scene_root.name:
 		return scene_root
 
 	if path.begins_with("/root/"):
@@ -190,6 +340,13 @@ func _read_field(node: Node, key: String) -> Variant:
 				return (node as AnimationPlayer).current_animation
 			if node is AnimatedSprite2D:
 				return (node as AnimatedSprite2D).animation
+			if node is AnimationTree:
+				# Only state-machine roots expose parameters/playback; BlendTree
+				# and other roots fall through to null (silent skip, matching the
+				# other inapplicable-field arms).
+				var playback = node.get("parameters/playback")
+				if playback is AnimationNodeStateMachinePlayback:
+					return String(playback.get_current_node())
 		"anim_frame":
 			if node is AnimatedSprite2D:
 				return (node as AnimatedSprite2D).frame

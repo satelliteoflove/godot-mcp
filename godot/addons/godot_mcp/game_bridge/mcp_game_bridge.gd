@@ -1063,23 +1063,26 @@ func _handle_watch_start(data: Array) -> void:
 	var specs: Array = data[0] if data.size() > 0 else []
 	var hz: int = data[1] if data.size() > 1 else 20
 	var duration_ms: int = data[2] if data.size() > 2 else 1000
-	var start_result := _sampler.start(specs, hz, duration_ms)
+	var signal_specs: Array = data[3] if data.size() > 3 else []
+	var start_result := _sampler.start(specs, hz, duration_ms, signal_specs)
 	EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {
 		"started": true,
 		"resolved_fields": start_result.get("resolved_fields", 0),
+		"connected_signals": start_result.get("connected_signals", 0),
+		"unresolved_signals": start_result.get("unresolved_signals", []),
 	}])
 
 
 func _handle_watch_collect() -> void:
 	if _sampler == null:
-		EngineDebugger.send_message("godot_mcp:game_response", ["watch_collect", {"window_ms": 0, "sample_count": 0, "fields": {}}])
+		EngineDebugger.send_message("godot_mcp:game_response", ["watch_collect", {"window_ms": 0, "sample_count": 0, "fields": {}, "events": [], "events_truncated": false}])
 		return
 	EngineDebugger.send_message("godot_mcp:game_response", ["watch_collect", _sampler.collect()])
 
 
 func _handle_watch_stop() -> void:
 	if _sampler == null:
-		EngineDebugger.send_message("godot_mcp:game_response", ["watch_stop", {"window_ms": 0, "sample_count": 0, "fields": {}}])
+		EngineDebugger.send_message("godot_mcp:game_response", ["watch_stop", {"window_ms": 0, "sample_count": 0, "fields": {}, "events": [], "events_truncated": false}])
 		return
 	EngineDebugger.send_message("godot_mcp:game_response", ["watch_stop", _sampler.stop()])
 

@@ -9,6 +9,7 @@ import {
   runtimeState,
   summarizeNumericField,
   summarizeStringField,
+  buildTimeline,
 } from '../../tools/runtime-state.js';
 
 describe('runtimeState tool', () => {
@@ -84,6 +85,43 @@ describe('runtimeState tool', () => {
     it('accepts watch_collect and watch_stop with no params', () => {
       expect(runtimeState.schema.safeParse({ action: 'watch_collect' }).success).toBe(true);
       expect(runtimeState.schema.safeParse({ action: 'watch_stop' }).success).toBe(true);
+    });
+
+    it('accepts a signals-only watch_start (no specs)', () => {
+      expect(
+        runtimeState.schema.safeParse({
+          action: 'watch_start',
+          signals: [{ path: '/root/G', signal: 'wave_started' }],
+        }).success
+      ).toBe(true);
+    });
+
+    it('accepts watch_start with both specs and signals', () => {
+      expect(
+        runtimeState.schema.safeParse({
+          action: 'watch_start',
+          specs: [{ path: '/root/Player', fields: ['pos.x'] }],
+          signals: [{ path: '/root/Player', signal: 'died' }],
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects watch_start with neither specs nor signals (incl. empty arrays)', () => {
+      expect(runtimeState.schema.safeParse({ action: 'watch_start' }).success).toBe(false);
+      expect(
+        runtimeState.schema.safeParse({ action: 'watch_start', specs: [], signals: [] }).success
+      ).toBe(false);
+    });
+
+    it('rejects more than 16 signals', () => {
+      const signals = Array.from({ length: 17 }, (_, i) => ({ path: `/root/E${i}`, signal: 'fired' }));
+      expect(runtimeState.schema.safeParse({ action: 'watch_start', signals }).success).toBe(false);
+    });
+
+    it('rejects a signal entry missing the signal name', () => {
+      expect(
+        runtimeState.schema.safeParse({ action: 'watch_start', signals: [{ path: '/root/G' }] }).success
+      ).toBe(false);
     });
   });
 
@@ -219,6 +257,80 @@ describe('runtimeState tool', () => {
       expect(mock.calls[0].params.hz).toBe(20);
       expect(mock.calls[0].params.duration_ms).toBe(1000);
     });
+
+    it('passes signals through and defaults them to [] when omitted', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 1 });
+      const ctx = createToolContext(mock);
+
+      await runtimeState.execute(
+        { action: 'watch_start', specs: [{ path: '/root/Player', fields: ['pos.x'] }] },
+        ctx
+      );
+      expect(mock.calls[0].params.signals).toEqual([]);
+
+      mock.mockResponse({ started: true, connected_signals: 1, unresolved_signals: [] });
+      await runtimeState.execute(
+        { action: 'watch_start', signals: [{ path: '/root/G', signal: 'wave_started' }] },
+        ctx
+      );
+      expect(mock.calls[1].params.signals).toEqual([{ path: '/root/G', signal: 'wave_started' }]);
+      expect(mock.calls[1].params.specs).toEqual([]);
+    });
+
+    it('reports connected signal count in the confirmation text', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 0, connected_signals: 2, unresolved_signals: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        {
+          action: 'watch_start',
+          signals: [
+            { path: '/root/G', signal: 'wave_started' },
+            { path: '/root/Player', signal: 'died' },
+          ],
+        },
+        ctx
+      );
+      expect(result).toContain('Connected 2 signal(s)');
+    });
+
+    it('names unresolved signals with their reasons', async () => {
+      mock.mockResponse({
+        started: true,
+        resolved_fields: 0,
+        connected_signals: 0,
+        unresolved_signals: [{ path: '/root/Bogus', signal: 'died', reason: 'node_not_found' }],
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        { action: 'watch_start', signals: [{ path: '/root/Bogus', signal: 'died' }] },
+        ctx
+      );
+      expect(result).toContain('/root/Bogus:died (node_not_found)');
+    });
+
+    it('does not warn about 0 fields on a signals-only watch', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 0, connected_signals: 1, unresolved_signals: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        { action: 'watch_start', signals: [{ path: '/root/G', signal: 'wave_started' }] },
+        ctx
+      );
+      expect(result).not.toContain('0 fields resolved');
+    });
+
+    it('still warns when specs were requested but none resolved', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 0 });
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute(
+        { action: 'watch_start', specs: [{ path: '/root/Nope', fields: ['pos.x'] }] },
+        ctx
+      );
+      expect(result).toContain('0 fields resolved');
+    });
   });
 
   // ── watch_collect ────────────────────────────────────────────────────────
@@ -277,6 +389,76 @@ describe('runtimeState tool', () => {
       expect(summary.changes).toHaveLength(1);
       expect(summary.changes[0]).toEqual({ t_ms: 350, from: 'idle', to: 'run' });
     });
+
+    it('merges signal events and string transitions into a time-sorted timeline', async () => {
+      const raw = {
+        window_ms: 1000,
+        sample_count: 4,
+        fields: {
+          '/root/Player:anim': [
+            { t_ms: 0, value: 'idle' },
+            { t_ms: 400, value: 'run' },
+          ],
+          '/root/Player:state': [
+            { t_ms: 0, value: 'alive' },
+            { t_ms: 900, value: 'dead' },
+          ],
+          // Numeric events (zero_cross here) must stay per-field only.
+          '/root/Player:vel.x': [
+            { t_ms: 0, value: 0 },
+            { t_ms: 600, value: 5 },
+          ],
+        },
+        events: [
+          { t_ms: 120, source: '/root/G', signal: 'wave_started', args: '[2]' },
+          { t_ms: 880, source: '/root/Player', signal: 'died' },
+        ],
+        events_truncated: false,
+      };
+      mock.mockResponse(raw);
+      const ctx = createToolContext(mock);
+
+      const result = await runtimeState.execute({ action: 'watch_collect' }, ctx);
+      const data = structuredOf(result);
+
+      expect(data.timeline.map((e: { kind: string; t_ms: number }) => [e.t_ms, e.kind])).toEqual([
+        [120, 'signal'],
+        [400, 'anim_transition'],
+        [880, 'signal'],
+        [900, 'field_change'],
+      ]);
+      expect(data.timeline[0].args).toBe('[2]');
+      expect(data.timeline[1]).toEqual({
+        t_ms: 400, kind: 'anim_transition', source: '/root/Player', from: 'idle', to: 'run',
+      });
+      expect(data.timeline[3].field).toBe('state');
+      expect(data.timeline_truncated).toBe(false);
+      // numeric zero_cross stayed per-field
+      expect(data.fields['/root/Player:vel.x'].events).toHaveLength(1);
+    });
+
+    it('keeps a stable shape against pre-timeline addons (no events key)', async () => {
+      mock.mockResponse({ window_ms: 500, sample_count: 0, fields: {} });
+      const ctx = createToolContext(mock);
+
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, ctx));
+      expect(data.timeline).toEqual([]);
+      expect(data.timeline_truncated).toBe(false);
+    });
+
+    it('surfaces event truncation as timeline_truncated', async () => {
+      mock.mockResponse({
+        window_ms: 500,
+        sample_count: 0,
+        fields: {},
+        events: [{ t_ms: 1, source: '/root/A', signal: 'spam' }],
+        events_truncated: true,
+      });
+      const ctx = createToolContext(mock);
+
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, ctx));
+      expect(data.timeline_truncated).toBe(true);
+    });
   });
 
   // ── watch_stop ───────────────────────────────────────────────────────────
@@ -304,6 +486,51 @@ describe('runtimeState tool', () => {
       expect(summary.end).toBe(200);
       expect(typeof summary.slope).toBe('number');
     });
+  });
+});
+
+// ── buildTimeline unit tests ─────────────────────────────────────────────────
+
+describe('buildTimeline', () => {
+  it('returns [] for no events and no fields', () => {
+    expect(buildTimeline([], {})).toEqual([]);
+  });
+
+  it('omits args when the event carries none', () => {
+    const [entry] = buildTimeline([{ t_ms: 5, source: '/root/A', signal: 'fired' }], {});
+    expect(entry).toEqual({ t_ms: 5, kind: 'signal', source: '/root/A', name: 'fired' });
+    expect('args' in entry).toBe(false);
+  });
+
+  it('splits field keys on the LAST colon (paths may contain colons)', () => {
+    const fields = {
+      '/root/Player:anim': { start: 'a', end: 'b', changes: [{ t_ms: 10, from: 'a', to: 'b' }] },
+    };
+    const [entry] = buildTimeline([], fields);
+    expect(entry).toEqual({ t_ms: 10, kind: 'anim_transition', source: '/root/Player', from: 'a', to: 'b' });
+  });
+
+  it('orders t_ms ties deterministically: signal < anim_transition < field_change', () => {
+    const fields = {
+      '/root/P:state': { start: 'x', end: 'y', changes: [{ t_ms: 100, from: 'x', to: 'y' }] },
+      '/root/P:anim': { start: 'a', end: 'b', changes: [{ t_ms: 100, from: 'a', to: 'b' }] },
+    };
+    const events = [{ t_ms: 100, source: '/root/P', signal: 'tick' }];
+    expect(buildTimeline(events, fields).map((e) => e.kind)).toEqual([
+      'signal',
+      'anim_transition',
+      'field_change',
+    ]);
+  });
+
+  it('ignores numeric field summaries entirely', () => {
+    const fields = {
+      '/root/P:vel.x': {
+        start: 0, end: 5, min: 0, max: 5, mean: 2.5, slope: 5,
+        events: [{ t_ms: 50, from: 0, to: 5, kind: 'zero_cross' as const }],
+      },
+    };
+    expect(buildTimeline([], fields)).toEqual([]);
   });
 });
 

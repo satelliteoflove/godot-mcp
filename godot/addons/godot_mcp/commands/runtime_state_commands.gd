@@ -28,7 +28,8 @@ func watch_start(params: Dictionary) -> Dictionary:
 	var specs: Array = params.get("specs", [])
 	var hz: int = params.get("hz", 20)
 	var duration_ms: int = params.get("duration_ms", 1000)
-	var result = await _send_and_wait("watch_start", [specs, hz, duration_ms])
+	var sigs: Array = params.get("signals", [])
+	var result = await _send_and_wait("watch_start", [specs, hz, duration_ms, sigs])
 	if result == null:
 		return _last_error
 	if result is Dictionary:

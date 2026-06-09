@@ -252,11 +252,56 @@ length. See [Tools Reference -> Runtime State](tools/runtime-state.md) for the f
 
 ---
 
+## Event timeline
+
+Sampling answers "how did values move"; the timeline answers "what discrete things happened,
+and in what order". `watch_start` optionally takes `signals` — an explicit allowlist of
+signals to record during the window:
+
+```json
+{
+  "action": "watch_start",
+  "specs": [{ "path": "/root/Level/Player", "fields": ["anim", "vel.x"] }],
+  "signals": [
+    { "path": "/root/GameState", "signal": "wave_started" },
+    { "path": "/root/Level/Player", "signal": "died" }
+  ],
+  "duration_ms": 2000
+}
+```
+
+`watch_collect` / `watch_stop` then return a merged, time-sorted `timeline` alongside the
+per-field summaries:
+
+```json
+"timeline": [
+  { "t_ms": 120, "kind": "signal", "source": "/root/GameState", "name": "wave_started", "args": "[2]" },
+  { "t_ms": 400, "kind": "anim_transition", "source": "/root/Level/Player", "from": "idle", "to": "run" },
+  { "t_ms": 880, "kind": "signal", "source": "/root/Level/Player", "name": "died" }
+]
+```
+
+- `signal` entries are exact emission times; built-in signals (`body_entered`, ...) work the
+  same as script signals. Signal connections live for the whole window — until `duration_ms`
+  elapses or `watch_stop` — regardless of mid-window `watch_collect` calls.
+- `anim_transition` and `field_change` entries come from the sampled string fields, so their
+  timestamps are detection times at the sample rate. Watching the `anim` field on an
+  `AnimationPlayer`, `AnimatedSprite2D`, or `AnimationTree` (state-machine root; other roots
+  such as BlendTree yield nothing) gets you state transitions on the timeline for free — as
+  does any string key you expose via `_mcp_state()`.
+- Caps: 16 signal connections per watch, 200 events per window (`timeline_truncated: true`
+  when exceeded — beware high-frequency signals like `body_shape_entered`), signal args
+  stringified to ~100 chars. Bad paths/names, duplicates, and signals with more than 5
+  parameters are skipped and reported by name in `unresolved_signals`.
+
+---
+
 ## Quick checklist
 
 - Tag the entities that matter into the `mcp_watch` group.
 - Add `_mcp_state()` to those nodes; return live values AND the context to interpret them.
 - Keep each `_mcp_state()` cheap, side-effect-free, JSON-able, and under ~1 KB.
 - Let agents call `digest` for a snapshot and `watch_start` / `watch_collect` for motion.
+- Watch `signals` (and the `anim` field) when ORDER of events matters, not just trajectories.
 - For global state in autoload singletons, read them with `select="none"` and `paths`
   (every response lists them in `available_autoloads`).
