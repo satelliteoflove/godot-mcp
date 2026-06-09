@@ -10,8 +10,13 @@ signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
 signal type_text_completed(result: Dictionary)
 signal game_response(message_type: String, data: Variant)
+signal bridge_ready()
 
 var _active_session_id: int = -1
+# True once the running game's bridge has announced it is ready to receive input
+# (its main scene is up). The debug session connects before the scene loads, so
+# has_active_session() alone is not enough to know input will land (#241).
+var _bridge_ready: bool = false
 var _pending_screenshot: bool = false
 var _pending_debug_output: bool = false
 var _pending_performance_metrics: bool = false
@@ -53,15 +58,30 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:game_response":
 			_handle_game_response(data)
 			return true
+		"godot_mcp:bridge_ready":
+			_handle_bridge_ready(session_id)
+			return true
 	return false
+
+
+func _handle_bridge_ready(session_id: int) -> void:
+	# Only the active session's bridge counts; ignore a late message from a prior
+	# run (a new _setup_session has already reset the flag for the current one).
+	if session_id != _active_session_id:
+		return
+	_bridge_ready = true
+	bridge_ready.emit()
 
 
 func _setup_session(session_id: int) -> void:
 	_active_session_id = session_id
+	# New game session: its bridge has not announced readiness yet.
+	_bridge_ready = false
 
 
 func _session_stopped() -> void:
 	_active_session_id = -1
+	_bridge_ready = false
 	if _pending_screenshot:
 		_pending_screenshot = false
 		screenshot_received.emit(false, "", 0, 0, "Game session ended")
@@ -95,6 +115,13 @@ func has_active_session() -> bool:
 		_active_session_id = -1
 		return false
 	return true
+
+
+# True only once the running game's bridge has reported its main scene is up and
+# can consume input. Input commands gate on this (not just has_active_session) so
+# a sequence injected right after run is not dispatched into a half-booted game.
+func is_bridge_ready() -> bool:
+	return _bridge_ready and has_active_session()
 
 
 func request_screenshot(max_width: int = 1024, quality: float = 0.75) -> void:

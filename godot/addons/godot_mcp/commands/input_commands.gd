@@ -3,6 +3,11 @@ extends MCPBaseCommand
 class_name MCPInputCommands
 
 const INPUT_TIMEOUT := 30.0
+# How long to wait for the game bridge to report it is ready to receive input
+# before giving up. The natural workflow is run -> immediately drive the game;
+# the session connects before the scene loads, so this short wait absorbs that
+# gap (usually under a second) instead of dispatching input into a void (#241).
+const READY_TIMEOUT := 10.0
 
 var _input_map_result: Dictionary = {}
 var _input_map_pending: bool = false
@@ -15,12 +20,32 @@ var _type_text_result: Dictionary = {}
 var _type_text_pending: bool = false
 
 
+const _BRIDGE_NOT_READY_MSG := "Game is running but its MCP bridge is not ready to receive input yet (no scene up, or the game just launched). This usually clears within a second of run — retry shortly."
+
+
 func get_commands() -> Dictionary:
 	return {
 		"get_input_map": get_input_map,
 		"execute_input_sequence": execute_input_sequence,
 		"type_text": type_text,
 	}
+
+
+# Block until the running game's bridge reports it can consume input, bounded by
+# READY_TIMEOUT. Returns true once ready, false if the game stops or never comes
+# up in time. In the common case (game already running) this returns immediately
+# without waiting a frame. Gating input on this is the fix for #241: the debug
+# session connects before the main scene loads, so input dispatched on
+# has_active_session() alone lands in a game with nothing to receive it.
+func _await_bridge_ready(debugger_plugin) -> bool:
+	var start_time := Time.get_ticks_msec()
+	while not debugger_plugin.is_bridge_ready():
+		if not EditorInterface.is_playing_scene():
+			return false  # game stopped or crashed while we waited
+		await Engine.get_main_loop().process_frame
+		if (Time.get_ticks_msec() - start_time) / 1000.0 > READY_TIMEOUT:
+			return false
+	return true
 
 
 func get_input_map(_params: Dictionary) -> Dictionary:
@@ -113,8 +138,10 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 		return _error("NOT_RUNNING", "No game is currently running")
 
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
-	if debugger_plugin == null or not debugger_plugin.has_active_session():
+	if debugger_plugin == null:
 		return _error("NO_SESSION", "No active debug session")
+	if not await _await_bridge_ready(debugger_plugin):
+		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
 
 	var max_end_time: float = 0.0
 	for input in inputs:
@@ -162,8 +189,10 @@ func type_text(params: Dictionary) -> Dictionary:
 		return _error("NOT_RUNNING", "No game is currently running")
 
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
-	if debugger_plugin == null or not debugger_plugin.has_active_session():
+	if debugger_plugin == null:
 		return _error("NO_SESSION", "No active debug session")
+	if not await _await_bridge_ready(debugger_plugin):
+		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
 
 	var timeout := max(INPUT_TIMEOUT, (text.length() * delay_ms / 1000.0) + 5.0)
 

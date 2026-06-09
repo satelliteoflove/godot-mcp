@@ -5,9 +5,19 @@ const DEFAULT_MAX_WIDTH := 1024
 const DEFAULT_JPEG_QUALITY := 0.75
 const Onscreen := preload("onscreen.gd")
 
+# Cap on frames waited for the main scene to appear before announcing ready
+# anyway. The scene is normally added within a frame or two of the bridge
+# autoload's _ready; the cap only matters for a scene-less run (a SceneTree-only
+# tool), so it never blocks readiness forever. ~10s at 60 fps.
+const READY_SCENE_WAIT_FRAMES := 600
+
 var _logger: _MCPGameLogger
 var _profiler: MCPFrameProfiler
 var _sampler: MCPRuntimeStateSampler
+
+# Set once the bridge has told the editor the game is ready to drive. Guards the
+# announcement against firing twice and lets the headless test observe it.
+var _ready_announced := false
 
 
 func _ready() -> void:
@@ -39,6 +49,10 @@ func _ready() -> void:
 		_engage_freeze()
 		MCPLog.info("Game bridge: launched frozen")
 
+	# Tell the editor when the game is actually drivable, so input injected right
+	# after `run` is not silently dropped into a half-booted game (see #241).
+	_announce_bridge_ready_when_drivable()
+
 
 func _exit_tree() -> void:
 	# Guaranteed cleanup: never leave an action latched when the bridge node
@@ -48,6 +62,35 @@ func _exit_tree() -> void:
 		EngineDebugger.unregister_message_capture("godot_mcp")
 		if _profiler:
 			EngineDebugger.unregister_profiler("mcp_frame_profiler")
+
+
+# The bridge autoload's _ready runs BEFORE the main scene is added to the tree,
+# so the debug session is live (and the editor sees has_active_session) while
+# current_scene is still null. Input injected in that window is dispatched into a
+# game that has nothing to consume it — reported as executed, but a silent no-op
+# (#241). Wait for the scene to exist plus one frame (so its own _ready/input
+# wiring has run), then announce readiness; the editor gates input on this signal.
+func _announce_bridge_ready_when_drivable() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var frames := 0
+	while tree.current_scene == null and frames < READY_SCENE_WAIT_FRAMES:
+		await tree.process_frame
+		frames += 1
+	# One more frame so a freshly-added scene has had its first _ready/process pass.
+	# process_frame fires even while paused, so launch-frozen runs still report ready.
+	await tree.process_frame
+	var scene_path := tree.current_scene.scene_file_path if tree.current_scene else ""
+	_emit_bridge_ready(scene_path)
+
+
+func _emit_bridge_ready(scene_path: String) -> void:
+	if _ready_announced:
+		return
+	_ready_announced = true
+	EngineDebugger.send_message("godot_mcp:bridge_ready", [scene_path])
+	MCPLog.info("Game bridge: ready to drive (%s)" % scene_path)
 
 
 func _process(delta: float) -> void:
