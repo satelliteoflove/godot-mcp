@@ -25,8 +25,7 @@ Control the Godot editor: get state, manage selection, run/stop project, restart
 | `limit` | integer | No | Maximum number of messages to return (default: 50) |
 | `severity` | `all`, `error`, `warning` | No | Filter by severity: "error" drops warnings (the "did anything actually break?" check), "warning" returns only warnings, "all" (default) returns both. |
 | `since` | integer | No | Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning). |
-| `max_width` | integer | No | Maximum width in pixels (default: 900) |
-| `quality` | integer | No | JPEG quality 1-100 (default: 75) |
+| `max_width` | integer | No | Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. |
 | `viewport` | `2d`, `3d` | No | Which editor viewport to capture |
 | `center_x` | number | No | X coordinate to center the 2D viewport on |
 | `center_y` | number | No | Y coordinate to center the 2D viewport on |
