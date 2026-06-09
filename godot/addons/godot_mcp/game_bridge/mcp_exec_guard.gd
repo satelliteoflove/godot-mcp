@@ -93,7 +93,7 @@ static func build_wrapper(source: String, binding_names: PackedStringArray) -> S
 	var lex := _lex(normalized)
 	var in_string_lines: Array = lex["in_string_lines"]
 	var lines := normalized.split("\n")
-	var indent := _detect_indent_unit(lines, in_string_lines)
+	var indent := _detect_indent_unit(lines, in_string_lines, lex["in_bracket_lines"])
 	var body: Array = []
 	for i in lines.size():
 		var line: String = lines[i]
@@ -122,18 +122,23 @@ static func _token_re(token: String) -> RegEx:
 	return re
 
 
-## One lexical pass tracking string/comment state. Returns:
-##   stripped:        source with comments removed and string CONTENTS removed
-##                    (quotes kept), line structure preserved — the scan target
-##   in_string_lines: per line, whether it STARTS inside a (triple-quoted)
-##                    string — those lines must not be indent-prefixed
+## One lexical pass tracking string/comment/bracket state. Returns:
+##   stripped:         source with comments removed and string CONTENTS removed
+##                     (quotes kept), line structure preserved — the scan target
+##   in_string_lines:  per line, whether it STARTS inside a (triple-quoted)
+##                     string — those lines must not be indent-prefixed
+##   in_bracket_lines: per line, whether it STARTS inside an open ()/[]/{} —
+##                     bracket interiors have free-form indentation, so these
+##                     lines must not drive indent-unit detection
 ## Known accepted miss: raw strings (r"...") treat backslash as an escape here
 ## though GDScript does not — the failure mode is over-blocking or an honest
 ## compile error, never silent corruption.
 static func _lex(source: String) -> Dictionary:
 	var stripped := ""
 	var in_string_lines: Array = [false]
+	var in_bracket_lines: Array = [false]
 	var quote := ""  # active quote: '"', "'", '"""', or "'''"
+	var depth := 0  # open-bracket depth, tracked outside strings/comments
 	var i := 0
 	var n := source.length()
 	while i < n:
@@ -142,9 +147,19 @@ static func _lex(source: String) -> Dictionary:
 			if c == "\n":
 				stripped += "\n"
 				in_string_lines.append(true)
+				in_bracket_lines.append(depth > 0)
 				i += 1
 			elif c == "\\":
-				i += 2  # escaped char inside the string — never ends it
+				# An escaped char never ends the string — but an escaped
+				# NEWLINE (a line continuation inside the string) still starts
+				# a new physical line. Record it, or every following line would
+				# be mis-indexed and build_wrapper would prefix indent into the
+				# string's runtime value: silent corruption.
+				if i + 1 < n and source[i + 1] == "\n":
+					stripped += "\n"
+					in_string_lines.append(true)
+					in_bracket_lines.append(depth > 0)
+				i += 2
 			elif source.substr(i, quote.length()) == quote:
 				stripped += quote
 				i += quote.length()
@@ -161,22 +176,36 @@ static func _lex(source: String) -> Dictionary:
 			stripped += quote
 			i += quote.length()
 			continue
+		if c == "(" or c == "[" or c == "{":
+			depth += 1
+		elif c == ")" or c == "]" or c == "}":
+			depth = maxi(0, depth - 1)
 		if c == "\n":
 			stripped += "\n"
 			in_string_lines.append(false)
+			in_bracket_lines.append(depth > 0)
 			i += 1
 			continue
 		stripped += c
 		i += 1
-	return {"stripped": stripped, "in_string_lines": in_string_lines}
+	return {
+		"stripped": stripped,
+		"in_string_lines": in_string_lines,
+		"in_bracket_lines": in_bracket_lines,
+	}
 
 
-static func _detect_indent_unit(lines: PackedStringArray, in_string_lines: Array) -> String:
+static func _detect_indent_unit(lines: PackedStringArray, in_string_lines: Array, in_bracket_lines: Array) -> String:
 	# Match the user's indent character: GDScript rejects mixed tabs/spaces in
 	# one indentation run, so the wrapper prefix must agree with the body. Four
 	# spaces composes with any space width (nesting only has to increase).
+	# Bracket-continuation lines are skipped: their indentation is free-form
+	# (a space-aligned array literal in otherwise tab-indented code is legal),
+	# so they must not decide the prefix for real block lines.
 	for i in lines.size():
 		if i < in_string_lines.size() and in_string_lines[i]:
+			continue
+		if i < in_bracket_lines.size() and in_bracket_lines[i]:
 			continue
 		var line := lines[i]
 		if line.strip_edges().is_empty():

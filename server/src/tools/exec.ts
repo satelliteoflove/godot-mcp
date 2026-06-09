@@ -25,13 +25,19 @@ const ExecSchema = z.discriminatedUnion('action', [
         'name (e.g. `G.wave = 5`), `tree` (SceneTree), `root` (root Window) — the same context as ' +
         'step_until predicates — plus `holder`, a Node that survives scene reloads: attach nodes ' +
         'under it for behavior that persists between tool calls (a Timer-driven guard, an autofire ' +
-        'bot), then manage them with list/remove/clear. Use an explicit `return` to get a value ' +
-        'back (there is no implicit return). Function bodies cannot declare top-level func/class — ' +
-        'use lambdas for callbacks, or build a sub-script with GDScript.new() and set_script() it ' +
-        'onto a holder child for _process-driven behavior. No `await` (synchronous-only; compose ' +
-        'with godot_game_time to wait). A runtime error or failed assert() breaks the game into ' +
-        'the editor debugger mid-call; the relay auto-resumes it and the error comes back in ' +
-        'runtime_errors.'
+        'bot), then manage them with list/remove/clear. Holder children pause with the tree, so a ' +
+        'bot armed under a freeze acts only after thaw/step. Use an explicit `return` to get a ' +
+        'value back (there is no implicit return): primitives (bool/int/float/String) come back ' +
+        'intact; any other type (Array/Dictionary/Object/Vector2) comes back as a str() preview ' +
+        'TRUNCATED to 200 chars — return JSON.stringify(...) yourself when you need structure. ' +
+        'print() output is not returned — use return values, or minimal-godot-mcp ' +
+        'get_console_output. Function bodies cannot declare top-level func/class — use lambdas ' +
+        'for callbacks, or build a sub-script with GDScript.new() and set_script() it onto a ' +
+        'holder child for _process-driven behavior. No `await` (synchronous-only; compose with ' +
+        'godot_game_time to wait). A runtime error or failed assert() breaks the game into the ' +
+        'editor debugger mid-call; the relay auto-resumes it and the error comes back in ' +
+        'runtime_errors (any debugger break in the call window is resumed, including a breakpoint ' +
+        'hit by unrelated game code).'
       ),
     budget_ms: z
       .number()
@@ -109,9 +115,8 @@ export const exec = defineTool({
           nodes: Array<{ name: string; class: string; script_chars: number; age_ms: number; processing: boolean }>;
           count: number;
         }>('exec_list');
-        if (result.count === 0) {
-          return 'No exec nodes attached (holder is empty).';
-        }
+        // Structured in both branches: a result whose SHAPE depends on runtime
+        // data would make the empty case unparseable for structured readers.
         return structured(result);
       }
 

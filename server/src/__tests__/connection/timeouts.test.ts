@@ -8,6 +8,7 @@ import {
   BRIDGE_WALL_SLOP_MS,
   STEP_BUDGET_CAP_MS,
   INPUT_BUDGET_CAP_MS,
+  EXEC_BUDGET_CAP_MS,
 } from '../../connection/timeouts.js';
 
 describe('timeout cascade (#276)', () => {
@@ -65,6 +66,9 @@ describe('timeout cascade (#276)', () => {
     });
     it('input cap <= max in-game budget (with ready-wait)', () => {
       expect(INPUT_BUDGET_CAP_MS).toBeLessThanOrEqual(maxInGameBudgetMs({ readyWait: true }));
+    });
+    it('exec cap <= max in-game budget (no ready-wait)', () => {
+      expect(EXEC_BUDGET_CAP_MS).toBeLessThanOrEqual(maxInGameBudgetMs({ readyWait: false }));
     });
   });
 

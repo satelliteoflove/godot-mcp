@@ -378,13 +378,13 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			_handle_exec_run(data)
 			return true
 		"exec_list":
-			_handle_exec_list()
+			_handle_exec_list(data)
 			return true
 		"exec_remove":
 			_handle_exec_remove(data)
 			return true
 		"exec_clear":
-			_handle_exec_clear()
+			_handle_exec_clear(data)
 			return true
 	return false
 
@@ -1875,7 +1875,18 @@ const EXEC_MAX_ERROR_LINES := 20
 var _exec_holder: Node = null
 
 
-func _send_exec_response(msg_type: String, result: Dictionary) -> void:
+func _exec_params(data: Array) -> Dictionary:
+	return data[0] if data.size() > 0 and data[0] is Dictionary else {}
+
+
+# Responses correlate by message type alone in the editor plugin, so a late
+# response from a timed-out call could be consumed as the answer to the NEXT
+# call of the same type — wrong result, silently. Echoing the relay's call_id
+# lets the relay discard mismatches. Absent when the relay pushed none (older
+# server): the relay accepts unmatched responses then, so skew is safe both ways.
+func _send_exec_response(msg_type: String, result: Dictionary, params: Dictionary) -> void:
+	if params.has("call_id"):
+		result["call_id"] = params["call_id"]
 	EngineDebugger.send_message("godot_mcp:game_response", [msg_type, result])
 
 
@@ -1925,12 +1936,12 @@ func _build_exec_context() -> Dictionary:
 
 
 func _handle_exec_run(data: Array) -> void:
-	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	var params := _exec_params(data)
 	var source: String = str(params.get("source", ""))
 
 	var scan := MCPExecGuard.scan_source(source)
 	if not scan.get("ok", false):
-		_send_exec_response("exec_run", {"error": str(scan.get("message", "exec source rejected"))})
+		_send_exec_response("exec_run", {"error": str(scan.get("message", "exec source rejected"))}, params)
 		return
 
 	var ctx := _build_exec_context()
@@ -1945,7 +1956,7 @@ func _handle_exec_run(data: Array) -> void:
 			msg += " (parser text not captured; check the game console, e.g. minimal-godot-mcp get_console_output)"
 		else:
 			msg += ": " + detail
-		_send_exec_response("exec_run", {"error": msg})
+		_send_exec_response("exec_run", {"error": msg}, params)
 		return
 
 	var inst: Object = script.new()
@@ -1963,7 +1974,7 @@ func _handle_exec_run(data: Array) -> void:
 			and result.get_class() == "GDScriptFunctionState":
 		_send_exec_response("exec_run", {"error":
 			"SCRIPT_SUSPENDED: the script hit an await and suspended (exec is synchronous-only; " +
-			"side effects before the await have already run). Use godot_game_time step/step_until to wait."})
+			"side effects before the await have already run). Use godot_game_time step/step_until to wait."}, params)
 		return
 
 	var out: Dictionary = {
@@ -1976,10 +1987,11 @@ func _handle_exec_run(data: Array) -> void:
 	var errs := _exec_logger_delta(mark)
 	if not errs.is_empty():
 		out["runtime_errors"] = errs
-	_send_exec_response("exec_run", out)
+	_send_exec_response("exec_run", out, params)
 
 
-func _handle_exec_list() -> void:
+func _handle_exec_list(data: Array) -> void:
+	var params := _exec_params(data)
 	var nodes: Array = []
 	if _exec_holder != null and is_instance_valid(_exec_holder):
 		var now := Time.get_ticks_msec()
@@ -1995,15 +2007,21 @@ func _handle_exec_list() -> void:
 				"age_ms": now - int(child.get_meta("mcp_exec_attached_ms", now)),
 				"processing": child.is_processing() or child.is_physics_processing(),
 			})
-	_send_exec_response("exec_list", {"nodes": nodes, "count": nodes.size()})
+	_send_exec_response("exec_list", {"nodes": nodes, "count": nodes.size()}, params)
 
 
 func _handle_exec_remove(data: Array) -> void:
-	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	var params := _exec_params(data)
 	var node_name := str(params.get("name", ""))
 	var child: Node = null
 	if _exec_holder != null and is_instance_valid(_exec_holder) and not node_name.is_empty():
-		child = _exec_holder.get_node_or_null(NodePath(node_name))
+		# Name EQUALITY against direct children — never a NodePath lookup: a
+		# path-like name would traverse out of the holder (".." resolves to
+		# /root, "a/b" to a grandchild) and queue_free whatever it lands on.
+		for c in _exec_holder.get_children():
+			if str(c.name) == node_name:
+				child = c
+				break
 	if child == null:
 		var have: Array = []
 		if _exec_holder != null and is_instance_valid(_exec_holder):
@@ -2011,7 +2029,7 @@ func _handle_exec_remove(data: Array) -> void:
 				have.append(str(c.name))
 		_send_exec_response("exec_remove", {"error":
 			"NOT_FOUND: no exec node named '%s' (have: %s)" % [
-				node_name, ", ".join(PackedStringArray(have)) if not have.is_empty() else "none"]})
+				node_name, ", ".join(PackedStringArray(have)) if not have.is_empty() else "none"]}, params)
 		return
 	# Detach immediately so a list right after this call already shows it gone;
 	# queue_free still frees the detached node at the end of the frame.
@@ -2021,14 +2039,15 @@ func _handle_exec_remove(data: Array) -> void:
 		"removed": true,
 		"name": node_name,
 		"remaining": _exec_holder.get_child_count(),
-	})
+	}, params)
 
 
-func _handle_exec_clear() -> void:
+func _handle_exec_clear(data: Array) -> void:
+	var params := _exec_params(data)
 	var removed := 0
 	if _exec_holder != null and is_instance_valid(_exec_holder):
 		for child in _exec_holder.get_children():
 			_exec_holder.remove_child(child)
 			child.queue_free()
 			removed += 1
-	_send_exec_response("exec_clear", {"removed_count": removed})
+	_send_exec_response("exec_clear", {"removed_count": removed}, params)

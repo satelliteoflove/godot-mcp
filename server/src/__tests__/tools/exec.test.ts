@@ -110,12 +110,14 @@ describe('godot_exec tool', () => {
       expect(data.nodes[0].name).toBe('GodGuard');
     });
 
-    it('list reports an empty holder as plain text', async () => {
+    it('list keeps the structured shape when the holder is empty', async () => {
       mock.mockResponse({ nodes: [], count: 0 });
       const ctx = createToolContext(mock);
 
       const result = await exec.execute({ action: 'list' }, ctx);
-      expect(result).toContain('No exec nodes');
+      const data = structuredOf(result);
+      expect(data.count).toBe(0);
+      expect(data.nodes).toEqual([]);
     });
 
     it('remove forwards the name and returns the structured result', async () => {

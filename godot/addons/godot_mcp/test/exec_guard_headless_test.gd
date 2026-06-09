@@ -171,6 +171,34 @@ func _test_wrapper_compiles_and_runs() -> void:
 	var hashy := _run_wrapped("var s = \"a#b\"\nreturn s.length()")
 	_check("wrapper: '#' inside string is not a comment", hashy["result"], 3)
 
+	# Backslash line-continuation INSIDE a string (legal GDScript): the lexer
+	# must record the new physical line or every following line is mis-flagged
+	# and the wrapper prefixes indent into the string's runtime value — the
+	# silent-corruption bug an adversarial review proved (PR #282).
+	var cont := _run_wrapped("var s = \"abc\\\ndef\"\nreturn s")
+	_check("wrapper: string line-continuation compiles", cont["compiled"], true)
+	_check("wrapper: string line-continuation value uncorrupted", cont["result"], "abcdef")
+
+	var cont3 := _run_wrapped("var s = \"\"\"abc\\\ndef\"\"\"\nreturn s")
+	_check("wrapper: triple-string line-continuation compiles", cont3["compiled"], true)
+	_check("wrapper: triple-string line-continuation value uncorrupted", cont3["result"], "abcdef")
+
+	# ...and code AFTER the continuation still gets prefixed correctly.
+	var cont_then := _run_wrapped("var s = \"x\\\ny\"\nvar t = 0\nfor i in range(3):\n\tt += i\nreturn s + str(t)")
+	_check("wrapper: block after string continuation compiles", cont_then["compiled"], true)
+	_check("wrapper: block after string continuation returns", cont_then["result"], "xy3")
+
+	# Space-aligned bracket literal in otherwise tab-indented source (legal:
+	# bracket interiors have free-form indentation). Bracket-continuation lines
+	# must not decide the indent unit, or the wrapper emits mixed tabs/spaces.
+	var bracketed := _run_wrapped("var a = [\n    1,\n    2,\n]\nfor i in a:\n\tpass\nreturn a.size()")
+	_check("wrapper: space-bracket + tab-block compiles", bracketed["compiled"], true)
+	_check("wrapper: space-bracket + tab-block returns", bracketed["result"], 2)
+
+	var dicted := _run_wrapped("var d = {\n    \"k\": 7,\n}\nif true:\n\tpass\nreturn d[\"k\"]")
+	_check("wrapper: space-dict + tab-block compiles", dicted["compiled"], true)
+	_check("wrapper: space-dict + tab-block returns", dicted["result"], 7)
+
 
 # ── 3. mechanics the bridge handler relies on ─────────────────────────────────
 
