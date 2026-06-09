@@ -275,6 +275,46 @@ describe('input tool', () => {
       expect(noteBlock?.text).toContain('CAPTURE_FAILED');
       expect((blocks[0].text)).toContain('Captured 1/2 frame(s)');
     });
+
+    it('derives a ready-wait-inclusive timeout and pushes relay/wall budgets (#276)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1 });
+      const ctx = createToolContext(mock);
+
+      await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 300 }],
+      }, ctx);
+
+      const call = mock.calls[0];
+      // span 300 + ready-wait -> bridgeWall 5300, relay 17300, server 19300.
+      expect(call.params.wall_budget_ms).toBe(5300);
+      expect(call.params.relay_timeout_ms).toBe(17300);
+      expect(call.opts?.timeoutMs).toBe(19300);
+    });
+
+    it('factors a later capture offset into the timeout budget (#239 + #276)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1 });
+      const ctx = createToolContext(mock);
+
+      await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 100 }],
+        screenshot_at_ms: [8000],
+      }, ctx);
+
+      // The 8000ms capture offset dominates the 100ms input span -> server 27000.
+      expect(mock.calls[0].opts?.timeoutMs).toBe(27000);
+    });
+
+    it('rejects a sequence whose span exceeds the single-call window, before touching the bridge', async () => {
+      const ctx = createToolContext(mock);
+
+      await expect(input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 45000 }],
+      }, ctx)).rejects.toThrow(/single call can cover at most/);
+      expect(mock.calls).toHaveLength(0);
+    });
   });
 
   describe('type_text', () => {
@@ -320,6 +360,17 @@ describe('input tool', () => {
         delay_ms: 50,
         submit: false,
       }, ctx)).rejects.toThrow('No focused element');
+    });
+
+    it('sizes the timeout from the typing duration and pushes the relay budget (#276)', async () => {
+      mock.mockResponse({ completed: true, chars_typed: 5, submitted: false });
+      const ctx = createToolContext(mock);
+
+      await input.execute({ action: 'type_text', text: 'Hello', delay_ms: 50, submit: false }, ctx);
+
+      // 5 chars * 50ms = 250 span + ready-wait -> relay 17250, server 19250.
+      expect(mock.calls[0].params.relay_timeout_ms).toBe(17250);
+      expect(mock.calls[0].opts?.timeoutMs).toBe(19250);
     });
   });
 });

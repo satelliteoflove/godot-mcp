@@ -17,9 +17,9 @@ describe('game_time tool', () => {
       expect(gameTime.schema.safeParse({ action: 'step', frames: 1 }).success).toBe(true);
     });
 
-    it('step enforces the bridge-side caps', () => {
-      expect(gameTime.schema.safeParse({ action: 'step', duration_ms: 20000 }).success).toBe(true);
-      expect(gameTime.schema.safeParse({ action: 'step', duration_ms: 20001 }).success).toBe(false);
+    it('step enforces the published caps', () => {
+      expect(gameTime.schema.safeParse({ action: 'step', duration_ms: 50000 }).success).toBe(true);
+      expect(gameTime.schema.safeParse({ action: 'step', duration_ms: 50001 }).success).toBe(false);
       expect(gameTime.schema.safeParse({ action: 'step', frames: 1200 }).success).toBe(true);
       expect(gameTime.schema.safeParse({ action: 'step', frames: 1201 }).success).toBe(false);
       expect(gameTime.schema.safeParse({ action: 'step', duration_ms: 0 }).success).toBe(false);
@@ -40,8 +40,8 @@ describe('game_time tool', () => {
     });
 
     it('step_until caps max_ms and accepts report expressions and an input timeline', () => {
-      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 20000 }).success).toBe(true);
-      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 20001 }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 50000 }).success).toBe(true);
+      expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 50001 }).success).toBe(false);
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 0 }).success).toBe(false);
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: ['G.wave', 'G.score'] }).success).toBe(true);
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: [''] }).success).toBe(false);
@@ -127,6 +127,21 @@ describe('game_time tool', () => {
       expect(data.game_paused).toBe(true);
       expect(data.gameplay_ms).toBe(120);
     });
+
+    it('derives the per-request timeout and pushes the relay/wall budgets to the bridge (#276)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false,
+      });
+      const ctx = createToolContext(mock);
+
+      await gameTime.execute({ action: 'step', duration_ms: 500 }, ctx);
+      const call = mock.calls[0];
+      // budget 500 (no ready-wait) -> bridgeWall 5500, relay 7500, server 9500.
+      expect(call.params.wall_budget_ms).toBe(5500);
+      expect(call.params.relay_timeout_ms).toBe(7500);
+      expect(call.opts?.timeoutMs).toBe(9500);
+    });
   });
 
   describe('step_until', () => {
@@ -188,6 +203,22 @@ describe('game_time tool', () => {
       await expect(
         gameTime.execute({ action: 'step_until', until: 'Bogus.foo > 1' }, ctx),
       ).rejects.toThrow('predicate failed to evaluate');
+    });
+
+    it('sizes the timeout from max_ms and pushes the derived budgets (#276)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 0, gameplay_ms: 0,
+        frames: 0, physics_ticks: 0, game_paused: false, predicate_met: true,
+      });
+      const ctx = createToolContext(mock);
+
+      await gameTime.execute({ action: 'step_until', until: 'true', max_ms: 8000 }, ctx);
+      const call = mock.calls[0];
+      // budget 8000 (no ready-wait) -> bridgeWall 13000, relay 15000, server 17000.
+      expect(call.params.max_ms).toBe(8000);
+      expect(call.params.wall_budget_ms).toBe(13000);
+      expect(call.params.relay_timeout_ms).toBe(15000);
+      expect(call.opts?.timeoutMs).toBe(17000);
     });
   });
 

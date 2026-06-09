@@ -34,19 +34,30 @@ func get_commands() -> Dictionary:
 	}
 
 
+# Total wall budget for a long-running input command. The server derives the
+# whole cascade and pushes relay_timeout_ms down in params (#276); the local
+# fallback is used only for an older server that pushes no budget.
+func _pushed_budget(params: Dictionary, fallback: float) -> float:
+	if params.has("relay_timeout_ms"):
+		return float(params["relay_timeout_ms"]) / 1000.0
+	return fallback
+
+
 # Block until the running game's bridge reports it can consume input, bounded by
-# READY_TIMEOUT. Returns true once ready, false if the game stops or never comes
-# up in time. In the common case (game already running) this returns immediately
-# without waiting a frame. Gating input on this is the fix for #241: the debug
-# session connects before the main scene loads, so input dispatched on
-# has_active_session() alone lands in a game with nothing to receive it.
-func _await_bridge_ready(debugger_plugin) -> bool:
-	var start_time := Time.get_ticks_msec()
+# READY_TIMEOUT and the shared call deadline (op_start + total_budget) so the
+# ready-wait can never eat the budget the command itself needs (#276). Returns
+# true once ready, false if the game stops or never comes up in time. In the
+# common case (game already running) this returns immediately without waiting a
+# frame. Gating input on this is the fix for #241: the debug session connects
+# before the main scene loads, so input dispatched on has_active_session() alone
+# lands in a game with nothing to receive it.
+func _await_bridge_ready(debugger_plugin, op_start: int, total_budget: float) -> bool:
 	while not debugger_plugin.is_bridge_ready():
 		if not EditorInterface.is_playing_scene():
 			return false  # game stopped or crashed while we waited
 		await Engine.get_main_loop().process_frame
-		if (Time.get_ticks_msec() - start_time) / 1000.0 > READY_TIMEOUT:
+		var elapsed := (Time.get_ticks_msec() - op_start) / 1000.0
+		if elapsed > READY_TIMEOUT or elapsed > total_budget:
 			return false
 	return true
 
@@ -146,11 +157,12 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null:
 		return _error("NO_SESSION", "No active debug session")
-	if not await _await_bridge_ready(debugger_plugin):
-		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
-
-	# The window can extend past the last input if a frame capture is requested
-	# at a later offset, so factor capture offsets into the timeout too.
+	# One deadline for the whole call, stamped BEFORE the ready-wait so the
+	# bridge-ready gap is folded into the budget instead of stacking on top of
+	# it (#276). Prefer the server-pushed budget; the fallback (older server) is
+	# the longest input/capture offset plus headroom, floored at INPUT_TIMEOUT,
+	# plus the ready-wait that now counts against the same deadline.
+	var op_start := Time.get_ticks_msec()
 	var max_end_time: float = 0.0
 	for input in inputs:
 		var start_ms: float = input.get("start_ms", 0.0)
@@ -158,8 +170,11 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 		max_end_time = max(max_end_time, start_ms + duration_ms)
 	for shot_ms in screenshots:
 		max_end_time = max(max_end_time, float(shot_ms))
+	var fallback: float = max(INPUT_TIMEOUT, (max_end_time / 1000.0) + 5.0) + READY_TIMEOUT
+	var timeout := _pushed_budget(params, fallback)
 
-	var timeout := max(INPUT_TIMEOUT, (max_end_time / 1000.0) + 5.0)
+	if not await _await_bridge_ready(debugger_plugin, op_start, timeout):
+		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
 
 	_sequence_pending = true
 	_sequence_result = {}
@@ -171,10 +186,9 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	debugger_plugin.input_sequence_completed.connect(_on_sequence_completed, CONNECT_ONE_SHOT)
 	debugger_plugin.request_input_sequence(inputs, report, screenshots, screenshot_max_width)
 
-	var start_time := Time.get_ticks_msec()
 	while _sequence_pending:
 		await Engine.get_main_loop().process_frame
-		if (Time.get_ticks_msec() - start_time) / 1000.0 > timeout:
+		if (Time.get_ticks_msec() - op_start) / 1000.0 > timeout:
 			_sequence_pending = false
 			if debugger_plugin.input_sequence_completed.is_connected(_on_sequence_completed):
 				debugger_plugin.input_sequence_completed.disconnect(_on_sequence_completed)
@@ -225,10 +239,14 @@ func type_text(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null:
 		return _error("NO_SESSION", "No active debug session")
-	if not await _await_bridge_ready(debugger_plugin):
-		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
+	# Shared deadline (ready-wait + typing), stamped before the ready-wait so the
+	# gap is folded into the budget (#276); server-pushed budget or local fallback.
+	var op_start := Time.get_ticks_msec()
+	var fallback: float = max(INPUT_TIMEOUT, (text.length() * delay_ms / 1000.0) + 5.0) + READY_TIMEOUT
+	var timeout := _pushed_budget(params, fallback)
 
-	var timeout := max(INPUT_TIMEOUT, (text.length() * delay_ms / 1000.0) + 5.0)
+	if not await _await_bridge_ready(debugger_plugin, op_start, timeout):
+		return _error("BRIDGE_NOT_READY", _BRIDGE_NOT_READY_MSG)
 
 	_type_text_pending = true
 	_type_text_result = {}
@@ -236,10 +254,9 @@ func type_text(params: Dictionary) -> Dictionary:
 	debugger_plugin.type_text_completed.connect(_on_type_text_completed, CONNECT_ONE_SHOT)
 	debugger_plugin.request_type_text(text, delay_ms, submit)
 
-	var start_time := Time.get_ticks_msec()
 	while _type_text_pending:
 		await Engine.get_main_loop().process_frame
-		if (Time.get_ticks_msec() - start_time) / 1000.0 > timeout:
+		if (Time.get_ticks_msec() - op_start) / 1000.0 > timeout:
 			_type_text_pending = false
 			if debugger_plugin.type_text_completed.is_connected(_on_type_text_completed):
 				debugger_plugin.type_text_completed.disconnect(_on_type_text_completed)

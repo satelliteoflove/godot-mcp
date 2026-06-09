@@ -9,10 +9,10 @@ import {
 import { getServerVersion } from '../version.js';
 import { logger } from '../utils/logger.js';
 import { getTargetHost, getConnectionStrategy } from '../utils/connection-strategy.js';
+import { QUICK_TIMEOUT_MS } from './timeouts.js';
 
 const DEFAULT_PORT = 6550;
 const DEFAULT_HOST = 'localhost';
-const COMMAND_TIMEOUT_MS = 30000;
 const HANDSHAKE_TIMEOUT_MS = 5000;
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30000;
@@ -311,19 +311,27 @@ export class GodotConnection extends EventEmitter {
     }
   }
 
-  async sendCommand<T = unknown>(command: string, params: Record<string, unknown> = {}): Promise<T> {
+  // Long-running commands (game_time step, input sequence) pass an explicit
+  // opts.timeoutMs derived from their in-game budget (see timeouts.ts); every
+  // other command falls back to the quick default.
+  async sendCommand<T = unknown>(
+    command: string,
+    params: Record<string, unknown> = {},
+    opts: { timeoutMs?: number } = {}
+  ): Promise<T> {
     if (!this.isConnected) {
       const diagnosticMessage = this.getDiagnosticMessage();
       throw new GodotConnectionError(`Not connected to Godot\n${diagnosticMessage}`);
     }
 
     const request = createRequest(command, params);
+    const timeoutMs = opts.timeoutMs ?? QUICK_TIMEOUT_MS;
 
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this.pendingRequests.delete(request.id);
-        reject(new GodotTimeoutError(command, COMMAND_TIMEOUT_MS));
-      }, COMMAND_TIMEOUT_MS);
+        reject(new GodotTimeoutError(command, timeoutMs));
+      }, timeoutMs);
 
       this.pendingRequests.set(request.id, {
         resolve: resolve as (result: unknown) => void,

@@ -4,6 +4,7 @@ import type { GodotConnection } from '../../connection/websocket.js';
 export interface CommandCall {
   command: string;
   params: Record<string, unknown>;
+  opts?: { timeoutMs?: number };
 }
 
 export interface MockGodotConnection {
@@ -19,8 +20,8 @@ export function createMockGodot(): MockGodotConnection {
   let nextResponse: unknown = {};
   let nextError: Error | null = null;
 
-  const sendCommand = vi.fn(async (command: string, params: Record<string, unknown> = {}) => {
-    calls.push({ command, params });
+  const sendCommand = vi.fn(async (command: string, params: Record<string, unknown> = {}, opts?: { timeoutMs?: number }) => {
+    calls.push({ command, params, opts });
     if (nextError) {
       const err = nextError;
       nextError = null;

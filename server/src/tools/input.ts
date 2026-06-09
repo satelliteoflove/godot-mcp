@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
+import { deriveTimeouts, maxInGameBudgetMs } from '../connection/timeouts.js';
 import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
 export const InputActionSchema = z.object({
@@ -115,6 +116,22 @@ export const input = defineTool({
 
       case 'sequence': {
         const inputs = args.inputs!;
+
+        // Size the timeout cascade from how long the sequence actually runs:
+        // the last input's end, or a later capture offset. The bridge-ready
+        // wait precedes this call, so it is folded into the budget (readyWait).
+        const lastInputEnd = inputs.reduce((m, i) => Math.max(m, (i.start_ms ?? 0) + (i.duration_ms ?? 0)), 0);
+        const lastShot = (args.screenshot_at_ms ?? []).reduce((m, o) => Math.max(m, o), 0);
+        const budget = Math.max(lastInputEnd, lastShot);
+        const cap = maxInGameBudgetMs({ readyWait: true });
+        if (budget > cap) {
+          throw new Error(
+            `Input sequence spans ${budget}ms but a single call can cover at most ${cap}ms ` +
+            `(the transport ceiling). Split it into multiple sequences, or use godot_game_time to drive a longer window.`
+          );
+        }
+        const t = deriveTimeouts(budget, { readyWait: true });
+
         const result = await godot.sendCommand<{
           completed: boolean;
           actions_executed: number;
@@ -140,7 +157,9 @@ export const input = defineTool({
           report: args.report,
           screenshot_at_ms: args.screenshot_at_ms,
           screenshot_max_width: args.screenshot_max_width,
-        });
+          relay_timeout_ms: t.relayMs,
+          wall_budget_ms: t.bridgeWallMs,
+        }, { timeoutMs: t.serverMs });
 
         if (result.error) {
           throw new Error(result.error);
@@ -212,12 +231,25 @@ export const input = defineTool({
       }
 
       case 'type_text': {
+        // Keystrokes are spaced by delay_ms; size the timeout from the total
+        // span (and the bridge-ready wait that precedes typing) so a long type
+        // can't hit the quick default and get killed mid-stream.
+        const budget = args.text.length * (args.delay_ms ?? 50);
+        const cap = maxInGameBudgetMs({ readyWait: true });
+        if (budget > cap) {
+          throw new Error(
+            `Typing ${args.text.length} chars at ${args.delay_ms ?? 50}ms each spans ${budget}ms, over the ` +
+            `${cap}ms single-call ceiling. Type in smaller chunks or lower delay_ms.`
+          );
+        }
+        const t = deriveTimeouts(budget, { readyWait: true });
+
         const result = await godot.sendCommand<{
           completed: boolean;
           chars_typed: number;
           submitted: boolean;
           error?: string;
-        }>('type_text', { text: args.text, delay_ms: args.delay_ms, submit: args.submit });
+        }>('type_text', { text: args.text, delay_ms: args.delay_ms, submit: args.submit, relay_timeout_ms: t.relayMs }, { timeoutMs: t.serverMs });
 
         if (result.error) {
           throw new Error(result.error);

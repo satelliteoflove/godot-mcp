@@ -4,10 +4,11 @@ class_name MCPGameTimeCommands
 
 # Game-time control relay: freeze / step / step_until / thaw / status execute in
 # the game bridge (see mcp_game_bridge.gd); this side only forwards over the
-# debugger channel and waits. Timeout cascade: a step/step_until request is
-# capped at 20s of game time and the bridge's wall budget returns by 25s, so the
-# 28s relay timeout below fires only if the bridge is gone — and stays under the
-# server's 30s command timeout so errors surface typed instead of generic.
+# debugger channel and waits. Timeout cascade (#276): the server derives the
+# whole stagger from the call's in-game budget and pushes relay_timeout_ms down
+# in params; we wait exactly that long, so the bridge (which returns by its
+# pushed wall budget) answers first and errors surface typed. BASE_TIMEOUT and
+# STEP_TIMEOUT are fallbacks only — for an older server that pushes no budget.
 const BASE_TIMEOUT := 10.0
 const STEP_TIMEOUT := 28.0
 
@@ -29,11 +30,11 @@ func game_time_freeze(params: Dictionary) -> Dictionary:
 
 
 func game_time_step(params: Dictionary) -> Dictionary:
-	return await _relay("game_time_step", [params], STEP_TIMEOUT)
+	return await _relay("game_time_step", [params], _relay_timeout(params, STEP_TIMEOUT))
 
 
 func game_time_step_until(params: Dictionary) -> Dictionary:
-	return await _relay("game_time_step_until", [params], STEP_TIMEOUT)
+	return await _relay("game_time_step_until", [params], _relay_timeout(params, STEP_TIMEOUT))
 
 
 func game_time_thaw(params: Dictionary) -> Dictionary:
@@ -42,6 +43,13 @@ func game_time_thaw(params: Dictionary) -> Dictionary:
 
 func game_time_status(params: Dictionary) -> Dictionary:
 	return await _relay("game_time_status", [params], BASE_TIMEOUT)
+
+
+func _relay_timeout(params: Dictionary, fallback: float) -> float:
+	# Use the server-pushed relay budget when present (#276); the local constant
+	# is only a fallback for an older server that does not derive the cascade.
+	var ms: float = float(params.get("relay_timeout_ms", fallback * 1000.0))
+	return ms / 1000.0
 
 
 func _relay(msg_type: String, args: Array, timeout: float) -> Dictionary:

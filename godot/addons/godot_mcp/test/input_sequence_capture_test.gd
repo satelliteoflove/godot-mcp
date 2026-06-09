@@ -49,7 +49,9 @@ func _run() -> void:
 	var offs: Array = bridge._sequence_capture_offsets.duplicate()
 	_check("offsets sorted ascending (first)", offs[0], 50)
 	_check("offsets sorted ascending (second)", offs[1], 200)
-	_check("offset clamped to SEQUENCE_MAX_CAPTURE_OFFSET_MS", offs[2], 20000)
+	# SEQUENCE_MAX_CAPTURE_OFFSET_MS is now a non-binding sanity backstop (#276):
+	# the server clamps the real budget, so this only catches a malformed message.
+	_check("offset clamped to SEQUENCE_MAX_CAPTURE_OFFSET_MS backstop", offs[2], 300000)
 
 	# --- 2. cap at SEQUENCE_MAX_CAPTURES ------------------------------------
 	bridge._handle_execute_input_sequence([

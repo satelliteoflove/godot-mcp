@@ -283,11 +283,13 @@ var _sequence_capture_offsets: Array = []
 var _sequence_captures_pending: int = 0
 var _sequence_capture_max_width: int = 640
 const SEQUENCE_MAX_CAPTURES := 8
-# Capped well under the 30s server command timeout: the sequence runs until its
-# last capture offset, so a larger value would let the whole call time out
-# server-side. 20s is already far longer than any transient-visual capture needs.
-# This bound is a placeholder for the global-timeout fix tracked in godot-mcp#276.
-const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 20000
+# Non-binding sanity backstop only (#276). The server derives the per-call
+# timeout from the sequence span and rejects offsets beyond what the ceiling
+# permits before they ever reach here, so this just guards a malformed direct
+# message. Kept far above any server-permitted budget so it never silently
+# clamps a legitimate offset (which would reintroduce the cross-layer drift
+# that #276 removed).
+const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 300000
 # Actions whose press has been injected but whose paired release has not yet
 # fired. Used to guarantee a release even if the queue is cleared mid-flight
 # (new sequence) or the node leaves the tree — otherwise the dropped release
@@ -1332,10 +1334,15 @@ func _type_text_async(text: String, delay_ms: int, submit: bool) -> void:
 # ---------------------------------------------------------------------------
 
 const LAUNCH_FROZEN_ENV := "GODOT_MCP_LAUNCH_FROZEN"
-# Timeout cascade: step request <= 20s game time, wall budget 25s, editor
-# relay 28s, server command timeout 30s. Each layer answers before the one
-# above it gives up.
-const STEP_MAX_MS := 20000
+# Timeout cascade (#276): the server derives the whole stagger from the call's
+# in-game budget and pushes wall_budget_ms down here. The bridge returns by that
+# wall budget, the editor relay waits a margin longer, the server socket a
+# margin longer still — each answers before the one above gives up.
+#   STEP_MAX_MS         non-binding sanity backstop (the server already clamps the request)
+#   STEP_DEFAULT_MS     budget used when a call omits max_ms (older server that sends no default)
+#   STEP_WALL_BUDGET_MS wall-budget fallback when the server pushes no wall_budget_ms
+const STEP_MAX_MS := 300000
+const STEP_DEFAULT_MS := 20000
 const STEP_MAX_FRAMES := 1200
 const STEP_WALL_BUDGET_MS := 25000
 const STEP_MAX_TRANSITIONS := 50
@@ -1358,6 +1365,7 @@ var _step_gameplay_ms := 0.0  # the unpaused portion: what gameplay actually exp
 var _step_frames := 0
 var _step_physics_ticks := 0
 var _step_wall_start := 0
+var _step_wall_budget_ms := STEP_WALL_BUDGET_MS  # set per-call from the server-pushed wall_budget_ms (#276)
 var _step_events: Array = []  # in-step input timeline, scheduled on the game-time clock
 var _step_events_fired := 0
 var _step_transitions: Array = []
@@ -1515,6 +1523,7 @@ func _handle_game_time_step(data: Array) -> void:
 	_step_finish_pending = false
 	_step_wall_exceeded = false
 	_step_wall_start = Time.get_ticks_msec()
+	_step_wall_budget_ms = int(params.get("wall_budget_ms", STEP_WALL_BUDGET_MS))
 	_step_predicate = null
 	_step_response_type = "game_time_step"
 	_step_active = true
@@ -1631,9 +1640,9 @@ func _handle_game_time_step_until(data: Array) -> void:
 		_send_game_time_response("game_time_step_until", {"error": "step_until requires a non-empty `until` expression"})
 		return
 
-	var max_ms: int = int(params.get("max_ms", STEP_MAX_MS))
+	var max_ms: int = int(params.get("max_ms", STEP_DEFAULT_MS))
 	if max_ms <= 0:
-		max_ms = STEP_MAX_MS
+		max_ms = STEP_DEFAULT_MS
 	max_ms = mini(max_ms, STEP_MAX_MS)
 
 	# Compile and validate the predicate against the live tree before committing
@@ -1696,6 +1705,7 @@ func _handle_game_time_step_until(data: Array) -> void:
 	_step_finish_pending = false
 	_step_wall_exceeded = false
 	_step_wall_start = Time.get_ticks_msec()
+	_step_wall_budget_ms = int(params.get("wall_budget_ms", STEP_WALL_BUDGET_MS))
 	_step_predicate = expr
 	_step_predicate_inputs = ctx_inputs
 	_step_predicate_met = false
@@ -1767,7 +1777,7 @@ func _step_process(delta: float) -> void:
 			_step_predicate_met = true
 			done = true
 
-	if Time.get_ticks_msec() - _step_wall_start > STEP_WALL_BUDGET_MS:
+	if Time.get_ticks_msec() - _step_wall_start > _step_wall_budget_ms:
 		# Slow-mo, Engine.time_scale = 0, or a pause-held window can starve
 		# the game-time clock; the wall budget guarantees the call returns
 		# (partial, honestly reported) before the editor relay gives up.
