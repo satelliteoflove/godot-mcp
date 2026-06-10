@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.17.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.16.0...godot-mcp-v3.17.0) (2026-06-10)
+
+
+### Features
+
+* joypad button, axis, and stick injection for input sequences and game-time steps ([#289](https://github.com/satelliteoflove/godot-mcp/issues/289)) ([19fa189](https://github.com/satelliteoflove/godot-mcp/commit/19fa1894a773a2ee1965cb93c1075fc884cabb92))
+
 ## [3.16.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.15.0...godot-mcp-v3.16.0) (2026-06-09)
 
 
