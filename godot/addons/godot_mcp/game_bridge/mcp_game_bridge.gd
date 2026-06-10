@@ -1749,6 +1749,13 @@ func _inject_timeline_event(ev: Dictionary) -> int:
 			# engine only on the 0<->1 edge so an inner release never turns a
 			# still-held key off (the early-release bug), and the registry mirrors
 			# the real pressed state for guaranteed cleanup.
+			# Keyed by (physical, code) only, NOT mask: two overlapping combos that
+			# share a base key but differ in modifiers (e.g. ctrl+s and shift+s)
+			# collapse to one entry, so the shared base event reflects the FIRST
+			# combo's modifier flags. The polled key state stays correct (one key,
+			# refcounted, no early release); only the base event's flags differ for
+			# that exotic overlap. Keying by mask instead would split them and
+			# reintroduce an early release of the shared base key — the worse bug.
 			if ev.is_press:
 				if _held_keys.has(kkey):
 					_held_keys[kkey]["count"] = int(_held_keys[kkey]["count"]) + 1

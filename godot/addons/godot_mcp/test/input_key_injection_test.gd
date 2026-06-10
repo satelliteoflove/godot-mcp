@@ -33,6 +33,7 @@ const KEY_ACT := "mcp_probe_key"          # bound to InputEventKey keycode J
 const CTRL_S_ACT := "mcp_probe_ctrl_s"    # bound to keycode S + ctrl
 const KEYCODE_ACT := "mcp_probe_keycode"  # bound to keycode M (logical)
 const BARE_CTRL_ACT := "mcp_probe_bare_ctrl"  # bound to bare keycode CTRL
+const PHYS_ACT := "mcp_probe_physical"    # bound to PHYSICAL keycode N (no logical keycode)
 
 var _count := 0
 var _failures := 0
@@ -86,6 +87,12 @@ func _run() -> void:
 	_register_key_action(CTRL_S_ACT, KEY_S, true)
 	_register_key_action(KEYCODE_ACT, KEY_M)
 	_register_key_action(BARE_CTRL_ACT, KEY_CTRL)
+	# A PHYSICAL-keycode binding (no logical keycode) for the positive physical case.
+	if not InputMap.has_action(PHYS_ACT):
+		InputMap.add_action(PHYS_ACT)
+		var pbind := InputEventKey.new()
+		pbind.physical_keycode = KEY_N
+		InputMap.action_add_event(PHYS_ACT, pbind)
 
 	print("\n===================== KEY INJECTION TEST (#290) =====================\n")
 	print("DisplayServer name: %s" % DisplayServer.get_name())
@@ -188,6 +195,17 @@ func _run() -> void:
 	bridge._handle_execute_input_sequence([[{"key": "z", "start_ms": 0, "duration_ms": 10}]])
 	for i in 4:
 		await process_frame
+	# POSITIVE physical: physical:true DOES fire a PHYSICAL-keycode binding (the
+	# other half of the footgun — polled is_physical_key_pressed alone is not proof
+	# that the InputMap physical-match path also fires).
+	await _settle()
+	bridge._handle_execute_input_sequence([[{"key": "n", "physical": true, "start_ms": 0, "duration_ms": 100000}]])
+	await process_frame
+	await process_frame
+	_check("physical:true DOES fire a physical-keycode-bound action", Input.is_action_pressed(PHYS_ACT), true)
+	bridge._handle_execute_input_sequence([[{"key": "z", "start_ms": 0, "duration_ms": 10}]])
+	for i in 4:
+		await process_frame
 
 	# ── 7. _input / _unhandled_input delivery with modifier flags ────────────
 	await _settle()
@@ -219,29 +237,78 @@ func _run() -> void:
 		{"key": "ctrl+s", "start_ms": 0, "duration_ms": 300},
 		{"key": "ctrl+a", "start_ms": 100, "duration_ms": 300},
 	]])
-	var ovl_start := Time.get_ticks_msec()
-	var ctrl_dropped_mid := false
+	# Timing-immune checks (a fixed wall-clock window could miss the boundary if no
+	# frame lands in it): white-box the refcount reaching 2, and assert CTRL is held
+	# on EVERY frame A is down — A outlives ctrl+s, so an early release of the shared
+	# modifier shows up as "A down but CTRL up" on whatever frame it happens.
+	var ctrl_key := "%d:%d" % [0, KEY_CTRL]
+	var ctrl_count_max := 0
+	var ctrl_dropped_while_a_held := false
 	var saw_s := false
 	var saw_a := false
 	var guard := 0
 	while bridge._sequence_running and guard < 800:
 		guard += 1
 		await process_frame
-		var el := Time.get_ticks_msec() - ovl_start
+		var a_down := Input.is_key_pressed(KEY_A)
 		if Input.is_key_pressed(KEY_S):
 			saw_s = true
-		if Input.is_key_pressed(KEY_A):
+		if a_down:
 			saw_a = true
-		# Window between ctrl+s's release (~300) and ctrl+a's (~400): CTRL must
-		# stay held (the early-release bug a boolean registry would cause).
-		if el > 320 and el < 380 and not Input.is_key_pressed(KEY_CTRL):
-			ctrl_dropped_mid = true
+		ctrl_count_max = maxi(ctrl_count_max, int(bridge._held_keys.get(ctrl_key, {}).get("count", 0)))
+		if a_down and not Input.is_key_pressed(KEY_CTRL):
+			ctrl_dropped_while_a_held = true
 	for i in 4:
 		await process_frame
 	_check("overlap: base key S registered", saw_s, true)
 	_check("overlap: base key A registered", saw_a, true)
-	_check("overlap: shared modifier NOT released early (refcounted)", ctrl_dropped_mid, false)
+	_check("overlap: CTRL refcount reached 2 (both combos held it; white-box, timing-immune)", ctrl_count_max, 2)
+	_check("overlap: shared modifier never dropped while A was still held (no early release)", ctrl_dropped_while_a_held, false)
 	_check("overlap: modifier released after the last entry", Input.is_key_pressed(KEY_CTRL), false)
+
+	# ── 9b. Independent distinct keys (WASD-style): held and released separately ─
+	await _settle()
+	bridge._handle_execute_input_sequence([[
+		{"key": "a", "start_ms": 0, "duration_ms": 130},
+		{"key": "b", "start_ms": 0, "duration_ms": 100000},
+	]])
+	var both_down := false
+	var a_off_b_on := false
+	var ind_guard := 0
+	while bridge._sequence_running and ind_guard < 800:
+		ind_guard += 1
+		await process_frame
+		var a := Input.is_key_pressed(KEY_A)
+		var b := Input.is_key_pressed(KEY_B)
+		if a and b:
+			both_down = true
+		if (not a) and b:
+			a_off_b_on = true
+	_check("multi-key: distinct keys A and B held simultaneously", both_down, true)
+	_check("multi-key: A released independently while B stayed held", a_off_b_on, true)
+	bridge._handle_execute_input_sequence([[{"key": "z", "start_ms": 0, "duration_ms": 10}]])
+	for i in 4:
+		await process_frame
+	_check("multi-key: B released by the interrupting sequence", Input.is_key_pressed(KEY_B), false)
+
+	# ── 9c. Shared base key, DIFFERENT modifiers (the registry keys on code only) ─
+	# Documented edge (SF1): two combos sharing a base collapse to one refcounted
+	# entry, so the base event's modifier FLAGS reflect the first combo — but the
+	# POLLED key state stays correct (no stuck base key; both modifier keys held).
+	await _settle()
+	bridge._handle_execute_input_sequence([[
+		{"key": "ctrl+s", "start_ms": 0, "duration_ms": 100000},
+		{"key": "shift+s", "start_ms": 0, "duration_ms": 100000},
+	]])
+	await process_frame
+	await process_frame
+	_check("shared-base: S held once for both combos", Input.is_key_pressed(KEY_S), true)
+	_check("shared-base: both distinct modifier keys held", [Input.is_key_pressed(KEY_CTRL), Input.is_key_pressed(KEY_SHIFT)], [true, true])
+	bridge._handle_execute_input_sequence([[{"key": "z", "start_ms": 0, "duration_ms": 10}]])
+	for i in 4:
+		await process_frame
+	_check("shared-base: S, CTRL, SHIFT all released after interrupt (no stuck base)",
+		[Input.is_key_pressed(KEY_S), Input.is_key_pressed(KEY_CTRL), Input.is_key_pressed(KEY_SHIFT)], [false, false, false])
 
 	# ── 10. Abutting combos sharing a modifier: final state is clean ─────────
 	# (The one-frame just_released edge on the shared modifier at the boundary is

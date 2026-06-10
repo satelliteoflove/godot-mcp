@@ -104,12 +104,13 @@ static func modifier_key_indices(mask: int) -> Array:
 	return out
 
 
-## Canonical, round-trippable display for a key binding (get_input_map). Modifier
-## prefixes come from the event's own flags with fixed tokens (platform-stable,
-## and re-parseable here — unlike OS.get_keycode_string's mask spelling, which
-## find_keycode_from_string cannot read back for Meta). A physical-only binding
-## (keycode unset) renders from physical_keycode with a "(physical)" marker so an
-## agent knows to inject it with physical:true.
+## Canonical display for a key binding (get_input_map). Modifier prefixes come
+## from the event's own flags with fixed tokens (platform-stable, and re-parseable
+## by parse() — unlike OS.get_keycode_string's mask spelling, which
+## find_keycode_from_string cannot read back for Meta). A logical key + modifier
+## combo round-trips through parse(); a physical-only binding (keycode unset)
+## renders from physical_keycode with a "(physical)" marker that tells an agent to
+## inject with physical:true — that marker is display-only, not re-parseable.
 static func event_string(event: InputEventKey) -> String:
 	var prefix := ""
 	if event.ctrl_pressed:
