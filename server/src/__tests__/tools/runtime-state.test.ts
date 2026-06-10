@@ -11,6 +11,7 @@ import {
   summarizeStringField,
   buildTimeline,
 } from '../../tools/runtime-state.js';
+import { toInputSchema } from '../../core/schema.js';
 
 describe('runtimeState tool', () => {
   let mock: MockGodotConnection;
@@ -43,6 +44,19 @@ describe('runtimeState tool', () => {
 
     it('rejects digest with invalid select value', () => {
       expect(runtimeState.schema.safeParse({ action: 'digest', select: 'invalid' }).success).toBe(false);
+    });
+
+    it('select describe documents the 3D-aware auto fallback (#230, regression guard)', () => {
+      // The fallback tier now surfaces 3D world nodes, not just CanvasItems
+      // (mcp_game_bridge.gd). The schema is the only contract an agent reads, so
+      // this guards the describe from silently regressing to "CanvasItems"-only.
+      const serialized = JSON.stringify(toInputSchema(runtimeState.schema));
+      expect(serialized).toContain('3D');
+      expect(serialized).toContain('physics bodies');
+      // Schema shape is unchanged — select stays the same enum (note "fallback"
+      // is the internal tier auto resolves to, NOT a user-facing select value).
+      expect(runtimeState.schema.safeParse({ action: 'digest', select: 'auto' }).success).toBe(true);
+      expect(runtimeState.schema.safeParse({ action: 'digest', select: 'fallback' }).success).toBe(false);
     });
 
     it('accepts select="none" with explicit paths', () => {

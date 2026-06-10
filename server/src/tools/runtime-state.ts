@@ -233,8 +233,9 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
       .optional()
       .describe(
         'Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), ' +
-        '"auto" = best available (default: auto picks group → method → visible CanvasItems), ' +
-        '"none" = no automatic selection; return only the nodes named in paths'
+        '"auto" = best available (default: auto picks group → method → a visibility fallback that ' +
+        'surfaces visible 2D nodes (CanvasItems) AND 3D world nodes — meshes, gridmaps, cameras, ' +
+        'lights, and physics bodies), "none" = no automatic selection; return only the nodes named in paths'
       ),
     group: z
       .string()

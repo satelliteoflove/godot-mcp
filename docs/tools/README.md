@@ -71,7 +71,7 @@ Performance profiling: snapshots, per-frame time series with spike detection, ac
 
 ## [Runtime State](runtime-state.md)
 
-Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Much cheaper than screenshots.
+Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies — not just UI). Much cheaper than screenshots.
 
 - `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup.
 
