@@ -158,6 +158,23 @@ func _run() -> void:
 	for i in 4:
 		await process_frame
 
+	# ── 5b. A LONE modifier name is the modifier key itself ──────────────────
+	# (a game binding bare Shift/Ctrl, like NEON RAMPAGE's dash = Shift). Caught
+	# live: "shift" must not parse to a baseless modifier and reject as unknown.
+	var bare: Dictionary = MCPKeyNames.parse("shift")
+	_check("lone 'shift' parses to the Shift KEY (not a baseless modifier)", [int(bare["code"]), int(bare["mask"])], [int(KEY_SHIFT), 0])
+	var bare_ambig: Dictionary = MCPKeyNames.parse("ctrl+shift")
+	_check("baseless multi-modifier 'ctrl+shift' stays unknown", int(bare_ambig["code"]), int(KEY_NONE))
+	await _settle()
+	bridge._handle_execute_input_sequence([[{"key": "ctrl", "start_ms": 0, "duration_ms": 100000}]])
+	await process_frame
+	await process_frame
+	_check("{key:'ctrl'} drives polled is_key_pressed(KEY_CTRL)", Input.is_key_pressed(KEY_CTRL), true)
+	_check("{key:'ctrl'} fires a bare-Ctrl-bound action", Input.is_action_pressed(BARE_CTRL_ACT), true)
+	bridge._handle_execute_input_sequence([[{"key": "z", "start_ms": 0, "duration_ms": 10}]])
+	for i in 4:
+		await process_frame
+
 	# ── 6. NEGATIVE physical: physical-only does not fire a keycode binding ──
 	await _settle()
 	bridge._handle_execute_input_sequence([[{"key": "m", "physical": true, "start_ms": 0, "duration_ms": 100000}]])

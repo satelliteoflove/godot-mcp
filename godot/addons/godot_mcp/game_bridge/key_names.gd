@@ -77,6 +77,13 @@ static func parse(value: Variant) -> Dictionary:
 			base = token
 
 	if base.is_empty():
+		# A lone modifier name ("shift", "ctrl", "cmd") means the modifier KEY
+		# itself — e.g. a game binding bare Shift, or polling is_key_pressed(KEY_CTRL).
+		# Exactly one modifier resolves to its keycode; a baseless multi-modifier
+		# combo ("ctrl+shift") is ambiguous and stays unknown.
+		for m in _MOD_ORDER:
+			if mask == int(m):
+				return {"code": int(MODIFIER_KEYCODES[m]), "mask": 0}
 		return {"code": KEY_NONE, "mask": mask}
 
 	# find_keycode_from_string handles Ctrl/Shift/Alt itself; strip any mask bits
