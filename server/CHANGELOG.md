@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.19.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.18.0...godot-mcp-v3.19.0) (2026-06-10)
+
+
+### Features
+
+* inject relative mouse-look (InputEventMouseMotion) for godot_input ([#295](https://github.com/satelliteoflove/godot-mcp/issues/295)) ([ce45467](https://github.com/satelliteoflove/godot-mcp/commit/ce45467d0d9d1be51256f8c01dcb3070aa3ea523))
+
 ## [3.18.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.17.0...godot-mcp-v3.18.0) (2026-06-10)
 
 
