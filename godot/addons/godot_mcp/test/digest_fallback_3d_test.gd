@@ -48,7 +48,7 @@ func _run() -> void:
 	_test_selection_and_exclusion()
 	_test_entity_data_and_onscreen()
 	_test_max_nodes_and_type_filter()
-	_test_auto_resolves_to_fallback()
+	_test_fallback_branch_conditions_hold()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -73,15 +73,19 @@ func _build_scene() -> void:
 	_scene.add_child(cam)
 	cam.current = true # identity transform → at origin looking down -Z
 
+	# Local position, not global_position: _build_scene runs in _initialize() before
+	# the tree is live, where global_position would hit the !is_inside_tree() guard
+	# (spurious ERROR + silent degrade to local). Every parent is identity, so the
+	# effective world position is identical once the node is in-tree.
 	var mesh_front := MeshInstance3D.new()
 	mesh_front.name = "MeshFront"
 	_scene.add_child(mesh_front)
-	mesh_front.global_position = Vector3(0, 0, -10) # in front of the camera
+	mesh_front.position = Vector3(0, 0, -10) # in front of the camera
 
 	var mesh_behind := MeshInstance3D.new()
 	mesh_behind.name = "MeshBehind"
 	_scene.add_child(mesh_behind)
-	mesh_behind.global_position = Vector3(0, 0, 10) # behind the camera
+	mesh_behind.position = Vector3(0, 0, 10) # behind the camera
 
 	var mesh_hidden := MeshInstance3D.new()
 	mesh_hidden.name = "MeshHidden"
@@ -101,13 +105,23 @@ func _build_scene() -> void:
 	_scene.add_child(body)
 	body.velocity = Vector3(1, 2, 3)
 
-	# Noise: pure-structure Node3Ds that must be skipped.
+	var area := Area3D.new() # a CollisionObject3D that is NOT a PhysicsBody3D (trigger volume)
+	area.name = "Trigger"
+	_scene.add_child(area)
+
+	# Noise: nodes that must be skipped — pure-structure Node3Ds AND a bake/helper
+	# VisualInstance3D. Decal is a VisualInstance3D but NOT a GeometryInstance3D, so
+	# the narrowed predicate must exclude it (guards against reverting to the broader
+	# VisualInstance3D check, which would drag in decals/probes/occluders/etc).
 	var marker := Marker3D.new()
 	marker.name = "Marker"
 	_scene.add_child(marker)
 	var skel := Skeleton3D.new()
 	skel.name = "Skel"
 	_scene.add_child(skel)
+	var decal := Decal.new()
+	decal.name = "Decal"
+	_scene.add_child(decal)
 
 	# 2D UI subtree (CanvasLayer is not a CanvasItem, so it is itself skipped, but
 	# its visible Control children must still surface — 2D parity).
@@ -155,12 +169,15 @@ func _test_selection_and_exclusion() -> void:
 	_check("GridMap selected (regression guard — NOT a VisualInstance3D)",
 		_has_type(r, "GridMap"), true)
 	_check("Camera3D selected", _has_type(r, "Camera3D"), true)
-	_check("OmniLight3D selected", _has_type(r, "OmniLight3D"), true)
+	_check("OmniLight3D selected (Light3D — VisualInstance3D, not GeometryInstance3D)",
+		_has_type(r, "OmniLight3D"), true)
 	_check("CharacterBody3D (physics body) selected", _has_type(r, "CharacterBody3D"), true)
+	_check("Area3D (CollisionObject3D, not PhysicsBody3D) selected", _has_type(r, "Area3D"), true)
 
-	# Pure-structure Node3D noise is skipped.
+	# Noise is skipped: pure-structure Node3Ds AND bake/helper VisualInstance3Ds.
 	_check("Marker3D excluded (noise)", _has_type(r, "Marker3D"), false)
 	_check("Skeleton3D excluded (noise)", _has_type(r, "Skeleton3D"), false)
+	_check("Decal excluded (VisualInstance3D but not GeometryInstance3D)", _has_type(r, "Decal"), false)
 
 	# Visibility gating: a hidden mesh is excluded; the bare Node3D root too.
 	_check("hidden MeshInstance3D excluded", _find_by_name(r, "/MeshHidden") == null, true)
@@ -209,11 +226,14 @@ func _test_max_nodes_and_type_filter() -> void:
 	_check("type filter narrows to GridMap only", all_grid and grids.size() == 1, true)
 
 
-func _test_auto_resolves_to_fallback() -> void:
-	# On this untagged 3D tree, auto resolves to the fallback tier: no mcp_watch
-	# members and no _mcp_state() nodes (the two conditions in the resolver).
-	_check("no mcp_watch group members", get_nodes_in_group("mcp_watch").size(), 0)
-	_check("no _mcp_state() nodes", _bridge._has_mcp_state_nodes(_scene), false)
+func _test_fallback_branch_conditions_hold() -> void:
+	# The real resolver (_handle_get_runtime_state) is not directly callable in this
+	# SceneTree harness — it reads tree.current_scene (null here) and replies via
+	# EngineDebugger. So rather than exercise the auto→fallback branch itself, this
+	# pins its two INPUT conditions: with no mcp_watch members and no _mcp_state()
+	# nodes, auto would resolve to fallback (per the resolver order in the bridge).
+	_check("no mcp_watch members (auto would pick fallback)", get_nodes_in_group("mcp_watch").size(), 0)
+	_check("no _mcp_state() nodes (auto would pick fallback)", _bridge._has_mcp_state_nodes(_scene), false)
 
 
 # ── Tiny TAP-ish harness ──────────────────────────────────────────────────────

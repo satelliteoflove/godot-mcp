@@ -45,7 +45,7 @@ const categories: ToolCategory[] = [
   { name: 'Documentation', filename: 'docs', description: 'Fetch Godot Engine documentation with smart extraction', tools: docsTools },
   { name: 'Input', filename: 'input', description: 'Input injection for testing running games: named actions, joypad buttons, analog axes and stick vectors, raw keyboard keys with modifier combos, relative mouse-look, and text typing (no absolute cursor positioning)', tools: inputTools },
   { name: 'Profiler', filename: 'profiler', description: 'Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections', tools: profilerTools },
-  { name: 'Runtime State', filename: 'runtime-state', description: 'Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies — not just UI). Much cheaper than screenshots.', tools: runtimeStateTools },
+  { name: 'Runtime State', filename: 'runtime-state', description: 'Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas — not just UI). Much cheaper than screenshots.', tools: runtimeStateTools },
   { name: 'Game Script Execution', filename: 'exec', description: 'Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.', tools: execTools },
 ];
 

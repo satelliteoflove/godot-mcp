@@ -1,6 +1,6 @@
 # Runtime State Tools
 
-Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies — not just UI). Much cheaper than screenshots.
+Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas — not just UI). Much cheaper than screenshots.
 
 ## Tools
 
@@ -17,7 +17,7 @@ Observe live game state as structured data. Use digest for a one-shot entity sna
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `action` | `digest`, `watch_start`, `watch_collect`, `watch_stop` | Yes |  |
-| `select` | `group`, `method`, `auto`, `none` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "auto" = best available (default: auto picks group → method → a visibility fallback that surfaces visible 2D nodes (CanvasItems) AND 3D world nodes — meshes, gridmaps, cameras, lights, and physics bodies), "none" = no automatic selection; return only the nodes named in paths |
+| `select` | `group`, `method`, `auto`, `none` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "auto" = best available (default: auto picks group → method → a visibility fallback that surfaces visible 2D nodes (CanvasItems) AND 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas), "none" = no automatic selection; return only the nodes named in paths |
 | `group` | string | No | Group name to use when select="group" or "auto" (default: "mcp_watch") |
 | `paths` | string[] | No | Explicit absolute node paths to include in addition to tier selection, e.g. ["/root/GameState"]. The digest walks the current scene only, so autoload singletons — where global game state often lives (cash, score, settings) — are otherwise unreachable. Each path returns _mcp_state() if present, else a snapshot of the node's script variables (scalars/arrays, ~1 KB cap). Paths that do not resolve are returned in unresolved_paths. |
 | `name` | string | No | Glob filter on node name (e.g. "Player*") |
