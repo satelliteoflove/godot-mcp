@@ -117,8 +117,9 @@ const LookEntrySchema = z.strictObject({
       '_input/_unhandled_input. The camera sees event.relative == [dx, dy] in projects with no 2D ' +
       'stretch (the default, and typical for a 3D FPS); a 2D content-scale stretch scales it, exactly ' +
       'as a physical mouse would. duration_ms 0 (default) snaps the whole delta in one event; ' +
-      'duration_ms > 0 distributes it as a smooth multi-event sweep summing exactly to the delta. ' +
-      'This is RELATIVE motion, never cursor positioning (absolute mouse coordinates remain ' +
+      'duration_ms >= 16 distributes it as a smooth multi-event sweep (~16ms/chunk = 60Hz, up to ' +
+      '256 sub-events) summing to the delta within float32 precision; a shorter non-zero duration ' +
+      'collapses to a single snap. This is RELATIVE motion, never cursor positioning (absolute mouse coordinates remain ' +
       'unsupported — see docs/design/mouse-input-spike.md). The game owns Input.mouse_mode (set ' +
       'MOUSE_MODE_CAPTURED via godot_exec for capture-gated cameras).'
     ),
@@ -227,7 +228,7 @@ const InputSchema = z.discriminatedUnion('action', [
         'polled Input singletons (get_joy_axis / is_joy_button_pressed); key events likewise drive ' +
         'bound actions, _input/_unhandled_input, and Input.is_key_pressed; look events deliver ' +
         'InputEventMouseMotion.relative to _input/_unhandled_input for FPS-camera code (duration_ms ' +
-        '> 0 distributes the delta as a smooth sweep). No physical pad, keyboard, or mouse is ' +
+        '>= 16 distributes the delta as a smooth sweep). No physical pad, keyboard, or mouse is ' +
         'needed. Limitation: Input.get_connected_joypads() never reports a virtual pad, ' +
         'so games that gate controller mode on pad DETECTION cannot be switched into it.'
       ),

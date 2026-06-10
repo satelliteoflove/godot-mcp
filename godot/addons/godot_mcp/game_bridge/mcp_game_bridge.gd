@@ -1383,6 +1383,12 @@ const STEP_MAX_FRAMES := 1200
 const STEP_WALL_BUDGET_MS := 25000
 const STEP_MAX_TRANSITIONS := 50
 const FREEZE_CONTESTED_THRESHOLD := 10
+# Cap on the sub-events one mouse-look sweep entry expands into. Without it a
+# max-span sweep (duration_ms 40000) would emit ceil(40000/16) ~= 2500 events for
+# a single entry; 256 keeps ~16ms (60Hz) granularity up to ~4s and coarsens beyond
+# that. The last chunk absorbs the remainder regardless of n, so the summed delta
+# is unchanged — only temporal smoothness past the cap degrades.
+const LOOK_MAX_SUBEVENTS := 256
 
 var _frozen := false
 var _game_paused := false  # the game layer's own pause intent, inferred by observation
@@ -1659,17 +1665,26 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 			var look_val: Variant = input["look"]
 			if not (look_val is Array) or (look_val as Array).size() != 2:
 				return {"error": "look expects [dx, dy] (two numbers), got %s" % str(look_val)}
-			var dx: float = float((look_val as Array)[0])
-			var dy: float = float((look_val as Array)[1])
+			# Validate element types before casting, matching every other kind's clean
+			# error-dict contract: float() of a nested array throws an uncaught script
+			# error, and float() of a bool/string would silently coerce to a wrong value.
+			var lx: Variant = (look_val as Array)[0]
+			var ly: Variant = (look_val as Array)[1]
+			if not (lx is float or lx is int) or not (ly is float or ly is int):
+				return {"error": "look expects [dx, dy] (two numbers), got %s" % str(look_val)}
+			var dx: float = float(lx)
+			var dy: float = float(ly)
 			kinds["look"] += 1
 			# Relative mouse-look is STATELESS (no hold/release/refcount): a snap-turn
-			# (dur 0) is ONE motion event carrying the whole delta; a dur>0 sweep is N
-			# motion events spaced across [start_ms, end_ms], each carrying delta/N and
-			# summing EXACTLY to the delta (the last chunk absorbs float rounding).
-			# Motion is additive, so if several sub-events coalesce into one frame on a
-			# slow frame or a big step dt, the total delta is still exact — only the
-			# temporal smoothness of the sweep degrades. ~16ms/chunk = nominal 60Hz.
-			var n: int = maxi(1, int(ceil(float(dur) / 16.0)))
+			# (dur < 16) is ONE motion event carrying the whole delta; a longer sweep is
+			# N = ceil(dur/16) motion events (~16ms/chunk = 60Hz, capped at
+			# LOOK_MAX_SUBEVENTS) spaced across the window, each carrying delta/N. The
+			# last chunk absorbs the float remainder so the chunks sum to the delta
+			# (exact in float64; the delivered Vector2 is float32, so a very large sweep
+			# drifts sub-pixel — imperceptible). Motion is additive, so if several
+			# sub-events coalesce into one frame on a slow frame or a big step dt, the
+			# summed delta is unchanged — only the temporal smoothness degrades.
+			var n: int = clampi(int(ceil(float(dur) / 16.0)), 1, LOOK_MAX_SUBEVENTS)
 			var chunk_x: float = dx / float(n)
 			var chunk_y: float = dy / float(n)
 			for i in n:

@@ -8,10 +8,11 @@ extends SceneTree
 ##  - Input.parse_input_event(InputEventMouseMotion) delivers `relative` faithfully
 ##    to _input AND _unhandled_input with no physical mouse — the property that
 ##    makes FPS-camera injection viable.
-##  - The `look` kind is STATELESS: a snap-turn (duration_ms 0) is ONE motion event
-##    carrying the whole delta; a duration_ms > 0 sweep is N events spaced across the
-##    window, each carrying delta/N and summing EXACTLY to the delta. Nothing latches
-##    and there is no held registry to clean up.
+##  - The `look` kind is STATELESS: a snap-turn (duration_ms < 16) is ONE motion event
+##    carrying the whole delta; a longer sweep is N = ceil(dur/16) events (capped at 256)
+##    each carrying delta/N and summing to the delta (exact in float64 at compile; the
+##    delivered Vector2 is float32, so a very large sweep drifts sub-pixel). Nothing
+##    latches and there is no held registry to clean up.
 ##  - Delivery is unaffected by a MOUSE_MODE_CAPTURED request (the FPS capture mode).
 ##  - get_input_map display renders an InputEventMouseMotion via _event_to_string.
 ##
@@ -150,6 +151,35 @@ func _run() -> void:
 	_check("dur 0 compiles to exactly one motion event", snap_evts.size(), 1)
 	_check("the single snap event carries the full delta + completion",
 		[float(snap_evts[0]["dx"]), float(snap_evts[0]["dy"]), int(snap_evts[0]["complete"])], [5.0, 6.0, 1])
+
+	# ── 5b. A sub-16ms duration still collapses to ONE event (n = ceil(dur/16) = 1) ──
+	var tiny: Dictionary = bridge._compile_input_events([{"look": [7, 0], "duration_ms": 10}])
+	_check("duration_ms 1-15 collapses to a single snap, not a sweep", (tiny["events"] as Array).size(), 1)
+
+	# ── 5c. Negative-delta sweep: last-chunk absorption is sign-symmetric ─────
+	var neg: Dictionary = bridge._compile_input_events([{"look": [-90, -30], "duration_ms": 48}])
+	var neg_evts: Array = neg["events"]
+	var nx := 0.0
+	var ny := 0.0
+	for idx in neg_evts.size():
+		nx += float(neg_evts[idx]["dx"])
+		ny += float(neg_evts[idx]["dy"])
+	_check("negative sweep chunks sum to the delta", [is_equal_approx(nx, -90.0), is_equal_approx(ny, -30.0)], [true, true])
+
+	# ── 5d. Huge duration is capped at LOOK_MAX_SUBEVENTS; delta still preserved ──
+	var big: Dictionary = bridge._compile_input_events([{"look": [1000, 0], "duration_ms": 40000}])
+	var big_evts: Array = big["events"]
+	var bx := 0.0
+	for idx in big_evts.size():
+		bx += float(big_evts[idx]["dx"])
+	_check("huge-duration sweep is capped at 256 sub-events (no per-entry blowup)", big_evts.size(), 256)
+	_check("capped sweep still sums to the delta", is_equal_approx(bx, 1000.0), true)
+
+	# ── 5e. Non-number look elements are rejected cleanly (no uncaught script error) ──
+	var bad_elem: Dictionary = bridge._compile_input_events([{"look": [[1], [2]]}])
+	_check("nested-array look element rejected with a clean error", str(bad_elem.get("error", "")).begins_with("look expects"), true)
+	var bad_bool: Dictionary = bridge._compile_input_events([{"look": [true, false]}])
+	_check("bool look element rejected with a clean error", str(bad_bool.get("error", "")).begins_with("look expects"), true)
 
 	# ── 6. Compile guards for a malformed look payload ───────────────────────
 	var bad_arity: Dictionary = bridge._compile_input_events([{"look": [1]}])

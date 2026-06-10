@@ -57,7 +57,7 @@ const GameTimeSchema = z
       inputs: z
         .array(InputEntrySchema)
         .optional()
-        .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, and raw keys (with modifier combos). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
+        .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, raw keys (with modifier combos), and relative mouse-look (look: [dx, dy], delivered as InputEventMouseMotion.relative inside the frozen step — the FPS-camera testing path). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
     }),
     z.object({
       action: z
@@ -81,7 +81,7 @@ const GameTimeSchema = z
       inputs: z
         .array(InputEntrySchema)
         .optional()
-        .describe('Optional input timeline driven inside the window, exactly like step (same vocabulary: actions, joypad buttons, axes, stick vectors, raw keys — e.g. hold a stick deflection while waiting for an enemy to appear). Holds are released by window end.'),
+        .describe('Optional input timeline driven inside the window, exactly like step (same vocabulary: actions, joypad buttons, axes, stick vectors, raw keys, relative mouse-look look:[dx,dy] — e.g. hold a stick deflection while waiting for an enemy to appear). Holds are released by window end.'),
     }),
     z.object({
       action: z
