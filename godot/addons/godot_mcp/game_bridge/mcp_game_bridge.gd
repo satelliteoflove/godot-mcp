@@ -1196,6 +1196,9 @@ func _event_to_string(event: InputEvent) -> String:
 		# binding straight into an injection (e.g. move_left = left_x, value -1.0).
 		var joy_motion := event as InputEventJoypadMotion
 		return "Joypad Axis %d (%s, value %+.1f)" % [joy_motion.axis, MCPJoyNames.axis_name(joy_motion.axis), joy_motion.axis_value]
+	elif event is InputEventMouseMotion:
+		var mouse_motion := event as InputEventMouseMotion
+		return "Mouse Motion (rel %+.1f, %+.1f)" % [mouse_motion.relative.x, mouse_motion.relative.y]
 	return event.as_text()
 
 
@@ -1579,9 +1582,9 @@ func _handle_game_time_step(data: Array) -> void:
 
 func _new_input_kinds() -> Dictionary:
 	# One source of truth for the input_kinds shape so every reset/result site
-	# carries the same keys (#290 added "key"). A missing key here would make the
-	# server's skew check misfire against our own bridge.
-	return {"action": 0, "joy_button": 0, "axis": 0, "key": 0}
+	# carries the same keys (#290 added "key", #294 added "look"). A missing key
+	# here would make the server's skew check misfire against our own bridge.
+	return {"action": 0, "joy_button": 0, "axis": 0, "key": 0, "look": 0}
 
 
 func _compile_input_events(inputs: Array) -> Dictionary:
@@ -1652,6 +1655,31 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 			for mk in mod_keys:
 				events.append({"time": end_ms, "phase": 0, "complete": 0,
 					"kind": "key", "code": int(mk), "physical": false, "mask": 0, "is_press": false})
+		elif input.has("look"):
+			var look_val: Variant = input["look"]
+			if not (look_val is Array) or (look_val as Array).size() != 2:
+				return {"error": "look expects [dx, dy] (two numbers), got %s" % str(look_val)}
+			var dx: float = float((look_val as Array)[0])
+			var dy: float = float((look_val as Array)[1])
+			kinds["look"] += 1
+			# Relative mouse-look is STATELESS (no hold/release/refcount): a snap-turn
+			# (dur 0) is ONE motion event carrying the whole delta; a dur>0 sweep is N
+			# motion events spaced across [start_ms, end_ms], each carrying delta/N and
+			# summing EXACTLY to the delta (the last chunk absorbs float rounding).
+			# Motion is additive, so if several sub-events coalesce into one frame on a
+			# slow frame or a big step dt, the total delta is still exact — only the
+			# temporal smoothness of the sweep degrades. ~16ms/chunk = nominal 60Hz.
+			var n: int = maxi(1, int(ceil(float(dur) / 16.0)))
+			var chunk_x: float = dx / float(n)
+			var chunk_y: float = dy / float(n)
+			for i in n:
+				var ex: float = chunk_x
+				var ey: float = chunk_y
+				if i == n - 1:
+					ex = dx - chunk_x * float(n - 1)
+					ey = dy - chunk_y * float(n - 1)
+				events.append({"time": start_ms + (i * dur) / n, "phase": 1,
+					"complete": (1 if i == n - 1 else 0), "kind": "look", "dx": ex, "dy": ey})
 		else:
 			var action_name: String = input.get("action_name", "")
 			if action_name.is_empty():
@@ -1769,6 +1797,26 @@ func _inject_timeline_event(ev: Dictionary) -> int:
 					Input.parse_input_event(_make_key_event(physical, code, int(ev.mask), false))
 				else:
 					_held_keys[kkey]["count"] = n
+		"look":
+			# Relative mouse-look is stateless: each event delivers its delta to
+			# _input/_unhandled_input and leaves NO held state to clean up (no
+			# registry, no guaranteed release). Set both relative and screen_relative
+			# to the delta — emulating a real mouse moving [dx,dy] SCREEN pixels: the
+			# engine scales the DELIVERED event.relative by the viewport's input
+			# transform on dispatch (identity for default/3D projects, so an FPS
+			# camera integrates exactly [dx,dy]; a 2D content-scale stretch scales it,
+			# as it would a physical mouse), while event.screen_relative stays the raw
+			# delta. position is the current cursor spot for a well-formed event
+			# (irrelevant under capture). The game owns mouse mode, not the bridge.
+			var mm := InputEventMouseMotion.new()
+			var delta := Vector2(float(ev.dx), float(ev.dy))
+			mm.relative = delta
+			mm.screen_relative = delta
+			var vp := get_viewport()
+			var pos := vp.get_mouse_position() if vp != null else Vector2.ZERO
+			mm.position = pos
+			mm.global_position = pos
+			Input.parse_input_event(mm)
 	return int(ev.get("complete", 0))
 
 

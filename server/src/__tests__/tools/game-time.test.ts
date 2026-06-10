@@ -217,6 +217,47 @@ describe('game_time tool', () => {
       expect((data.warnings as string[])[0]).toContain('predates raw-key injection');
     });
 
+    it('accepts look entries, passes them through verbatim, and surfaces a look count (#294)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false, events_fired: 5,
+        input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0, look: 1 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [{ look: [200, 0], start_ms: 0, duration_ms: 80 }],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { look: [200, 0], start_ms: 0, duration_ms: 80 },
+      ]);
+      const data = structuredOf(result);
+      expect(data.input_kinds).toEqual({ action: 0, joy_button: 0, axis: 0, key: 0, look: 1 });
+      expect(data.warnings).toEqual([]);
+    });
+
+    it('warns in the structured result when look entries hit a bridge with no look count (#294)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false,
+        input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [{ look: [100, 0], start_ms: 0, duration_ms: 50 }],
+      }, ctx);
+
+      const data = structuredOf(result);
+      expect(data.warnings).toHaveLength(1);
+      expect((data.warnings as string[])[0]).toContain('predates mouse-look injection');
+    });
+
     it('derives the per-request timeout and pushes the relay/wall budgets to the bridge (#276)', async () => {
       mock.mockResponse({
         completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,

@@ -135,6 +135,9 @@ func _event_to_string(event: InputEvent) -> String:
 		# binding straight into an injection (e.g. move_left = left_x, value -1.0).
 		var joy_motion := event as InputEventJoypadMotion
 		return "Joypad Axis %d (%s, value %+.1f)" % [joy_motion.axis, MCPJoyNames.axis_name(joy_motion.axis), joy_motion.axis_value]
+	elif event is InputEventMouseMotion:
+		var mouse_motion := event as InputEventMouseMotion
+		return "Mouse Motion (rel %+.1f, %+.1f)" % [mouse_motion.relative.x, mouse_motion.relative.y]
 	return event.as_text()
 
 

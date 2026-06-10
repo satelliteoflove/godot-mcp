@@ -600,6 +600,103 @@ describe('input tool', () => {
     });
   });
 
+  describe('look entries (#294)', () => {
+    describe('schema', () => {
+      it('accepts a look delta, with and without a sweep duration', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ look: [10, -4] }, { look: [200, 0], duration_ms: 500 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects a look with the wrong arity or a non-number payload', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ look: [1] }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ look: [1, 2, 3] }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ look: 'x' }],
+        }).success).toBe(false);
+      });
+
+      it('rejects a look entry mixed with another discriminator (strictObject pin)', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ look: [1, 2], key: 'a' }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ action_name: 'fire', look: [1, 2] }],
+        }).success).toBe(false);
+      });
+
+      it('names the look shape in the union error for a no-discriminator entry', () => {
+        const r = input.schema.safeParse({ action: 'sequence', inputs: [{ nope: 1 }] });
+        expect(r.success).toBe(false);
+        if (!r.success) expect(JSON.stringify(r.error.issues)).toContain('{look: [dx, dy]}');
+      });
+    });
+
+    it('passes a look entry through to the wire verbatim (the bridge chunks any sweep)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0, look: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ look: [200, 0], start_ms: 0, duration_ms: 500 }],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { look: [200, 0], start_ms: 0, duration_ms: 500 },
+      ]);
+      expect(result).toContain('look:200,0');
+    });
+
+    it('labels a look entry (with a negative delta) in the summary line', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0, look: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ look: [3, -4], start_ms: 0, duration_ms: 0 }],
+      }, ctx);
+
+      expect(result).toContain('look:3,-4');
+    });
+
+    it('warns when look entries hit a bridge that echoes input_kinds without a look count', async () => {
+      // A #290-era bridge echoes input_kinds (so the key check passes) yet
+      // silently drops look entries — only the missing `look` count catches it.
+      mock.mockResponse({ completed: true, actions_executed: 0, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ look: [100, 0], start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).toContain('IGNORED');
+      expect(result).toContain('predates mouse-look injection');
+    });
+
+    it('does not warn when the bridge echoes a look count', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 0, look: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ look: [50, 50], start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).not.toContain('IGNORED');
+    });
+  });
+
   describe('type_text', () => {
     it('types text and returns character count', async () => {
       mock.mockResponse({ completed: true, chars_typed: 5, submitted: false });

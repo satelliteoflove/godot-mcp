@@ -25,7 +25,7 @@ This server provides **14 tools** and **3 resources** for AI-assisted Godot deve
 | [Resource](tools/resource.md) | 1 | Resource inspection tools for SpriteFrames, TileSet, Materials, etc. |
 | [Scene3D](tools/scene3d.md) | 1 | 3D spatial information and bounding box tools |
 | [Documentation](tools/docs.md) | 1 | Fetch Godot Engine documentation with smart extraction |
-| [Input](tools/input.md) | 1 | Input injection for testing running games: named actions, joypad buttons, analog axes and stick vectors, raw keyboard keys with modifier combos, and text typing (no mouse/coordinate input) |
+| [Input](tools/input.md) | 1 | Input injection for testing running games: named actions, joypad buttons, analog axes and stick vectors, raw keyboard keys with modifier combos, relative mouse-look, and text typing (no absolute cursor positioning) |
 | [Profiler](tools/profiler.md) | 1 | Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections |
 | [Runtime State](tools/runtime-state.md) | 1 | Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Much cheaper than screenshots. |
 | [Game Script Execution](tools/exec.md) | 1 | Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard. |

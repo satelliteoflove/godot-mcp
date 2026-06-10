@@ -165,8 +165,19 @@ state to confirm an effect by state-delta.
   bindings (modifier combos included), and the polled `Input.is_key_pressed` /
   `is_physical_key_pressed` singletons — so a game reading keys directly, without
   defining actions, is now drivable. With this and the controller pillar (#233),
-  the keyboard/gamepad input surface is complete; mouse/coordinate input remains
-  the only gap this document records as out of scope.
+  the keyboard/gamepad input surface is complete.
+- **Relative mouse-look injection shipped after this decision (#294).** A `look`
+  entry (`{look: [dx, dy]}`) injects `InputEventMouseMotion.relative` through the
+  same `sequence`/`step` timing model, delivered faithfully to
+  `_input`/`_unhandled_input` for FPS-camera code that integrates `event.relative`
+  (a snap-turn at `duration_ms: 0`, or a smooth multi-event sweep that distributes
+  the delta over a longer window). This is exactly the **Camera-relative** input
+  style the matrix above rated drivable (look = relative) and the "FPS / orbit look
+  (`.relative`, captured mode)" line under *What does work* — now reachable through
+  the tool. It does NOT reopen the coordinate-cursor decision: this is RELATIVE
+  motion, never a cursor position, and the game owns `Input.mouse_mode`.
+  **Absolute/polled cursor positioning remains the only input gap this document
+  records as out of scope** (the polled-position ceiling above is unchanged).
 - **A real bug fix ships.** The investigation found that
   `MCPGameBridge.execute_input_sequence` dropped unfired action *releases* when it
   cleared its queue mid-flight, latching the action "pressed" forever. Fixed and

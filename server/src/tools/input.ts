@@ -23,8 +23,8 @@ export const JOY_BUTTON_NAMES = [
 ] as const;
 export const JOY_AXIS_NAMES = ['left_x', 'left_y', 'right_x', 'right_y', 'trigger_left', 'trigger_right'] as const;
 
-// The four input-entry shapes are discriminated by WHICH KEY is present
-// (action_name / joy_button / axis / stick), so strictObject is load-bearing:
+// The input-entry shapes are discriminated by WHICH KEY is present (action_name
+// / joy_button / axis / stick / key / look), so strictObject is load-bearing:
 // a stripping z.object would silently match a mixed entry like
 // {action_name, axis, value} to the action branch and drop the axis intent.
 const ActionEntrySchema = z.strictObject({
@@ -103,24 +103,42 @@ const KeyEntrySchema = z.strictObject({
   ...TimingFields,
 });
 
+const LookEntrySchema = z.strictObject({
+  look: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      'Relative mouse-look: a mouse movement of [dx, dy] SCREEN pixels (+x = right, +y = down), ' +
+      'injected as InputEventMouseMotion to drive FPS-camera code that integrates event.relative in ' +
+      '_input/_unhandled_input. The camera sees event.relative == [dx, dy] in projects with no 2D ' +
+      'stretch (the default, and typical for a 3D FPS); a 2D content-scale stretch scales it, exactly ' +
+      'as a physical mouse would. duration_ms 0 (default) snaps the whole delta in one event; ' +
+      'duration_ms > 0 distributes it as a smooth multi-event sweep summing exactly to the delta. ' +
+      'This is RELATIVE motion, never cursor positioning (absolute mouse coordinates remain ' +
+      'unsupported — see docs/design/mouse-input-spike.md). The game owns Input.mouse_mode (set ' +
+      'MOUSE_MODE_CAPTURED via godot_exec for capture-gated cameras).'
+    ),
+  ...TimingFields,
+});
+
 export const InputEntrySchema = z.union(
-  [ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema, KeyEntrySchema],
+  [ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema, KeyEntrySchema, LookEntrySchema],
   {
     // z.union reports a bare "Invalid input" for every structural miss; the
-    // entries are key-discriminated, so name the five valid shapes to make the
+    // entries are key-discriminated, so name the six valid shapes to make the
     // most common authoring mistakes (missing value, typo'd key, no
     // discriminator) actionable.
     error: () =>
       'each input entry must be one of: {action_name, strength?}, {joy_button, device?}, ' +
-      '{axis, value, device?}, {stick, x, y, device?}, or {key, physical?} ' +
+      '{axis, value, device?}, {stick, x, y, device?}, {key, physical?}, or {look: [dx, dy]} ' +
       '(all with optional start_ms/duration_ms)',
   }
 );
 export type InputEntry = z.infer<typeof InputEntrySchema>;
 
 // Compile schema entries into the wire vocabulary the game bridge consumes
-// (action | joy_button | axis | key): stick sugar becomes a paired axis hold;
-// key entries pass through and the bridge expands modifier combos into events.
+// (action | joy_button | axis | key | look): stick sugar becomes a paired axis
+// hold; key and look entries pass through and the bridge expands them (modifier
+// combos into key events; a look into one or more motion events for a sweep).
 export function compileInputEntries(inputs: InputEntry[]): Record<string, unknown>[] {
   const wire: Record<string, unknown>[] = [];
   for (const e of inputs) {
@@ -141,21 +159,30 @@ export function entryLabel(e: InputEntry): string {
   if ('joy_button' in e) return `joy:${e.joy_button}`;
   if ('axis' in e) return `${e.axis}=${e.value}`;
   if ('key' in e) return `key:${e.key}`;
+  if ('look' in e) return `look:${e.look[0]},${e.look[1]}`;
   return `${e.stick}_stick(${e.x},${e.y})`;
 }
 
-// Version-skew detection (#233/#290, same honesty pattern as the watch timeline):
-// an old bridge silently `continue`s entries it does not understand (dropping
-// joypad or key entries) and ignores the new `strength` field on action entries
-// (injecting at 1.0) — all while the call "succeeds". A new bridge echoes
-// input_kinds; its ABSENCE, or the absence of a `key` count within it, signals
-// the running addon predates that capability. Key takes priority because a
-// #289-era bridge echoes input_kinds (so the controller check passes) yet still
-// drops key entries — only the missing `key` count catches it.
+// Version-skew detection (#233/#290/#294, same honesty pattern as the watch
+// timeline): an old bridge silently `continue`s entries it does not understand
+// (dropping look, key, or joypad entries) and ignores the new `strength` field on
+// action entries (injecting at 1.0) — all while the call "succeeds". A new bridge
+// echoes input_kinds; its ABSENCE, or the absence of a given kind's count within
+// it, signals the running addon predates that capability. The newest kinds are
+// checked first because a bridge from an in-between era echoes input_kinds (so the
+// older checks pass) yet still drops the newer entries — only the missing count
+// for that specific kind catches it.
 export function inputSkewWarning(
   inputs: InputEntry[],
   inputKinds: Record<string, number> | undefined
 ): string | undefined {
+  const usesLook = inputs.some((e) => 'look' in e);
+  if (usesLook && (inputKinds === undefined || !('look' in inputKinds))) {
+    return (
+      'WARNING: relative mouse-look entries were IGNORED — the running addon predates mouse-look ' +
+      'injection (#294). Update the godot-mcp addon and restart the Godot editor.'
+    );
+  }
   const usesKey = inputs.some((e) => 'key' in e);
   if (usesKey && (inputKinds === undefined || !('key' in inputKinds))) {
     return (
@@ -164,7 +191,9 @@ export function inputSkewWarning(
     );
   }
   const usesController = inputs.some(
-    (e) => (!('action_name' in e) && !('key' in e)) || ('strength' in e && e.strength !== undefined)
+    (e) =>
+      (!('action_name' in e) && !('key' in e) && !('look' in e)) ||
+      ('strength' in e && e.strength !== undefined)
   );
   if (usesController && inputKinds === undefined) {
     return (
@@ -187,11 +216,14 @@ const InputSchema = z.discriminatedUnion('action', [
       .describe(
         'Array of inputs to execute. Each entry is one of: a named ACTION (action_name, optional ' +
         'analog strength), a joypad BUTTON (joy_button), an analog AXIS hold (axis + value), a ' +
-        'STICK vector (stick + x/y), or a raw KEY (key, e.g. "ctrl+s") — mix freely on one timeline. ' +
+        'STICK vector (stick + x/y), a raw KEY (key, e.g. "ctrl+s"), or relative mouse LOOK ' +
+        '(look: [dx, dy]) — mix freely on one timeline. ' +
         'Joypad events drive bound actions (with real deadzone math), raw _input handlers, and the ' +
         'polled Input singletons (get_joy_axis / is_joy_button_pressed); key events likewise drive ' +
-        'bound actions, _input/_unhandled_input, and Input.is_key_pressed. No physical pad or ' +
-        'keyboard is needed. Limitation: Input.get_connected_joypads() never reports a virtual pad, ' +
+        'bound actions, _input/_unhandled_input, and Input.is_key_pressed; look events deliver ' +
+        'InputEventMouseMotion.relative to _input/_unhandled_input for FPS-camera code (duration_ms ' +
+        '> 0 distributes the delta as a smooth sweep). No physical pad, keyboard, or mouse is ' +
+        'needed. Limitation: Input.get_connected_joypads() never reports a virtual pad, ' +
         'so games that gate controller mode on pad DETECTION cannot be switched into it.'
       ),
     report: z
@@ -268,7 +300,7 @@ export const input = defineTool({
   name: 'godot_input',
   annotations: { title: 'Input Injection', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, stick vectors, and raw keyboard keys (with modifier combos). Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: mouse/coordinate input is not supported (see docs/design/mouse-input-spike.md).',
+    'Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, stick vectors, raw keyboard keys (with modifier combos), and relative mouse-look. Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: relative mouse-look is supported (look: [dx, dy], for FPS-camera _input handlers); absolute cursor positioning is not (see docs/design/mouse-input-spike.md).',
   schema: InputSchema,
   async execute(args: InputArgs, { godot }) {
     switch (args.action) {

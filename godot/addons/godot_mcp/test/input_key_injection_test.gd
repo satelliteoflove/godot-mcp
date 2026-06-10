@@ -369,7 +369,7 @@ func _run() -> void:
 		{"key": "ctrl+s", "duration_ms": 10},
 	])
 	_check("mixed timeline counts the key kind for the skew echo",
-		mixed["kinds"], {"action": 1, "joy_button": 1, "axis": 1, "key": 1})
+		mixed["kinds"], {"action": 1, "joy_button": 1, "axis": 1, "key": 1, "look": 0})
 
 	# ── 15. event_string format + round-trip (get_input_map display) ─────────
 	var ev := InputEventKey.new()
