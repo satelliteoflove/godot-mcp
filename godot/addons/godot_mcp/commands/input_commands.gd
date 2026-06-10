@@ -115,15 +115,7 @@ func _get_editor_input_map() -> Dictionary:
 
 func _event_to_string(event: InputEvent) -> String:
 	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		var key_name := OS.get_keycode_string(key_event.keycode)
-		if key_event.ctrl_pressed:
-			key_name = "Ctrl+" + key_name
-		if key_event.alt_pressed:
-			key_name = "Alt+" + key_name
-		if key_event.shift_pressed:
-			key_name = "Shift+" + key_name
-		return key_name
+		return MCPKeyNames.event_string(event as InputEventKey)
 	elif event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		match mouse_event.button_index:

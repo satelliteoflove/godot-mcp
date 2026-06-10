@@ -298,13 +298,19 @@ var _held_actions: Dictionary = {}
 # Input singletons (is_joy_button_pressed / get_joy_axis) until game restart.
 var _held_joy_buttons: Dictionary = {}
 var _active_axes: Dictionary = {}
+# Same guarantee for raw keys (#290), keyed by "physical:code". Refcounted: a
+# combo presses each modifier as its own key, and overlapping entries can hold
+# the same key more than once, so the entry tracks a press COUNT and the engine
+# release only fires when it returns to zero. Stores primitives only ({count,
+# physical, code, mask}) so the cleanup loop never touches a freed instance.
+var _held_keys: Dictionary = {}
 
 
-# Release any action/button still held and re-zero any active axis from an
+# Release any action/button/key still held and re-zero any active axis from an
 # interrupted sequence. A release here is a guaranteed cleanup, never a queued
 # step that a clear could drop. Safe to call when nothing is held.
 func _release_held_actions() -> void:
-	if _held_actions.is_empty() and _held_joy_buttons.is_empty() and _active_axes.is_empty():
+	if _held_actions.is_empty() and _held_joy_buttons.is_empty() and _active_axes.is_empty() and _held_keys.is_empty():
 		return
 	for action in _held_actions.keys():
 		var release := InputEventAction.new()
@@ -326,12 +332,16 @@ func _release_held_actions() -> void:
 		azero.axis = int(ainfo["axis"]) as JoyAxis
 		azero.axis_value = 0.0
 		Input.parse_input_event(azero)
+	for kkey in _held_keys.keys():
+		var kinfo = _held_keys[kkey]
+		Input.parse_input_event(_make_key_event(bool(kinfo["physical"]), int(kinfo["code"]), int(kinfo["mask"]), false))
 	# Flush so the release takes effect immediately — _exit_tree may not get
 	# another frame, and a cleanup should be deterministic, not deferred.
 	Input.flush_buffered_events()
 	_held_actions.clear()
 	_held_joy_buttons.clear()
 	_active_axes.clear()
+	_held_keys.clear()
 
 
 func _on_debugger_message(message: String, data: Array) -> bool:
@@ -1166,15 +1176,7 @@ func _handle_get_input_map() -> void:
 
 func _event_to_string(event: InputEvent) -> String:
 	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		var key_name := OS.get_keycode_string(key_event.keycode)
-		if key_event.ctrl_pressed:
-			key_name = "Ctrl+" + key_name
-		if key_event.alt_pressed:
-			key_name = "Alt+" + key_name
-		if key_event.shift_pressed:
-			key_name = "Shift+" + key_name
-		return key_name
+		return MCPKeyNames.event_string(event as InputEventKey)
 	elif event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		match mouse_event.button_index:
@@ -1206,7 +1208,7 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	# Reset the skew echo up front: the result's input_kinds must reflect THIS
 	# call's compile, never a stale value from a prior sequence (its absence is
 	# how a new server detects an old bridge — a stale dict would mask that).
-	_sequence_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
+	_sequence_input_kinds = _new_input_kinds()
 
 	if inputs.is_empty():
 		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
@@ -1522,7 +1524,7 @@ func _handle_game_time_step(data: Array) -> void:
 
 	# Reset the skew echo up front (see _handle_execute_input_sequence): the
 	# step result's input_kinds must reflect this call, never a prior step's.
-	_step_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
+	_step_input_kinds = _new_input_kinds()
 
 	var duration_ms: int = int(params.get("duration_ms", 0))
 	var frames: int = int(params.get("frames", 0))
@@ -1575,17 +1577,25 @@ func _handle_game_time_step(data: Array) -> void:
 	_update_processing()
 
 
+func _new_input_kinds() -> Dictionary:
+	# One source of truth for the input_kinds shape so every reset/result site
+	# carries the same keys (#290 added "key"). A missing key here would make the
+	# server's skew check misfire against our own bridge.
+	return {"action": 0, "joy_button": 0, "axis": 0, "key": 0}
+
+
 func _compile_input_events(inputs: Array) -> Dictionary:
 	# Builds the typed input timeline shared by input sequences and game-time
-	# steps (#233). Each entry is discriminated by which key it carries:
-	# `axis` (analog joypad axis), `joy_button`, or `action_name` (with optional
-	# fractional `strength`). Returns {"events": [...], "kinds": {...}} or
-	# {"error": ...} on an unknown action/button/axis. Every event carries:
+	# steps (#233/#290). Each entry is discriminated by which key it carries:
+	# `axis` (analog joypad axis), `joy_button`, `key` (raw keyboard / modifier
+	# combo), or `action_name` (with optional fractional `strength`). Returns
+	# {"events": [...], "kinds": {...}} or {"error": ...} on an unknown
+	# action/button/axis/key. Every event carries:
 	#   time     - ms offset from sequence/window start
 	#   phase    - 0 = release/zero-set, 1 = press/set (the equal-time tie-break)
 	#   complete - completion credit, counted when the event fires (1 on ends)
 	var events: Array = []
-	var kinds := {"action": 0, "joy_button": 0, "axis": 0}
+	var kinds := _new_input_kinds()
 	for input in inputs:
 		var start_ms: int = int(input.get("start_ms", 0))
 		var dur: int = int(input.get("duration_ms", 0))
@@ -1616,6 +1626,32 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 				"kind": "joy_button", "button": button, "device": bdevice, "is_press": true})
 			events.append({"time": end_ms, "phase": 0, "complete": 1,
 				"kind": "joy_button", "button": button, "device": bdevice, "is_press": false})
+		elif input.has("key"):
+			var parsed := MCPKeyNames.parse(input["key"])
+			var code: int = int(parsed["code"])
+			if code == KEY_NONE:
+				return {"error": "Unknown key: %s (e.g. \"a\", \"escape\", \"ctrl+s\", \"shift+f1\")" % str(input["key"])}
+			var mask: int = int(parsed["mask"])
+			var physical: bool = bool(input.get("physical", false))
+			kinds["key"] += 1
+			# Each modifier is pressed/released as its own real key so polled
+			# is_key_pressed(KEY_CTRL) reads true (the modifier FLAG on another
+			# event does not update that singleton). The base event also carries
+			# the modifier flags so InputMap chords and _input handlers match.
+			# Modifier keys are position-stable -> set both keycode+physical (mask
+			# 0, an exact match for a bare-modifier binding); the base honors
+			# `physical`. Completion credit (1) rides only the base release.
+			var mod_keys := MCPKeyNames.modifier_key_indices(mask)
+			for mk in mod_keys:
+				events.append({"time": start_ms, "phase": 1, "complete": 0,
+					"kind": "key", "code": int(mk), "physical": false, "mask": 0, "is_press": true})
+			events.append({"time": start_ms, "phase": 1, "complete": 0,
+				"kind": "key", "code": code, "physical": physical, "mask": mask, "is_press": true})
+			events.append({"time": end_ms, "phase": 0, "complete": 1,
+				"kind": "key", "code": code, "physical": physical, "mask": mask, "is_press": false})
+			for mk in mod_keys:
+				events.append({"time": end_ms, "phase": 0, "complete": 0,
+					"kind": "key", "code": int(mk), "physical": false, "mask": 0, "is_press": false})
 		else:
 			var action_name: String = input.get("action_name", "")
 			if action_name.is_empty():
@@ -1667,10 +1703,10 @@ func _cancel_redundant_axis_zeroes(events: Array) -> void:
 func _inject_timeline_event(ev: Dictionary) -> int:
 	# Build and parse the engine event for one timeline entry, maintaining the
 	# held-state registries that _release_held_actions uses for guaranteed
-	# cleanup. Returns the event's completion credit. Joypad events drive the
-	# polled Input singletons too (get_joy_axis / is_joy_button_pressed): unlike
-	# the mouse cursor, parse_input_event updates joypad state for any device id
-	# with no physical pad required.
+	# cleanup. Returns the event's completion credit. Joypad and key events drive
+	# the polled Input singletons too (get_joy_axis / is_joy_button_pressed /
+	# is_key_pressed): unlike the mouse cursor, parse_input_event updates that
+	# state for any device id with no physical pad/keyboard required.
 	match str(ev.kind):
 		"action":
 			var ae := InputEventAction.new()
@@ -1704,7 +1740,52 @@ func _inject_timeline_event(ev: Dictionary) -> int:
 				_active_axes[akey] = {"device": ev.device, "axis": ev.axis}
 			else:
 				_active_axes.erase(akey)
+		"key":
+			var code: int = int(ev.code)
+			var physical: bool = bool(ev.physical)
+			var kkey := "%d:%d" % [int(physical), code]
+			# Refcount: a combo presses each modifier as its own key, and
+			# overlapping entries can hold the same key more than once. Drive the
+			# engine only on the 0<->1 edge so an inner release never turns a
+			# still-held key off (the early-release bug), and the registry mirrors
+			# the real pressed state for guaranteed cleanup.
+			if ev.is_press:
+				if _held_keys.has(kkey):
+					_held_keys[kkey]["count"] = int(_held_keys[kkey]["count"]) + 1
+				else:
+					_held_keys[kkey] = {"count": 1, "physical": physical, "code": code, "mask": int(ev.mask)}
+					Input.parse_input_event(_make_key_event(physical, code, int(ev.mask), true))
+			elif _held_keys.has(kkey):
+				var n := int(_held_keys[kkey]["count"]) - 1
+				if n <= 0:
+					_held_keys.erase(kkey)
+					Input.parse_input_event(_make_key_event(physical, code, int(ev.mask), false))
+				else:
+					_held_keys[kkey]["count"] = n
 	return int(ev.get("complete", 0))
+
+
+# Build an InputEventKey. A logical key sets both keycode and physical_keycode
+# (a realistic US-layout event that drives is_key_pressed AND is_physical_key_pressed
+# plus either binding kind); physical:true sends a physical-only event (keycode
+# unset) for layout-independent / physical-keycode-binding testing.
+func _make_key_event(physical: bool, code: int, mask: int, pressed: bool) -> InputEventKey:
+	var ke := InputEventKey.new()
+	if physical:
+		ke.physical_keycode = code as Key
+	else:
+		ke.keycode = code as Key
+		ke.physical_keycode = code as Key
+	_apply_key_modifiers(ke, mask)
+	ke.pressed = pressed
+	return ke
+
+
+func _apply_key_modifiers(ke: InputEventKey, mask: int) -> void:
+	ke.ctrl_pressed = (mask & int(KEY_MASK_CTRL)) != 0
+	ke.shift_pressed = (mask & int(KEY_MASK_SHIFT)) != 0
+	ke.alt_pressed = (mask & int(KEY_MASK_ALT)) != 0
+	ke.meta_pressed = (mask & int(KEY_MASK_META)) != 0
 
 
 func _build_predicate_context() -> Dictionary:
@@ -1784,7 +1865,7 @@ func _handle_game_time_step_until(data: Array) -> void:
 		return
 
 	# Reset the skew echo up front (see _handle_execute_input_sequence).
-	_step_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
+	_step_input_kinds = _new_input_kinds()
 
 	var src: String = str(params.get("until", "")).strip_edges()
 	if src.is_empty():
@@ -1944,7 +2025,7 @@ func _step_process(delta: float) -> void:
 func _finish_step() -> void:
 	# Releases are guaranteed cleanup, never queued steps: no holds survive
 	# across the freeze boundary (cross-step holds are a deliberate non-goal).
-	var forced := _held_actions.size() + _held_joy_buttons.size() + _active_axes.size()
+	var forced := _held_actions.size() + _held_joy_buttons.size() + _active_axes.size() + _held_keys.size()
 	_release_held_actions()
 	var dropped := _step_events.size()
 	_step_events.clear()

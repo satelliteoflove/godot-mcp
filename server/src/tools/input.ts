@@ -79,23 +79,48 @@ const StickEntrySchema = z.strictObject({
   device: DeviceField,
   ...TimingFields,
 });
+const KeyEntrySchema = z.strictObject({
+  key: z
+    .union([z.string().min(1), z.number().int()])
+    .describe(
+      'Raw keyboard key by name with optional modifier prefixes ("a", "escape", "ctrl+s", ' +
+      '"shift+alt+f1"), or a raw Godot Key enum int. Modifiers: ctrl, shift, alt, meta (aka ' +
+      'cmd/super). Drives InputMap key bindings, raw _input/_unhandled_input handlers, and polled ' +
+      'Input.is_key_pressed; each modifier is pressed as a real key so Input.is_key_pressed(KEY_CTRL) ' +
+      'also holds (so injecting "ctrl+s" also fires any action bound to bare Ctrl, like a real ' +
+      'keyboard). For typing into focused text fields use type_text instead.'
+    ),
+  physical: z
+    .boolean()
+    .optional()
+    .describe(
+      'Target the physical key position (layout-independent): sends a physical-keycode-only event ' +
+      'for Input.is_physical_key_pressed and physical-keycode InputMap bindings. Default false sends ' +
+      'both logical and physical keycodes (a US-layout key press). WARNING: with physical:true the ' +
+      'logical keycode is unset, so keycode-bound InputMap actions will NOT match — use the default ' +
+      'for those.'
+    ),
+  ...TimingFields,
+});
 
 export const InputEntrySchema = z.union(
-  [ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema],
+  [ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema, KeyEntrySchema],
   {
     // z.union reports a bare "Invalid input" for every structural miss; the
-    // entries are key-discriminated, so name the four valid shapes to make the
+    // entries are key-discriminated, so name the five valid shapes to make the
     // most common authoring mistakes (missing value, typo'd key, no
     // discriminator) actionable.
     error: () =>
       'each input entry must be one of: {action_name, strength?}, {joy_button, device?}, ' +
-      '{axis, value, device?}, or {stick, x, y, device?} (all with optional start_ms/duration_ms)',
+      '{axis, value, device?}, {stick, x, y, device?}, or {key, physical?} ' +
+      '(all with optional start_ms/duration_ms)',
   }
 );
 export type InputEntry = z.infer<typeof InputEntrySchema>;
 
 // Compile schema entries into the wire vocabulary the game bridge consumes
-// (action | joy_button | axis): stick sugar becomes a paired axis hold.
+// (action | joy_button | axis | key): stick sugar becomes a paired axis hold;
+// key entries pass through and the bridge expands modifier combos into events.
 export function compileInputEntries(inputs: InputEntry[]): Record<string, unknown>[] {
   const wire: Record<string, unknown>[] = [];
   for (const e of inputs) {
@@ -115,23 +140,33 @@ export function entryLabel(e: InputEntry): string {
   if ('action_name' in e) return e.strength !== undefined ? `${e.action_name}@${e.strength}` : e.action_name;
   if ('joy_button' in e) return `joy:${e.joy_button}`;
   if ('axis' in e) return `${e.axis}=${e.value}`;
+  if ('key' in e) return `key:${e.key}`;
   return `${e.stick}_stick(${e.x},${e.y})`;
 }
 
-// Version-skew detection (#233, same honesty pattern as the watch timeline):
-// an old bridge silently `continue`s entries without action_name (dropping
-// joypad entries) and ignores the new `strength` field on action entries
-// (injecting at 1.0) — both while the call "succeeds". A new bridge always
-// echoes input_kinds; its ABSENCE when the request used either new capability
-// means the running addon predates controller injection.
-export function joypadSkewWarning(
+// Version-skew detection (#233/#290, same honesty pattern as the watch timeline):
+// an old bridge silently `continue`s entries it does not understand (dropping
+// joypad or key entries) and ignores the new `strength` field on action entries
+// (injecting at 1.0) — all while the call "succeeds". A new bridge echoes
+// input_kinds; its ABSENCE, or the absence of a `key` count within it, signals
+// the running addon predates that capability. Key takes priority because a
+// #289-era bridge echoes input_kinds (so the controller check passes) yet still
+// drops key entries — only the missing `key` count catches it.
+export function inputSkewWarning(
   inputs: InputEntry[],
   inputKinds: Record<string, number> | undefined
 ): string | undefined {
-  const usesNewCaps = inputs.some(
-    (e) => !('action_name' in e) || ('strength' in e && e.strength !== undefined)
+  const usesKey = inputs.some((e) => 'key' in e);
+  if (usesKey && (inputKinds === undefined || !('key' in inputKinds))) {
+    return (
+      'WARNING: raw key/modifier entries were IGNORED — the running addon predates raw-key ' +
+      'injection (#290). Update the godot-mcp addon and restart the Godot editor.'
+    );
+  }
+  const usesController = inputs.some(
+    (e) => (!('action_name' in e) && !('key' in e)) || ('strength' in e && e.strength !== undefined)
   );
-  if (usesNewCaps && inputKinds === undefined) {
+  if (usesController && inputKinds === undefined) {
     return (
       'WARNING: joypad/axis entries or analog action strength were IGNORED — the running addon ' +
       'predates controller injection. Update the godot-mcp addon and restart the Godot editor.'
@@ -151,12 +186,13 @@ const InputSchema = z.discriminatedUnion('action', [
       .min(1)
       .describe(
         'Array of inputs to execute. Each entry is one of: a named ACTION (action_name, optional ' +
-        'analog strength), a joypad BUTTON (joy_button), an analog AXIS hold (axis + value), or a ' +
-        'STICK vector (stick + x/y) — mix freely on one timeline. Joypad events drive bound actions ' +
-        '(with real deadzone math), raw _input handlers, and the polled Input singletons ' +
-        '(get_joy_axis / is_joy_button_pressed); no physical pad is needed. Limitation: ' +
-        'Input.get_connected_joypads() never reports a virtual pad, so games that gate controller ' +
-        'mode on pad DETECTION cannot be switched into it.'
+        'analog strength), a joypad BUTTON (joy_button), an analog AXIS hold (axis + value), a ' +
+        'STICK vector (stick + x/y), or a raw KEY (key, e.g. "ctrl+s") — mix freely on one timeline. ' +
+        'Joypad events drive bound actions (with real deadzone math), raw _input handlers, and the ' +
+        'polled Input singletons (get_joy_axis / is_joy_button_pressed); key events likewise drive ' +
+        'bound actions, _input/_unhandled_input, and Input.is_key_pressed. No physical pad or ' +
+        'keyboard is needed. Limitation: Input.get_connected_joypads() never reports a virtual pad, ' +
+        'so games that gate controller mode on pad DETECTION cannot be switched into it.'
       ),
     report: z
       .array(z.string())
@@ -232,7 +268,7 @@ export const input = defineTool({
   name: 'godot_input',
   annotations: { title: 'Input Injection', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, and stick vectors. Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: mouse/coordinate input is not supported (see docs/design/mouse-input-spike.md).',
+    'Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, stick vectors, and raw keyboard keys (with modifier combos). Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: mouse/coordinate input is not supported (see docs/design/mouse-input-spike.md).',
   schema: InputSchema,
   async execute(args: InputArgs, { godot }) {
     switch (args.action) {
@@ -322,7 +358,7 @@ export const input = defineTool({
           `Input sequence completed: ${result.actions_executed} input(s) executed [${labels}] over ${totalDuration}ms.`,
         ];
 
-        const skew = joypadSkewWarning(inputs, result.input_kinds);
+        const skew = inputSkewWarning(inputs, result.input_kinds);
         if (skew) lines.push(skew);
 
         // Always-on context: a sequence that ran under a pause/freeze advanced no

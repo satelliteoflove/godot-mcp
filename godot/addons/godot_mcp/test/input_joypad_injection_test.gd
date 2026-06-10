@@ -269,7 +269,7 @@ func _run() -> void:
 		{"axis": "left_x", "value": 1.0, "duration_ms": 10},
 	])
 	_check("mixed timeline counts kinds for the skew echo",
-		mixed["kinds"], {"action": 1, "joy_button": 1, "axis": 1})
+		mixed["kinds"], {"action": 1, "joy_button": 1, "axis": 1, "key": 0})
 
 	# ── 9. get_input_map axis/button display carries direction + name ─────────
 	# (the agent lifts axis + signed value straight into an injection).

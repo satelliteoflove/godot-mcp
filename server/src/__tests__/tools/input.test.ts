@@ -521,6 +521,85 @@ describe('input tool', () => {
     });
   });
 
+  describe('key entries (#290)', () => {
+    describe('schema', () => {
+      it('accepts a key by name, a modifier combo, physical, and a raw int', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ key: 'a' }, { key: 'ctrl+s' }, { key: 'escape', physical: true }, { key: 83 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects an empty key string', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ key: '' }],
+        }).success).toBe(false);
+      });
+
+      it('rejects a key entry mixed with another discriminator (strictObject pin)', () => {
+        // {key, axis, value} must not silently match a stripping branch and drop
+        // an intent — the same discriminator guarantee the joypad branches rely on.
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ key: 'ctrl+s', axis: 'left_x', value: 1 }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ action_name: 'fire', key: 'a' }],
+        }).success).toBe(false);
+      });
+
+      it('names the key shape in the union error for a no-discriminator entry', () => {
+        const r = input.schema.safeParse({ action: 'sequence', inputs: [{ nope: 1 }] });
+        expect(r.success).toBe(false);
+        if (!r.success) expect(JSON.stringify(r.error.issues)).toContain('{key, physical?}');
+      });
+    });
+
+    it('passes a key entry through to the wire verbatim (no server-side expansion)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ key: 'ctrl+s', physical: true, start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { key: 'ctrl+s', physical: true, start_ms: 0, duration_ms: 100 },
+      ]);
+      expect(result).toContain('key:ctrl+s');
+    });
+
+    it('warns when key entries hit a controller-era bridge that echoes input_kinds without a key count', async () => {
+      // A #289-era bridge echoes input_kinds (so the controller check passes) yet
+      // silently drops key entries — only the missing `key` count catches it.
+      mock.mockResponse({ completed: true, actions_executed: 0, input_kinds: { action: 0, joy_button: 0, axis: 0 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ key: 'ctrl+s', start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).toContain('IGNORED');
+      expect(result).toContain('predates raw-key injection');
+    });
+
+    it('does not warn when the bridge echoes a key count', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 0, axis: 0, key: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ key: 'escape', start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).not.toContain('IGNORED');
+    });
+  });
+
   describe('type_text', () => {
     it('types text and returns character count', async () => {
       mock.mockResponse({ completed: true, chars_typed: 5, submitted: false });

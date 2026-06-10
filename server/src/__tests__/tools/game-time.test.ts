@@ -176,6 +176,47 @@ describe('game_time tool', () => {
       expect((data.warnings as string[])[0]).toContain('predates controller injection');
     });
 
+    it('accepts raw key entries, passes them through verbatim, and surfaces a key count (#290)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false, events_fired: 2,
+        input_kinds: { action: 0, joy_button: 0, axis: 0, key: 1 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [{ key: 'ctrl+s', start_ms: 100, duration_ms: 50 }],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { key: 'ctrl+s', start_ms: 100, duration_ms: 50 },
+      ]);
+      const data = structuredOf(result);
+      expect(data.input_kinds).toEqual({ action: 0, joy_button: 0, axis: 0, key: 1 });
+      expect(data.warnings).toEqual([]);
+    });
+
+    it('warns in the structured result when key entries hit a bridge with no key count (#290)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false,
+        input_kinds: { action: 0, joy_button: 0, axis: 0 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [{ key: 'escape', start_ms: 0, duration_ms: 50 }],
+      }, ctx);
+
+      const data = structuredOf(result);
+      expect(data.warnings).toHaveLength(1);
+      expect((data.warnings as string[])[0]).toContain('predates raw-key injection');
+    });
+
     it('derives the per-request timeout and pushes the relay/wall budgets to the bridge (#276)', async () => {
       mock.mockResponse({
         completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,

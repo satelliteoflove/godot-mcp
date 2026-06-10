@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
 import { deriveTimeouts, STEP_BUDGET_CAP_MS } from '../connection/timeouts.js';
-import { InputEntrySchema, compileInputEntries, joypadSkewWarning } from './input.js';
+import { InputEntrySchema, compileInputEntries, inputSkewWarning } from './input.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 // Published cap on game time advanced in one call. The server sizes its socket
@@ -57,7 +57,7 @@ const GameTimeSchema = z
       inputs: z
         .array(InputEntrySchema)
         .optional()
-        .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, and stick vectors. Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
+        .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, and raw keys (with modifier combos). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
     }),
     z.object({
       action: z
@@ -81,7 +81,7 @@ const GameTimeSchema = z
       inputs: z
         .array(InputEntrySchema)
         .optional()
-        .describe('Optional input timeline driven inside the window, exactly like step (same vocabulary: actions, joypad buttons, axes, stick vectors — e.g. hold a stick deflection while waiting for an enemy to appear). Holds are released by window end.'),
+        .describe('Optional input timeline driven inside the window, exactly like step (same vocabulary: actions, joypad buttons, axes, stick vectors, raw keys — e.g. hold a stick deflection while waiting for an enemy to appear). Holds are released by window end.'),
     }),
     z.object({
       action: z
@@ -151,7 +151,7 @@ export const gameTime = defineTool({
         }, { timeoutMs: t.serverMs });
         // Stable shape, matching the runtime-state watch precedent (#198):
         // `warnings` is always an array so callers can read it unconditionally.
-        const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
+        const skew = inputSkewWarning(args.inputs ?? [], result.input_kinds);
         return structured({ ...result, warnings: skew ? [skew] : [] });
       }
 
@@ -165,7 +165,7 @@ export const gameTime = defineTool({
           relay_timeout_ms: t.relayMs,
           wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
-        const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
+        const skew = inputSkewWarning(args.inputs ?? [], result.input_kinds);
         return structured({ ...result, warnings: skew ? [skew] : [] });
       }
 

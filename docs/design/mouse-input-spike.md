@@ -159,6 +159,14 @@ state to confirm an effect by state-delta.
   `get_connected_joypads()` never reports a virtual pad — a game that gates
   controller mode on pad *detection* cannot be switched into it (games keying
   off received joypad events or InputMap actions, the common patterns, work).
+- **Raw keyboard / modifier injection shipped after this decision (#290).** A
+  `key` entry (e.g. `{key: "ctrl+s"}`) injects raw `InputEventKey` through the
+  same `sequence` timing model, driving `_input`/`_unhandled_input`, InputMap key
+  bindings (modifier combos included), and the polled `Input.is_key_pressed` /
+  `is_physical_key_pressed` singletons — so a game reading keys directly, without
+  defining actions, is now drivable. With this and the controller pillar (#233),
+  the keyboard/gamepad input surface is complete; mouse/coordinate input remains
+  the only gap this document records as out of scope.
 - **A real bug fix ships.** The investigation found that
   `MCPGameBridge.execute_input_sequence` dropped unfired action *releases* when it
   cleared its queue mid-flight, latching the action "pressed" forever. Fixed and
