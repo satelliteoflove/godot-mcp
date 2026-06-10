@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.18.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.17.0...godot-mcp-v3.18.0) (2026-06-10)
+
+
+### Features
+
+* inject raw keyboard keys and modifier combos ([#290](https://github.com/satelliteoflove/godot-mcp/issues/290)) ([#292](https://github.com/satelliteoflove/godot-mcp/issues/292)) ([da54660](https://github.com/satelliteoflove/godot-mcp/commit/da54660901101c09963ecc94b9485f1b0e747638))
+
 ## [3.17.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.16.0...godot-mcp-v3.17.0) (2026-06-10)
 
 
