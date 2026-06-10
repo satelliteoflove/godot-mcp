@@ -137,10 +137,12 @@ func _event_to_string(event: InputEvent) -> String:
 				return "Mouse Button %d" % mouse_event.button_index
 	elif event is InputEventJoypadButton:
 		var joy_event := event as InputEventJoypadButton
-		return "Joypad Button %d" % joy_event.button_index
+		return "Joypad Button %d (%s)" % [joy_event.button_index, MCPJoyNames.button_name(joy_event.button_index)]
 	elif event is InputEventJoypadMotion:
+		# The signed axis_value is the direction bit an agent needs to lift the
+		# binding straight into an injection (e.g. move_left = left_x, value -1.0).
 		var joy_motion := event as InputEventJoypadMotion
-		return "Joypad Axis %d" % joy_motion.axis
+		return "Joypad Axis %d (%s, value %+.1f)" % [joy_motion.axis, MCPJoyNames.axis_name(joy_motion.axis), joy_motion.axis_value]
 	return event.as_text()
 
 

@@ -137,16 +137,7 @@ func _sequence_process(delta: float) -> void:
 
 	while _sequence_events.size() > 0 and _sequence_events[0].time <= elapsed:
 		var seq_event: Dictionary = _sequence_events.pop_front()
-		var input_event := InputEventAction.new()
-		input_event.action = seq_event.action
-		input_event.pressed = seq_event.is_press
-		input_event.strength = 1.0 if seq_event.is_press else 0.0
-		Input.parse_input_event(input_event)
-		if seq_event.is_press:
-			_held_actions[seq_event.action] = true
-		else:
-			_held_actions.erase(seq_event.action)
-			_actions_completed += 1
+		_actions_completed += _inject_timeline_event(seq_event)
 
 	# Trigger any frame captures whose offset has arrived (#239). Capture is
 	# deferred to frame_post_draw, so it completes a frame or two later; the
@@ -191,6 +182,7 @@ func _emit_sequence_result() -> void:
 		"frozen": _frozen,
 		"gameplay_ms": roundi(_sequence_gameplay_ms),
 		"wall_ms": Time.get_ticks_msec() - _sequence_start_time,
+		"input_kinds": _sequence_input_kinds,
 	}
 
 	if not _sequence_report.is_empty():
@@ -262,6 +254,11 @@ var _sequence_start_time: int = 0
 var _sequence_running: bool = false
 var _actions_completed: int = 0
 var _actions_total: int = 0
+# Entry counts by kind ({action, joy_button, axis}) for the current sequence /
+# step window. Echoed in results: its PRESENCE is the version-skew signal a new
+# server uses to detect an old bridge that silently dropped joypad entries.
+var _sequence_input_kinds: Dictionary = {}
+var _step_input_kinds: Dictionary = {}
 # Game time (unpaused, scaled) accumulated across the sequence window — compared
 # against wall time in the result to flag a sequence that ran under a pause/freeze.
 var _sequence_gameplay_ms: float = 0.0
@@ -295,13 +292,19 @@ const SEQUENCE_MAX_CAPTURE_OFFSET_MS := 300000
 # (new sequence) or the node leaves the tree — otherwise the dropped release
 # latches the action "pressed" in the Input singleton (the stuck-held bug).
 var _held_actions: Dictionary = {}
+# Same guarantee for joypad state (#233): buttons whose press has fired
+# (key "device:button") and axes whose last-set value is nonzero
+# (key "device:axis") — a dropped end event would otherwise latch the polled
+# Input singletons (is_joy_button_pressed / get_joy_axis) until game restart.
+var _held_joy_buttons: Dictionary = {}
+var _active_axes: Dictionary = {}
 
 
-# Release any action still held from an interrupted sequence. A release here is a
-# guaranteed cleanup, never a queued step that a clear could drop. Safe to call
-# when nothing is held.
+# Release any action/button still held and re-zero any active axis from an
+# interrupted sequence. A release here is a guaranteed cleanup, never a queued
+# step that a clear could drop. Safe to call when nothing is held.
 func _release_held_actions() -> void:
-	if _held_actions.is_empty():
+	if _held_actions.is_empty() and _held_joy_buttons.is_empty() and _active_axes.is_empty():
 		return
 	for action in _held_actions.keys():
 		var release := InputEventAction.new()
@@ -309,10 +312,26 @@ func _release_held_actions() -> void:
 		release.pressed = false
 		release.strength = 0.0
 		Input.parse_input_event(release)
+	for bkey in _held_joy_buttons.keys():
+		var binfo = _held_joy_buttons[bkey]
+		var brel := InputEventJoypadButton.new()
+		brel.device = int(binfo["device"])
+		brel.button_index = int(binfo["button"]) as JoyButton
+		brel.pressed = false
+		Input.parse_input_event(brel)
+	for akey in _active_axes.keys():
+		var ainfo = _active_axes[akey]
+		var azero := InputEventJoypadMotion.new()
+		azero.device = int(ainfo["device"])
+		azero.axis = int(ainfo["axis"]) as JoyAxis
+		azero.axis_value = 0.0
+		Input.parse_input_event(azero)
 	# Flush so the release takes effect immediately — _exit_tree may not get
 	# another frame, and a cleanup should be deterministic, not deferred.
 	Input.flush_buffered_events()
 	_held_actions.clear()
+	_held_joy_buttons.clear()
+	_active_axes.clear()
 
 
 func _on_debugger_message(message: String, data: Array) -> bool:
@@ -1169,10 +1188,12 @@ func _event_to_string(event: InputEvent) -> String:
 				return "Mouse Button %d" % mouse_event.button_index
 	elif event is InputEventJoypadButton:
 		var joy_event := event as InputEventJoypadButton
-		return "Joypad Button %d" % joy_event.button_index
+		return "Joypad Button %d (%s)" % [joy_event.button_index, MCPJoyNames.button_name(joy_event.button_index)]
 	elif event is InputEventJoypadMotion:
+		# The signed axis_value is the direction bit an agent needs to lift the
+		# binding straight into an injection (e.g. move_left = left_x, value -1.0).
 		var joy_motion := event as InputEventJoypadMotion
-		return "Joypad Axis %d" % joy_motion.axis
+		return "Joypad Axis %d (%s, value %+.1f)" % [joy_motion.axis, MCPJoyNames.axis_name(joy_motion.axis), joy_motion.axis_value]
 	return event.as_text()
 
 
@@ -1233,34 +1254,14 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	_sequence_captures_pending = 0
 	_sequence_capture_max_width = cap_max_width
 
-	for input in inputs:
-		var action_name: String = input.get("action_name", "")
-		var start_ms: int = int(input.get("start_ms", 0))
-		var duration_ms: int = int(input.get("duration_ms", 0))
-
-		if action_name.is_empty():
-			continue
-
-		if not InputMap.has_action(action_name):
-			EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
-				"error": "Unknown action: %s" % action_name,
-			}])
-			return
-
-		_sequence_events.append({
-			"time": start_ms,
-			"action": action_name,
-			"is_press": true,
-		})
-		_sequence_events.append({
-			"time": start_ms + duration_ms,
-			"action": action_name,
-			"is_press": false,
-		})
-
-	_sequence_events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return a.time < b.time
-	)
+	var compiled := _compile_input_events(inputs)
+	if compiled.has("error"):
+		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+			"error": compiled["error"],
+		}])
+		return
+	_sequence_events = compiled["events"]
+	_sequence_input_kinds = compiled["kinds"]
 
 	# Baseline the effect probe at the last possible moment before any input fires.
 	_sequence_report = report_compiled
@@ -1526,10 +1527,11 @@ func _handle_game_time_step(data: Array) -> void:
 	# from window start). Inputs must ride inside the step: an event injected
 	# while frozen lands on a frame gameplay never processes, so its
 	# is_action_just_pressed edge would be silently missed.
-	var compiled := _compile_step_events(params.get("inputs", []))
+	var compiled := _compile_input_events(params.get("inputs", []))
 	if compiled.has("error"):
 		_send_game_time_response("game_time_step", {"error": compiled["error"]})
 		return
+	_step_input_kinds = compiled["kinds"]
 
 	# Step from a running game is allowed — it freezes first, so "advance
 	# 500ms then wait for me" is a single atomic call.
@@ -1564,24 +1566,130 @@ func _handle_game_time_step(data: Array) -> void:
 	_update_processing()
 
 
-func _compile_step_events(inputs: Array) -> Dictionary:
-	# Builds the press/release timeline shared by step and step_until. start_ms
-	# is game time from window start; returns {"error": ...} on an unknown action.
+func _compile_input_events(inputs: Array) -> Dictionary:
+	# Builds the typed input timeline shared by input sequences and game-time
+	# steps (#233). Each entry is discriminated by which key it carries:
+	# `axis` (analog joypad axis), `joy_button`, or `action_name` (with optional
+	# fractional `strength`). Returns {"events": [...], "kinds": {...}} or
+	# {"error": ...} on an unknown action/button/axis. Every event carries:
+	#   time     - ms offset from sequence/window start
+	#   phase    - 0 = release/zero-set, 1 = press/set (the equal-time tie-break)
+	#   complete - completion credit, counted when the event fires (1 on ends)
 	var events: Array = []
+	var kinds := {"action": 0, "joy_button": 0, "axis": 0}
 	for input in inputs:
-		var action_name: String = input.get("action_name", "")
-		if action_name.is_empty():
-			continue
-		if not InputMap.has_action(action_name):
-			return {"error": "Unknown action: %s" % action_name}
 		var start_ms: int = int(input.get("start_ms", 0))
 		var dur: int = int(input.get("duration_ms", 0))
-		events.append({"time": start_ms, "action": action_name, "is_press": true})
-		events.append({"time": start_ms + dur, "action": action_name, "is_press": false})
+		if input.has("axis"):
+			var axis := MCPJoyNames.axis_index(input["axis"])
+			if axis < 0:
+				return {"error": "Unknown joypad axis: %s (valid: %s)" % [str(input["axis"]), ", ".join(MCPJoyNames.AXES.keys())]}
+			var device: int = int(input.get("device", 0))
+			var value: float = clampf(float(input.get("value", 0.0)), -1.0, 1.0)
+			kinds["axis"] += 1
+			events.append({"time": start_ms, "phase": 1, "complete": 0,
+				"kind": "axis", "axis": axis, "device": device, "value": value})
+			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+				"kind": "axis", "axis": axis, "device": device, "value": 0.0})
+		elif input.has("joy_button"):
+			var button := MCPJoyNames.button_index(input["joy_button"])
+			if button < 0:
+				return {"error": "Unknown joypad button: %s (valid: %s, or a raw index)" % [str(input["joy_button"]), ", ".join(MCPJoyNames.BUTTONS.keys())]}
+			var bdevice: int = int(input.get("device", 0))
+			kinds["joy_button"] += 1
+			events.append({"time": start_ms, "phase": 1, "complete": 0,
+				"kind": "joy_button", "button": button, "device": bdevice, "is_press": true})
+			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+				"kind": "joy_button", "button": button, "device": bdevice, "is_press": false})
+		else:
+			var action_name: String = input.get("action_name", "")
+			if action_name.is_empty():
+				continue
+			if not InputMap.has_action(action_name):
+				return {"error": "Unknown action: %s" % action_name}
+			var strength: float = clampf(float(input.get("strength", 1.0)), 0.0, 1.0)
+			kinds["action"] += 1
+			events.append({"time": start_ms, "phase": 1, "complete": 0,
+				"kind": "action", "action": action_name, "strength": strength, "is_press": true})
+			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+				"kind": "action", "action": action_name, "strength": strength, "is_press": false})
+	# Releases/zero-sets fire before presses/sets at equal time, so a same-time
+	# axis zero can never clobber a follow-on set of the same axis.
 	events.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return a.time < b.time
+		if a.time != b.time:
+			return a.time < b.time
+		return a.phase < b.phase
 	)
-	return {"events": events}
+	_cancel_redundant_axis_zeroes(events)
+	return {"events": events, "kinds": kinds}
+
+
+func _cancel_redundant_axis_zeroes(events: Array) -> void:
+	# Abutting same-axis entries (sweep ramps) must not bounce through zero:
+	# both the zero-set and the next set pop in the same frame's while-loop, so
+	# sort order alone cannot hide the transient zero from InputMap edge
+	# detection (is_action_just_released would fire mid-sweep). Drop a zero-set
+	# that lands at the same time as a follow-on set of the same (device, axis),
+	# moving its completion credit to the survivor so counts stay exact.
+	# Actions and buttons are deliberately NOT cancelled: release+press at the
+	# same ms is a legitimate double-tap edge.
+	var i := 0
+	while i < events.size():
+		var ev: Dictionary = events[i]
+		if ev.kind == "axis" and ev.phase == 0:
+			var j := i + 1
+			while j < events.size() and events[j].time == ev.time:
+				var nx: Dictionary = events[j]
+				if nx.kind == "axis" and nx.phase == 1 and nx.axis == ev.axis and nx.device == ev.device:
+					nx.complete = int(nx.complete) + int(ev.complete)
+					events.remove_at(i)
+					i -= 1
+					break
+				j += 1
+		i += 1
+
+
+func _inject_timeline_event(ev: Dictionary) -> int:
+	# Build and parse the engine event for one timeline entry, maintaining the
+	# held-state registries that _release_held_actions uses for guaranteed
+	# cleanup. Returns the event's completion credit. Joypad events drive the
+	# polled Input singletons too (get_joy_axis / is_joy_button_pressed): unlike
+	# the mouse cursor, parse_input_event updates joypad state for any device id
+	# with no physical pad required.
+	match str(ev.kind):
+		"action":
+			var ae := InputEventAction.new()
+			ae.action = ev.action
+			ae.pressed = ev.is_press
+			ae.strength = float(ev.strength) if ev.is_press else 0.0
+			Input.parse_input_event(ae)
+			if ev.is_press:
+				_held_actions[ev.action] = true
+			else:
+				_held_actions.erase(ev.action)
+		"joy_button":
+			var be := InputEventJoypadButton.new()
+			be.device = ev.device
+			be.button_index = ev.button as JoyButton
+			be.pressed = ev.is_press
+			Input.parse_input_event(be)
+			var bkey := "%d:%d" % [ev.device, ev.button]
+			if ev.is_press:
+				_held_joy_buttons[bkey] = {"device": ev.device, "button": ev.button}
+			else:
+				_held_joy_buttons.erase(bkey)
+		"axis":
+			var me := InputEventJoypadMotion.new()
+			me.device = ev.device
+			me.axis = ev.axis as JoyAxis
+			me.axis_value = ev.value
+			Input.parse_input_event(me)
+			var akey := "%d:%d" % [ev.device, ev.axis]
+			if absf(float(ev.value)) > 0.0001:
+				_active_axes[akey] = {"device": ev.device, "axis": ev.axis}
+			else:
+				_active_axes.erase(akey)
+	return int(ev.get("complete", 0))
 
 
 func _build_predicate_context() -> Dictionary:
@@ -1693,14 +1801,17 @@ func _handle_game_time_step_until(data: Array) -> void:
 		return
 	var report_compiled: Array = report_result["report"]
 
-	var compiled := _compile_step_events(params.get("inputs", []))
+	var compiled := _compile_input_events(params.get("inputs", []))
 	if compiled.has("error"):
 		_send_game_time_response("game_time_step_until", {"error": compiled["error"]})
 		return
+	_step_input_kinds = compiled["kinds"]
 
 	_engage_freeze()
 
 	# Predicate already holds: advance nothing, stay frozen, report it.
+	# input_kinds still rides along — its absence is the version-skew signal a
+	# new server reads, so every success shape must carry it.
 	if bool(first_value):
 		var sc_result: Dictionary = {
 			"completed": true,
@@ -1711,6 +1822,7 @@ func _handle_game_time_step_until(data: Array) -> void:
 			"physics_ticks": 0,
 			"game_paused": _game_paused,
 			"predicate_met": true,
+			"input_kinds": _step_input_kinds,
 		}
 		if not report_compiled.is_empty():
 			sc_result["report"] = _evaluate_report(report_compiled, ctx_inputs)
@@ -1772,17 +1884,9 @@ func _step_process(delta: float) -> void:
 
 	while _step_events.size() > 0 and _step_events[0].time <= _step_elapsed_ms:
 		var ev: Dictionary = _step_events.pop_front()
-		var input_event := InputEventAction.new()
-		input_event.action = ev.action
-		input_event.pressed = ev.is_press
-		input_event.strength = 1.0 if ev.is_press else 0.0
-		Input.parse_input_event(input_event)
+		_inject_timeline_event(ev)
 		_step_events_fired += 1
 		_step_needs_settle = true
-		if ev.is_press:
-			_held_actions[ev.action] = true
-		else:
-			_held_actions.erase(ev.action)
 
 	var done := false
 	if _step_target_frames > 0:
@@ -1822,7 +1926,7 @@ func _step_process(delta: float) -> void:
 func _finish_step() -> void:
 	# Releases are guaranteed cleanup, never queued steps: no holds survive
 	# across the freeze boundary (cross-step holds are a deliberate non-goal).
-	var forced := _held_actions.size()
+	var forced := _held_actions.size() + _held_joy_buttons.size() + _active_axes.size()
 	_release_held_actions()
 	var dropped := _step_events.size()
 	_step_events.clear()
@@ -1842,6 +1946,7 @@ func _finish_step() -> void:
 		"frames": _step_frames,
 		"physics_ticks": _step_physics_ticks,
 		"game_paused": _game_paused,
+		"input_kinds": _step_input_kinds,
 	}
 	if _step_events_fired > 0:
 		result["events_fired"] = _step_events_fired

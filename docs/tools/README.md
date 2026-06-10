@@ -59,9 +59,9 @@ Fetch Godot Engine documentation with smart extraction
 
 ## [Input](input.md)
 
-Input injection for testing running games (action-based, no mouse/coordinates yet)
+Input injection for testing running games: named actions, joypad buttons, analog axes and stick vectors, and text typing (no mouse/coordinate input)
 
-- `godot_input` - Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.
+- `godot_input` - Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, and stick vectors. Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: mouse/coordinate input is not supported (see docs/design/mouse-input-spike.md).
 
 ## [Profiler](profiler.md)
 

@@ -148,6 +148,17 @@ state to confirm an effect by state-delta.
   problem (actions are state, not coordinates). For "drive my game to test it,"
   this already covers a large fraction of the need — and is the right place to
   invest the energy this decision frees up.
+- **Controller/analog injection shipped after this decision (#233).** Joypad
+  buttons, analog axes, and stick vectors inject through the same `sequence`
+  timing model — and unlike the mouse cursor, injected joypad events DO drive
+  the polled Input singletons (`get_joy_axis` / `is_joy_button_pressed`), so
+  the gamepad-native genres in the matrix below (platformer, fighting, racing,
+  sports, twin-stick) are fully drivable, analog included. One bounded
+  exception, same in spirit to the polled-cursor ceiling but far narrower:
+  `Input.joy_connection_changed` is not script-bindable, so
+  `get_connected_joypads()` never reports a virtual pad — a game that gates
+  controller mode on pad *detection* cannot be switched into it (games keying
+  off received joypad events or InputMap actions, the common patterns, work).
 - **A real bug fix ships.** The investigation found that
   `MCPGameBridge.execute_input_sequence` dropped unfired action *releases* when it
   cleared its queue mid-flight, latching the action "pressed" forever. Fixed and

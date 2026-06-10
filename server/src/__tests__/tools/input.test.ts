@@ -149,7 +149,7 @@ describe('input tool', () => {
         inputs: [{ action_name: 'jump', start_ms: 0, duration_ms: 0 }],
       }, ctx);
 
-      expect(result).toContain('1 action(s) executed');
+      expect(result).toContain('1 input(s) executed');
       expect(result).toContain('jump');
       expect(mock.calls[0].params.inputs).toHaveLength(1);
     });
@@ -166,7 +166,7 @@ describe('input tool', () => {
         ],
       }, ctx);
 
-      expect(result).toContain('2 action(s) executed');
+      expect(result).toContain('2 input(s) executed');
       expect(result).toContain('move_forward, jump');
       expect(result).toContain('1000ms');
     });
@@ -355,6 +355,143 @@ describe('input tool', () => {
         inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: INPUT_BUDGET_CAP_MS + 1 }],
       }, ctx)).rejects.toThrow(/single call can cover at most/);
       expect(mock.calls).toHaveLength(0);
+    });
+  });
+
+  describe('joypad entries (#233)', () => {
+    describe('schema', () => {
+      it('accepts joy_button by name and by raw index', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ joy_button: 'a' }, { joy_button: 'dpad_up', device: 1 }, { joy_button: 5 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects an unknown axis name and out-of-range values', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ axis: 'left_z', value: 0.5 }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ axis: 'left_x', value: 1.5 }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ axis: 'left_x', value: -0.7 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects a negative value on a trigger axis (triggers range 0..1)', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ axis: 'trigger_right', value: -0.5 }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ axis: 'trigger_right', value: 0.5 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects action strength outside 0..1', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ action_name: 'fire', strength: 1.5 }],
+        }).success).toBe(false);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ action_name: 'fire', strength: 0.5 }],
+        }).success).toBe(true);
+      });
+
+      it('rejects a mixed-keys entry (the strictObject discriminator pin)', () => {
+        // A stripping schema would silently match the action branch and drop
+        // the axis intent — exactly the bug strictObject exists to prevent.
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ action_name: 'fire', axis: 'left_x', value: 1 }],
+        }).success).toBe(false);
+      });
+
+      it('accepts stick entries and mixed timelines', () => {
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [
+            { stick: 'left', x: 0.5, y: 0, duration_ms: 500 },
+            { joy_button: 'a', start_ms: 200 },
+            { action_name: 'pause', start_ms: 900 },
+          ],
+        }).success).toBe(true);
+        expect(input.schema.safeParse({
+          action: 'sequence',
+          inputs: [{ stick: 'middle', x: 0, y: 0 }],
+        }).success).toBe(false);
+      });
+    });
+
+    it('compiles a stick entry into a paired _x/_y axis hold on the wire', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 2, input_kinds: { action: 0, joy_button: 0, axis: 2 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ stick: 'right', x: 0.866, y: -0.5, device: 0, start_ms: 100, duration_ms: 1500 }],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { axis: 'right_x', value: 0.866, device: 0, start_ms: 100, duration_ms: 1500 },
+        { axis: 'right_y', value: -0.5, device: 0, start_ms: 100, duration_ms: 1500 },
+      ]);
+      expect(result).toContain('right_stick(0.866,-0.5)');
+    });
+
+    it('labels joypad entries in the summary line', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 3, input_kinds: { action: 1, joy_button: 1, axis: 1 } });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [
+          { joy_button: 'a', device: 0, start_ms: 0, duration_ms: 100 },
+          { axis: 'trigger_right', value: 1, device: 0, start_ms: 0, duration_ms: 200 },
+          { action_name: 'fire', strength: 0.5, start_ms: 0, duration_ms: 200 },
+        ],
+      }, ctx);
+
+      expect(result).toContain('joy:a');
+      expect(result).toContain('trigger_right=1');
+      expect(result).toContain('fire@0.5');
+    });
+
+    it('warns when joypad entries were requested but the bridge echoed no input_kinds (old addon)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 0 });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ axis: 'left_x', value: 1, device: 0, start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).toContain('IGNORED');
+      expect(result).toContain('predates controller injection');
+    });
+
+    it('does not warn when input_kinds is present, or for action-only requests against an old addon', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 1, axis: 0 } });
+      const ctx = createToolContext(mock);
+      const withKinds = await input.execute({
+        action: 'sequence',
+        inputs: [{ joy_button: 'a', device: 0, start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+      expect(withKinds).not.toContain('IGNORED');
+
+      const oldMock = createMockGodot();
+      oldMock.mockResponse({ completed: true, actions_executed: 1 });
+      const actionOnly = await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'jump', start_ms: 0, duration_ms: 100 }],
+      }, createToolContext(oldMock));
+      expect(actionOnly).not.toContain('IGNORED');
     });
   });
 

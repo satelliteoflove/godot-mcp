@@ -4,11 +4,127 @@ import { deriveTimeouts, INPUT_BUDGET_CAP_MS } from '../connection/timeouts.js';
 import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
 import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
-export const InputActionSchema = z.object({
-  action_name: z.string().describe('The input action name from the project Input Map'),
+const TimingFields = {
   start_ms: z.number().int().min(0).optional().default(0).describe('When to start the input (milliseconds from sequence start)'),
-  duration_ms: z.number().int().min(0).optional().default(0).describe('How long to hold the input (0 = instant tap)'),
+  duration_ms: z.number().int().min(0).optional().default(0).describe('How long to hold the input (0 = instant tap; axes return to 0 at the end)'),
+};
+const DeviceField = z
+  .number()
+  .int()
+  .min(0)
+  .optional()
+  .default(0)
+  .describe('Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.');
+
+export const JOY_BUTTON_NAMES = [
+  'a', 'b', 'x', 'y', 'back', 'guide', 'start', 'left_stick', 'right_stick',
+  'left_shoulder', 'right_shoulder', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right',
+  'misc1', 'paddle1', 'paddle2', 'paddle3', 'paddle4', 'touchpad',
+] as const;
+export const JOY_AXIS_NAMES = ['left_x', 'left_y', 'right_x', 'right_y', 'trigger_left', 'trigger_right'] as const;
+
+// The four input-entry shapes are discriminated by WHICH KEY is present
+// (action_name / joy_button / axis / stick), so strictObject is load-bearing:
+// a stripping z.object would silently match a mixed entry like
+// {action_name, axis, value} to the action branch and drop the axis intent.
+const ActionEntrySchema = z.strictObject({
+  action_name: z.string().describe('The input action name from the project Input Map'),
+  strength: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe(
+      'Analog press strength (default 1.0). Drives Input.get_action_strength/get_vector even for ' +
+      'actions with no joypad bindings, but BYPASSES the InputMap deadzone — use an axis entry when ' +
+      'real deadzone behavior matters.'
+    ),
+  ...TimingFields,
 });
+const JoyButtonEntrySchema = z.strictObject({
+  joy_button: z
+    .union([z.enum(JOY_BUTTON_NAMES), z.number().int().min(0).max(20)])
+    .describe('Joypad button by Godot JoyButton name (e.g. "a", "right_shoulder", "dpad_up") or raw index. Drives bound actions, raw _input handlers, and polled Input.is_joy_button_pressed.'),
+  device: DeviceField,
+  ...TimingFields,
+});
+const AxisEntrySchema = z
+  .strictObject({
+    axis: z
+      .enum(JOY_AXIS_NAMES)
+      .describe('Joypad axis by Godot JoyAxis name. Sticks range -1..1 and rest at 0; triggers range 0..1 and rest at 0.'),
+    value: z
+      .number()
+      .min(-1)
+      .max(1)
+      .describe('Axis value held for duration_ms, then returned to 0. Drives axis-bound actions with REAL InputMap deadzone math, raw _input handlers, and polled Input.get_joy_axis.'),
+    device: DeviceField,
+    ...TimingFields,
+  })
+  .superRefine((e, ctx) => {
+    if (e.axis.startsWith('trigger') && e.value < 0) {
+      ctx.addIssue({ code: 'custom', message: `trigger axes range 0..1; got ${e.value}` });
+    }
+  });
+const StickEntrySchema = z.strictObject({
+  stick: z
+    .enum(['left', 'right'])
+    .describe('Stick vector shorthand: compiles into a paired _x/_y axis hold with the same timing.'),
+  x: z.number().min(-1).max(1).describe('Stick x deflection: -1 = left, +1 = right.'),
+  y: z
+    .number()
+    .min(-1)
+    .max(1)
+    .describe('Stick y deflection in Godot joypad convention: -1 = UP, +1 = down. Aim 30 degrees above horizontal-right = {x: 0.866, y: -0.5}; half-tilt right = {x: 0.5, y: 0}.'),
+  device: DeviceField,
+  ...TimingFields,
+});
+
+export const InputEntrySchema = z.union([ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema]);
+export type InputEntry = z.infer<typeof InputEntrySchema>;
+
+// Compile schema entries into the wire vocabulary the game bridge consumes
+// (action | joy_button | axis): stick sugar becomes a paired axis hold.
+export function compileInputEntries(inputs: InputEntry[]): Record<string, unknown>[] {
+  const wire: Record<string, unknown>[] = [];
+  for (const e of inputs) {
+    if ('stick' in e) {
+      const base = { device: e.device ?? 0, start_ms: e.start_ms ?? 0, duration_ms: e.duration_ms ?? 0 };
+      wire.push({ axis: `${e.stick}_x`, value: e.x, ...base });
+      wire.push({ axis: `${e.stick}_y`, value: e.y, ...base });
+    } else {
+      wire.push(e);
+    }
+  }
+  return wire;
+}
+
+// Short human label for one entry, for the result summary line.
+export function entryLabel(e: InputEntry): string {
+  if ('action_name' in e) return e.strength !== undefined ? `${e.action_name}@${e.strength}` : e.action_name;
+  if ('joy_button' in e) return `joy:${e.joy_button}`;
+  if ('axis' in e) return `${e.axis}=${e.value}`;
+  return `${e.stick}_stick(${e.x},${e.y})`;
+}
+
+// Version-skew detection (#233, same honesty pattern as the watch timeline):
+// an old bridge silently `continue`s entries without action_name, so joypad
+// entries would be dropped while the call "succeeds". A new bridge always
+// echoes input_kinds; its ABSENCE when joypad entries were requested means the
+// running addon predates controller injection.
+export function joypadSkewWarning(
+  inputs: InputEntry[],
+  inputKinds: Record<string, number> | undefined
+): string | undefined {
+  const joypad = inputs.some((e) => !('action_name' in e));
+  if (joypad && inputKinds === undefined) {
+    return (
+      'WARNING: joypad/axis entries were IGNORED — the running addon predates controller injection. ' +
+      'Update the godot-mcp addon and restart the Godot editor.'
+    );
+  }
+  return undefined;
+}
 
 const InputSchema = z.discriminatedUnion('action', [
   z.object({
@@ -17,9 +133,17 @@ const InputSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('sequence').describe('Execute an input timeline'),
     inputs: z
-      .array(InputActionSchema)
+      .array(InputEntrySchema)
       .min(1)
-      .describe('Array of inputs to execute'),
+      .describe(
+        'Array of inputs to execute. Each entry is one of: a named ACTION (action_name, optional ' +
+        'analog strength), a joypad BUTTON (joy_button), an analog AXIS hold (axis + value), or a ' +
+        'STICK vector (stick + x/y) — mix freely on one timeline. Joypad events drive bound actions ' +
+        '(with real deadzone math), raw _input handlers, and the polled Input singletons ' +
+        '(get_joy_axis / is_joy_button_pressed); no physical pad is needed. Limitation: ' +
+        'Input.get_connected_joypads() never reports a virtual pad, so games that gate controller ' +
+        'mode on pad DETECTION cannot be switched into it.'
+      ),
     report: z
       .array(z.string())
       .optional()
@@ -94,7 +218,7 @@ export const input = defineTool({
   name: 'godot_input',
   annotations: { title: 'Input Injection', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Inject input into a running Godot game for testing. Use get_map to discover available input actions, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: Mouse/coordinate input not yet supported.',
+    'Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, and stick vectors. Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: mouse/coordinate input is not supported (see docs/design/mouse-input-spike.md).',
   schema: InputSchema,
   async execute(args: InputArgs, { godot }) {
     switch (args.action) {
@@ -160,9 +284,10 @@ export const input = defineTool({
             height: number;
             error: string;
           }>;
+          input_kinds?: Record<string, number>;
           error?: string;
         }>('execute_input_sequence', {
-          inputs,
+          inputs: compileInputEntries(inputs),
           report: args.report,
           screenshot_at_ms: args.screenshot_at_ms,
           screenshot_max_width: args.screenshot_max_width,
@@ -177,11 +302,14 @@ export const input = defineTool({
         }
 
         const totalDuration = Math.max(...inputs.map((i) => (i.start_ms ?? 0) + (i.duration_ms ?? 0)));
-        const actionNames = [...new Set(inputs.map((i) => i.action_name))].join(', ');
+        const labels = [...new Set(inputs.map(entryLabel))].join(', ');
 
         const lines = [
-          `Input sequence completed: ${result.actions_executed} action(s) executed [${actionNames}] over ${totalDuration}ms.`,
+          `Input sequence completed: ${result.actions_executed} input(s) executed [${labels}] over ${totalDuration}ms.`,
         ];
+
+        const skew = joypadSkewWarning(inputs, result.input_kinds);
+        if (skew) lines.push(skew);
 
         // Always-on context: a sequence that ran under a pause/freeze advanced no
         // gameplay, so its inputs almost certainly did nothing — surface that

@@ -129,6 +129,52 @@ describe('game_time tool', () => {
       expect(data.gameplay_ms).toBe(120);
     });
 
+    it('accepts joypad entries, compiles stick sugar onto the wire, and surfaces input_kinds (#233)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false, events_fired: 6,
+        input_kinds: { action: 0, joy_button: 1, axis: 2 },
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [
+          { stick: 'left', x: 0.5, y: -0.5, device: 0, start_ms: 0, duration_ms: 400 },
+          { joy_button: 'a', device: 0, start_ms: 200, duration_ms: 50 },
+        ],
+      }, ctx);
+
+      expect(mock.calls[0].params.inputs).toEqual([
+        { axis: 'left_x', value: 0.5, device: 0, start_ms: 0, duration_ms: 400 },
+        { axis: 'left_y', value: -0.5, device: 0, start_ms: 0, duration_ms: 400 },
+        // Non-stick entries pass through verbatim.
+        { joy_button: 'a', device: 0, start_ms: 200, duration_ms: 50 },
+      ]);
+      const data = structuredOf(result);
+      expect(data.input_kinds).toEqual({ action: 0, joy_button: 1, axis: 2 });
+      expect(data.warnings).toBeUndefined();
+    });
+
+    it('warns in the structured result when joypad entries hit an old addon (no input_kinds) (#233)', async () => {
+      mock.mockResponse({
+        completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,
+        frames: 30, physics_ticks: 30, game_paused: false,
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await gameTime.execute({
+        action: 'step',
+        duration_ms: 500,
+        inputs: [{ axis: 'left_x', value: 1, device: 0, start_ms: 0, duration_ms: 200 }],
+      }, ctx);
+
+      const data = structuredOf(result);
+      expect(data.warnings).toHaveLength(1);
+      expect((data.warnings as string[])[0]).toContain('predates controller injection');
+    });
+
     it('derives the per-request timeout and pushes the relay/wall budgets to the bridge (#276)', async () => {
       mock.mockResponse({
         completed: true, frozen: true, elapsed_ms: 500, gameplay_ms: 500,

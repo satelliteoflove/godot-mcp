@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
 import { deriveTimeouts, STEP_BUDGET_CAP_MS } from '../connection/timeouts.js';
-import { InputActionSchema } from './input.js';
+import { InputEntrySchema, compileInputEntries, joypadSkewWarning } from './input.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
 // Published cap on game time advanced in one call. The server sizes its socket
@@ -55,9 +55,9 @@ const GameTimeSchema = z
         .optional()
         .describe(`Frames to advance instead of a duration (max ${STEP_MAX_FRAMES}). frames: 1 is a single-frame advance.`),
       inputs: z
-        .array(InputActionSchema)
+        .array(InputEntrySchema)
         .optional()
-        .describe('Input timeline executed inside the window; start_ms is game time from window start. Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
+        .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, and stick vectors. Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
     }),
     z.object({
       action: z
@@ -79,9 +79,9 @@ const GameTimeSchema = z
         .optional()
         .describe('Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. ["G.wave", "tree.get_nodes_in_group(\\"enemies\\").size()"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse and evaluate without error up front.'),
       inputs: z
-        .array(InputActionSchema)
+        .array(InputEntrySchema)
         .optional()
-        .describe('Optional input timeline driven inside the window, exactly like step (e.g. hold "move forward" while waiting for an enemy to appear). Holds are released by window end.'),
+        .describe('Optional input timeline driven inside the window, exactly like step (same vocabulary: actions, joypad buttons, axes, stick vectors — e.g. hold a stick deflection while waiting for an enemy to appear). Holds are released by window end.'),
     }),
     z.object({
       action: z
@@ -114,6 +114,7 @@ interface StepResult {
   events_dropped?: number;
   pause_transitions?: Array<{ at_ms: number; paused: boolean }>;
   wall_budget_exceeded?: boolean;
+  input_kinds?: Record<string, number>;
   // step_until only:
   predicate_met?: boolean;
   report?: Record<string, unknown>;
@@ -144,11 +145,12 @@ export const gameTime = defineTool({
         const result = await godot.sendCommand<StepResult>('game_time_step', {
           duration_ms: args.duration_ms,
           frames: args.frames,
-          inputs: args.inputs,
+          inputs: compileInputEntries(args.inputs ?? []),
           relay_timeout_ms: t.relayMs,
           wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
-        return structured(result);
+        const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
+        return structured(skew ? { ...result, warnings: [skew] } : result);
       }
 
       case 'step_until': {
@@ -157,11 +159,12 @@ export const gameTime = defineTool({
           until: args.until,
           max_ms: args.max_ms ?? STEP_DEFAULT_MS,
           report: args.report,
-          inputs: args.inputs,
+          inputs: compileInputEntries(args.inputs ?? []),
           relay_timeout_ms: t.relayMs,
           wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
-        return structured(result);
+        const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
+        return structured(skew ? { ...result, warnings: [skew] } : result);
       }
 
       case 'thaw': {
