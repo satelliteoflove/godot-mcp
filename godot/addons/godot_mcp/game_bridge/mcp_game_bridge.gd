@@ -1203,6 +1203,11 @@ func _handle_execute_input_sequence(data: Array) -> void:
 	var screenshot_offsets: Array = data[2] if data.size() > 2 and data[2] is Array else []
 	var cap_max_width: int = int(data[3]) if data.size() > 3 else 640
 
+	# Reset the skew echo up front: the result's input_kinds must reflect THIS
+	# call's compile, never a stale value from a prior sequence (its absence is
+	# how a new server detects an old bridge — a stale dict would mask that).
+	_sequence_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
+
 	if inputs.is_empty():
 		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
 			"error": "No inputs provided",
@@ -1515,6 +1520,10 @@ func _handle_game_time_step(data: Array) -> void:
 		_send_game_time_response("game_time_step", {"error": "Step already in progress"})
 		return
 
+	# Reset the skew echo up front (see _handle_execute_input_sequence): the
+	# step result's input_kinds must reflect this call, never a prior step's.
+	_step_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
+
 	var duration_ms: int = int(params.get("duration_ms", 0))
 	var frames: int = int(params.get("frames", 0))
 	if duration_ms <= 0 and frames <= 0:
@@ -1580,6 +1589,12 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 	for input in inputs:
 		var start_ms: int = int(input.get("start_ms", 0))
 		var dur: int = int(input.get("duration_ms", 0))
+		# An instant tap (duration 0 — the schema default) must still emit its end
+		# event STRICTLY AFTER its start, or the equal-time (time, phase) sort below
+		# orders the release/zero-set before the press/set and the input latches
+		# (press never paired with a release). One ms is enough: the time sort then
+		# fires start-before-end even when both land in the same process frame.
+		var end_ms: int = start_ms + maxi(dur, 1)
 		if input.has("axis"):
 			var axis := MCPJoyNames.axis_index(input["axis"])
 			if axis < 0:
@@ -1589,7 +1604,7 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 			kinds["axis"] += 1
 			events.append({"time": start_ms, "phase": 1, "complete": 0,
 				"kind": "axis", "axis": axis, "device": device, "value": value})
-			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+			events.append({"time": end_ms, "phase": 0, "complete": 1,
 				"kind": "axis", "axis": axis, "device": device, "value": 0.0})
 		elif input.has("joy_button"):
 			var button := MCPJoyNames.button_index(input["joy_button"])
@@ -1599,7 +1614,7 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 			kinds["joy_button"] += 1
 			events.append({"time": start_ms, "phase": 1, "complete": 0,
 				"kind": "joy_button", "button": button, "device": bdevice, "is_press": true})
-			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+			events.append({"time": end_ms, "phase": 0, "complete": 1,
 				"kind": "joy_button", "button": button, "device": bdevice, "is_press": false})
 		else:
 			var action_name: String = input.get("action_name", "")
@@ -1611,7 +1626,7 @@ func _compile_input_events(inputs: Array) -> Dictionary:
 			kinds["action"] += 1
 			events.append({"time": start_ms, "phase": 1, "complete": 0,
 				"kind": "action", "action": action_name, "strength": strength, "is_press": true})
-			events.append({"time": start_ms + dur, "phase": 0, "complete": 1,
+			events.append({"time": end_ms, "phase": 0, "complete": 1,
 				"kind": "action", "action": action_name, "strength": strength, "is_press": false})
 	# Releases/zero-sets fire before presses/sets at equal time, so a same-time
 	# axis zero can never clobber a follow-on set of the same axis.
@@ -1767,6 +1782,9 @@ func _handle_game_time_step_until(data: Array) -> void:
 	if _step_active:
 		_send_game_time_response("game_time_step_until", {"error": "Step already in progress"})
 		return
+
+	# Reset the skew echo up front (see _handle_execute_input_sequence).
+	_step_input_kinds = {"action": 0, "joy_button": 0, "axis": 0}
 
 	var src: String = str(params.get("until", "")).strip_edges()
 	if src.is_empty():

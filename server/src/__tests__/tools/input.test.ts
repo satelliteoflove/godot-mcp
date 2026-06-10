@@ -476,6 +476,32 @@ describe('input tool', () => {
       expect(result).toContain('predates controller injection');
     });
 
+    it('warns when an action carries strength but the bridge echoed no input_kinds (old addon drops strength)', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1 });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', strength: 0.5, start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      // strength is a new capability an old bridge silently ignores (fires at 1.0).
+      expect(result).toContain('IGNORED');
+      expect(result).toContain('analog action strength');
+    });
+
+    it('does not warn for a plain action (no strength) against an old addon', async () => {
+      mock.mockResponse({ completed: true, actions_executed: 1 });
+      const ctx = createToolContext(mock);
+
+      const result = await input.execute({
+        action: 'sequence',
+        inputs: [{ action_name: 'fire', start_ms: 0, duration_ms: 100 }],
+      }, ctx);
+
+      expect(result).not.toContain('IGNORED');
+    });
+
     it('does not warn when input_kinds is present, or for action-only requests against an old addon', async () => {
       mock.mockResponse({ completed: true, actions_executed: 1, input_kinds: { action: 0, joy_button: 1, axis: 0 } });
       const ctx = createToolContext(mock);

@@ -149,8 +149,10 @@ export const gameTime = defineTool({
           relay_timeout_ms: t.relayMs,
           wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
+        // Stable shape, matching the runtime-state watch precedent (#198):
+        // `warnings` is always an array so callers can read it unconditionally.
         const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
-        return structured(skew ? { ...result, warnings: [skew] } : result);
+        return structured({ ...result, warnings: skew ? [skew] : [] });
       }
 
       case 'step_until': {
@@ -164,7 +166,7 @@ export const gameTime = defineTool({
           wall_budget_ms: t.bridgeWallMs,
         }, { timeoutMs: t.serverMs });
         const skew = joypadSkewWarning(args.inputs ?? [], result.input_kinds);
-        return structured(skew ? { ...result, warnings: [skew] } : result);
+        return structured({ ...result, warnings: skew ? [skew] : [] });
       }
 
       case 'thaw': {

@@ -154,7 +154,8 @@ describe('game_time tool', () => {
       ]);
       const data = structuredOf(result);
       expect(data.input_kinds).toEqual({ action: 0, joy_button: 1, axis: 2 });
-      expect(data.warnings).toBeUndefined();
+      // Stable shape (#198 precedent): warnings is always an array, empty here.
+      expect(data.warnings).toEqual([]);
     });
 
     it('warns in the structured result when joypad entries hit an old addon (no input_kinds) (#233)', async () => {

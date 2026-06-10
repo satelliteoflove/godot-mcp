@@ -21,7 +21,11 @@ extends SceneTree
 ##
 ## Step-window parity is by construction: game_time step compiles through the
 ## same _compile_input_events and injects through the same _inject_timeline_event
-## as the sequence path white-boxed here.
+## as the sequence path white-boxed here. The step path's own freeze/pause
+## semantics make a bare-SceneTree drive hang-prone, so step joypad injection is
+## covered by the shared code paths above, the server vitest, and live MCP
+## validation (a real game_time step with joypad inputs echoing input_kinds),
+## rather than re-driven here.
 ##
 ##   & "<godot.exe>" [--headless] --path "<project-with-addon>" \
 ##       --script "res://addons/godot_mcp/test/input_joypad_injection_test.gd"
@@ -81,7 +85,8 @@ func _run() -> void:
 	_check("axis 0.7 drives polled get_joy_axis", is_equal_approx(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), 0.7), true)
 	_check("axis-bound action pressed at 0.7 (deadzone 0.2)", Input.is_action_pressed(AXIS_ACT), true)
 	_check("axis-bound action raw strength is the axis value", is_equal_approx(Input.get_action_raw_strength(AXIS_ACT), 0.7), true)
-	_check("axis-bound action strength is deadzone-adjusted (< raw)", Input.get_action_strength(AXIS_ACT) > 0.0 and Input.get_action_strength(AXIS_ACT) < 0.7, true)
+	# Exact deadzone normalization (raw - dz)/(1 - dz) = (0.7 - 0.2)/0.8 = 0.625.
+	_check("axis-bound action strength is exactly deadzone-normalized", is_equal_approx(Input.get_action_strength(AXIS_ACT), 0.625), true)
 
 	# ── 3. Sub-deadzone value: action NOT pressed, polled axis still moves ───
 	bridge._handle_execute_input_sequence([[
@@ -100,6 +105,26 @@ func _run() -> void:
 	await process_frame
 	_check("fractional strength drives get_action_strength", is_equal_approx(Input.get_action_strength(POS_ACT), 0.5), true)
 	_check("fractional strength drives the get_axis vector read", is_equal_approx(Input.get_axis(NEG_ACT, POS_ACT), 0.5), true)
+
+	# ── 4b. Instant tap (duration_ms = 0 — the SCHEMA DEFAULT) must not latch ──
+	# The end event has to fire strictly after the start, or the (time, phase)
+	# sort would order release-before-press at equal time and the input would
+	# stay held forever (regression guard for the controller-injection PR).
+	var tap_compiled: Dictionary = bridge._compile_input_events([{"action_name": POS_ACT, "start_ms": 0, "duration_ms": 0}])
+	var tap_evts: Array = tap_compiled["events"]
+	_check("instant-tap press is compiled before its release", [bool(tap_evts[0].get("is_press")), int(tap_evts[0]["time"]) < int(tap_evts[1]["time"])], [true, true])
+	bridge._handle_execute_input_sequence([[{"action_name": POS_ACT, "start_ms": 0, "duration_ms": 0}]])
+	for i in 6:
+		await process_frame
+	_check("instant-tap action is NOT latched after the sequence", Input.is_action_pressed(POS_ACT), false)
+	bridge._handle_execute_input_sequence([[{"joy_button": "x", "start_ms": 0, "duration_ms": 0}]])
+	for i in 6:
+		await process_frame
+	_check("instant-tap joy_button is NOT latched after the sequence", Input.is_joy_button_pressed(0, JOY_BUTTON_X), false)
+	bridge._handle_execute_input_sequence([[{"axis": "right_y", "value": 0.9, "start_ms": 0, "duration_ms": 0}]])
+	for i in 6:
+		await process_frame
+	_check("instant-tap axis returns to rest (not latched at value)", is_equal_approx(Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y), 0.0), true)
 
 	# ── 5. Zero-bounce: abutting same-axis entries (sweep ramp) ──────────────
 	# White-box first: the boundary zero-set is cancelled at compile time.
@@ -181,6 +206,50 @@ func _run() -> void:
 	root.add_child(bridge)
 	await process_frame
 
+	# ── 6b. Multiple devices are independent (registry keys on device:axis) ──
+	bridge._handle_execute_input_sequence([[
+		{"axis": "left_x", "value": 0.5, "device": 0, "start_ms": 0, "duration_ms": 100000},
+		{"axis": "left_x", "value": -0.9, "device": 1, "start_ms": 0, "duration_ms": 100000},
+		{"joy_button": "a", "device": 1, "start_ms": 0, "duration_ms": 100000},
+	]])
+	await process_frame
+	await process_frame
+	_check("device 0 axis independent of device 1", is_equal_approx(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), 0.5), true)
+	_check("device 1 axis independent of device 0", is_equal_approx(Input.get_joy_axis(1, JOY_AXIS_LEFT_X), -0.9), true)
+	_check("device 1 button does not bleed to device 0", [Input.is_joy_button_pressed(1, JOY_BUTTON_A), Input.is_joy_button_pressed(0, JOY_BUTTON_A)], [true, false])
+	bridge._handle_execute_input_sequence([[{"action_name": POS_ACT, "start_ms": 0, "duration_ms": 10}]])
+	await process_frame
+	_check("interrupt re-zeroed BOTH devices' axes", [Input.get_joy_axis(0, JOY_AXIS_LEFT_X), Input.get_joy_axis(1, JOY_AXIS_LEFT_X)], [0.0, 0.0])
+	_check("interrupt released device 1's button", Input.is_joy_button_pressed(1, JOY_BUTTON_A), false)
+	await create_timer(0.06).timeout
+	for i in 4:
+		await process_frame
+
+	# ── 6c. Abutting same-button entries: documented behavior is two distinct
+	# entries (NOT cancelled like axes), so the button stays effectively held
+	# across the boundary under polling. Pins the deliberate axis/button asymmetry.
+	bridge._handle_execute_input_sequence([[
+		{"joy_button": "y", "start_ms": 0, "duration_ms": 150},
+		{"joy_button": "y", "start_ms": 150, "duration_ms": 150},
+	]])
+	var seg1 := false
+	var seg2 := false
+	var ab_start := Time.get_ticks_msec()
+	var ab_guard := 0
+	while bridge._sequence_running and ab_guard < 600:
+		ab_guard += 1
+		await process_frame
+		var el := Time.get_ticks_msec() - ab_start
+		if el > 40 and el < 130 and Input.is_joy_button_pressed(0, JOY_BUTTON_Y):
+			seg1 = true
+		if el > 170 and el < 280 and Input.is_joy_button_pressed(0, JOY_BUTTON_Y):
+			seg2 = true
+	for i in 3:
+		await process_frame
+	_check("abutting button held through segment 1", seg1, true)
+	_check("abutting button held through segment 2 (boundary did not drop it)", seg2, true)
+	_check("abutting button released after both segments", Input.is_joy_button_pressed(0, JOY_BUTTON_Y), false)
+
 	# ── 7. The documented limitation: no virtual pad in get_connected_joypads ─
 	_check("get_connected_joypads stays empty (pad DETECTION is not fakeable)",
 		Input.get_connected_joypads().is_empty(), true)
@@ -201,6 +270,18 @@ func _run() -> void:
 	])
 	_check("mixed timeline counts kinds for the skew echo",
 		mixed["kinds"], {"action": 1, "joy_button": 1, "axis": 1})
+
+	# ── 9. get_input_map axis/button display carries direction + name ─────────
+	# (the agent lifts axis + signed value straight into an injection).
+	var motion := InputEventJoypadMotion.new()
+	motion.axis = JOY_AXIS_LEFT_X
+	motion.axis_value = -1.0
+	_check("axis binding stringifies with name and signed value",
+		bridge._event_to_string(motion), "Joypad Axis 0 (left_x, value -1.0)")
+	var jbtn := InputEventJoypadButton.new()
+	jbtn.button_index = JOY_BUTTON_A
+	_check("button binding stringifies with name",
+		bridge._event_to_string(jbtn), "Joypad Button 0 (a)")
 
 	root.remove_child(bridge)
 	bridge.free()

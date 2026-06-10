@@ -80,7 +80,18 @@ const StickEntrySchema = z.strictObject({
   ...TimingFields,
 });
 
-export const InputEntrySchema = z.union([ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema]);
+export const InputEntrySchema = z.union(
+  [ActionEntrySchema, JoyButtonEntrySchema, AxisEntrySchema, StickEntrySchema],
+  {
+    // z.union reports a bare "Invalid input" for every structural miss; the
+    // entries are key-discriminated, so name the four valid shapes to make the
+    // most common authoring mistakes (missing value, typo'd key, no
+    // discriminator) actionable.
+    error: () =>
+      'each input entry must be one of: {action_name, strength?}, {joy_button, device?}, ' +
+      '{axis, value, device?}, or {stick, x, y, device?} (all with optional start_ms/duration_ms)',
+  }
+);
 export type InputEntry = z.infer<typeof InputEntrySchema>;
 
 // Compile schema entries into the wire vocabulary the game bridge consumes
@@ -108,19 +119,22 @@ export function entryLabel(e: InputEntry): string {
 }
 
 // Version-skew detection (#233, same honesty pattern as the watch timeline):
-// an old bridge silently `continue`s entries without action_name, so joypad
-// entries would be dropped while the call "succeeds". A new bridge always
-// echoes input_kinds; its ABSENCE when joypad entries were requested means the
-// running addon predates controller injection.
+// an old bridge silently `continue`s entries without action_name (dropping
+// joypad entries) and ignores the new `strength` field on action entries
+// (injecting at 1.0) — both while the call "succeeds". A new bridge always
+// echoes input_kinds; its ABSENCE when the request used either new capability
+// means the running addon predates controller injection.
 export function joypadSkewWarning(
   inputs: InputEntry[],
   inputKinds: Record<string, number> | undefined
 ): string | undefined {
-  const joypad = inputs.some((e) => !('action_name' in e));
-  if (joypad && inputKinds === undefined) {
+  const usesNewCaps = inputs.some(
+    (e) => !('action_name' in e) || ('strength' in e && e.strength !== undefined)
+  );
+  if (usesNewCaps && inputKinds === undefined) {
     return (
-      'WARNING: joypad/axis entries were IGNORED — the running addon predates controller injection. ' +
-      'Update the godot-mcp addon and restart the Godot editor.'
+      'WARNING: joypad/axis entries or analog action strength were IGNORED — the running addon ' +
+      'predates controller injection. Update the godot-mcp addon and restart the Godot editor.'
     );
   }
   return undefined;
