@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.20.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.19.0...godot-mcp-v3.20.0) (2026-06-10)
+
+
+### Features
+
+* surface 3D world nodes in the digest auto/fallback tier ([#297](https://github.com/satelliteoflove/godot-mcp/issues/297)) ([0e97d23](https://github.com/satelliteoflove/godot-mcp/commit/0e97d236997a8297e1368e37600c4d2c0c216cf3))
+
 ## [3.19.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.18.0...godot-mcp-v3.19.0) (2026-06-10)
 
 
