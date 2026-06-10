@@ -105,7 +105,12 @@ const KeyEntrySchema = z.strictObject({
 
 const LookEntrySchema = z.strictObject({
   look: z
-    .tuple([z.number(), z.number()])
+    // A fixed 2-number array, NOT z.tuple: the tool schema is emitted as draft-07
+    // (core/schema.ts), where a tuple compiles to `items: [..]` — invalid under the
+    // JSON Schema draft 2020-12 the Anthropic API enforces. An array with
+    // length(2) compiles to `items: {number}` + min/maxItems, valid in both.
+    .array(z.number())
+    .length(2)
     .describe(
       'Relative mouse-look: a mouse movement of [dx, dy] SCREEN pixels (+x = right, +y = down), ' +
       'injected as InputEventMouseMotion to drive FPS-camera code that integrates event.relative in ' +

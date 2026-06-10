@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection } from '../helpers/mock-godot.js';
 import { input } from '../../tools/input.js';
+import { toInputSchema } from '../../core/schema.js';
 import { deriveTimeouts, INPUT_BUDGET_CAP_MS } from '../../connection/timeouts.js';
 
 describe('input tool', () => {
@@ -694,6 +695,35 @@ describe('input tool', () => {
       }, ctx);
 
       expect(result).not.toContain('IGNORED');
+    });
+  });
+
+  describe('JSON Schema draft 2020-12 compliance', () => {
+    // The Anthropic API validates a tool's inputSchema against JSON Schema draft
+    // 2020-12, where `items` must be a single schema (tuples use `prefixItems`) and
+    // `additionalItems` does not exist. The converter (core/schema.ts) emits
+    // draft-07, so a z.tuple() anywhere in this tool compiles to the invalid
+    // `items: [..]` tuple form and the API rejects the ENTIRE tool at connect time
+    // (a failure invisible to safeParse and only seen live). Walk the converted
+    // schema so that class of bug fails here instead. See the `look` entry, which
+    // uses z.array(z.number()).length(2) for exactly this reason.
+    function findDraft07TupleViolations(node: unknown, path: string, out: string[]): void {
+      if (Array.isArray(node)) {
+        node.forEach((v, i) => findDraft07TupleViolations(v, `${path}[${i}]`, out));
+        return;
+      }
+      if (node && typeof node === 'object') {
+        const obj = node as Record<string, unknown>;
+        if (Array.isArray(obj.items)) out.push(`${path}.items is an array (draft-07 tuple form)`);
+        if ('additionalItems' in obj) out.push(`${path}.additionalItems present (draft-07 only)`);
+        for (const [k, v] of Object.entries(obj)) findDraft07TupleViolations(v, `${path}.${k}`, out);
+      }
+    }
+
+    it('converts to an input schema free of draft-07 tuple constructs (no z.tuple)', () => {
+      const violations: string[] = [];
+      findDraft07TupleViolations(toInputSchema(input.schema), '$', violations);
+      expect(violations).toEqual([]);
     });
   });
 
