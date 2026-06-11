@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.21.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.21.0...godot-mcp-v3.21.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* emit schema-valid action examples and per-action descriptions in generated docs ([#301](https://github.com/satelliteoflove/godot-mcp/issues/301)) ([0fd2f17](https://github.com/satelliteoflove/godot-mcp/commit/0fd2f175cd634b4540af94b570cbed1a3464e53f)), closes [#287](https://github.com/satelliteoflove/godot-mcp/issues/287)
+
 ## [3.21.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.20.0...godot-mcp-v3.21.0) (2026-06-11)
 
 
