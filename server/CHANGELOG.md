@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.22.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.21.1...godot-mcp-v3.22.0) (2026-06-11)
+
+
+### Features
+
+* tag usage log entries with the server version ([#306](https://github.com/satelliteoflove/godot-mcp/issues/306)) ([8958f9c](https://github.com/satelliteoflove/godot-mcp/commit/8958f9c9c5f17d3752a1d07fd99fde53bc439917))
+
+
+### Bug Fixes
+
+* make npm README links absolute and overhaul the GitHub-facing docs ([#305](https://github.com/satelliteoflove/godot-mcp/issues/305)) ([e64a0e0](https://github.com/satelliteoflove/godot-mcp/commit/e64a0e0d6707214287c791f0bdf1eacc29a3ee7b))
+
 ## [3.21.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.21.0...godot-mcp-v3.21.1) (2026-06-11)
 
 
