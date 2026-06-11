@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createMockGodot, createToolContext } from '../helpers/mock-godot.js';
 import { docs } from '../../tools/docs.js';
+
+// These suites hit the LIVE Godot docs site (docs.ts does a real fetch). The tool
+// aborts each request at FETCH_TIMEOUT_MS (15s); the heaviest test makes two
+// sequential fetches, so on a slow CI network the total can exceed vitest's 5s
+// default — the observed flake (a spurious red on otherwise-unrelated PRs). Raise
+// the per-file timeout to comfortably cover ~2 live fetches plus margin. A truly
+// unreachable docs site will still fail (by design — that is a real signal), but
+// merely-slow responses no longer trip the clock.
+vi.setConfig({ testTimeout: 40_000 });
 
 describe('godot_docs tool', () => {
   describe('schema validation', () => {
