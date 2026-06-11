@@ -59,7 +59,7 @@ npx @satelliteoflove/godot-mcp --install-addon /path/to/your/godot/project
 
 Enable it in Godot: **Project > Project Settings > Plugins > Godot MCP**
 
-### 3. Go
+### 3. Start building
 
 Open your Godot project, restart your AI assistant, and start building. If anything refuses to connect, the [Troubleshooting Guide](https://github.com/satelliteoflove/godot-mcp/blob/main/docs/troubleshooting.md) has you covered.
 
