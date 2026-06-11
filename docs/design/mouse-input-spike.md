@@ -12,9 +12,9 @@
 > investigation uncovered.
 
 This document records the research, the findings, and the rationale so the
-question is settled and need not be re-litigated. The detailed probe code and a
-build-oriented design doc live on the archived `test/mouse-injection-fixtures`
-branch (see [Evidence trail](#evidence-trail)).
+question is settled and need not be re-litigated. The build-oriented design doc
+and a keystone subset of the probe scripts are kept in-repo (see
+[Evidence trail](#evidence-trail)).
 
 ---
 
@@ -199,17 +199,26 @@ revisiting if **any** of these appears:
 
 ## Evidence trail
 
-The probes (Godot `SceneTree` scripts, TAP-style) and the build-oriented design doc
-live on the archived `test/mouse-injection-fixtures` branch under
-`godot/addons/godot_mcp/test/` and `docs/design/mouse-injection-spike.md`:
+The build-oriented design doc is at
+[`docs/design/mouse-injection-spike.md`](mouse-injection-spike.md). The spike
+produced 13 Godot `SceneTree` probe scripts (TAP-style); a **keystone subset is
+retained in-repo** under `godot/addons/godot_mcp/test/`, and the rest are recorded
+as findings in this doc and the design writeup rather than kept as files.
 
-- `mouse_pointer_recipe_test`, `mouse_polled_position_test` — the injection recipe
-  and the polled-position keystone.
-- `mouse_unfocused_poll_test` — the keystone is focus-independent.
-- `mouse_dpi_scale_test`, `mouse_transform_completeness_test`,
-  `mouse_multiwindow_routing_test` — targeting transform completeness and routing.
-- `mouse_gui_dispatch_test`, `mouse_subviewport_test`, `mouse_look_test` — GUI
-  dispatch, SubViewport routing, relative mouselook.
-- `mouse_queue_engine_test`, `mouse_lifecycle_safety_test`,
-  `mouse_confirm_delta_test`, `input_sequence_stuck_held_test` — the in-process
-  per-frame queue, lifecycle safety, confirm-by-delta, and the shipped-bug guard.
+Retained as runnable probes:
+
+- `mouse_polled_position_test.gd` — the polled-position keystone, the fact the
+  decision rests on.
+- `mouse_unfocused_poll_test.gd` — that keystone is focus-independent.
+- `mouse_transform_completeness_test.gd` — the targeting transform round-trips
+  under every stretch config.
+- `mouse_queue_engine_test.gd` (with the archived `mcp_input_queue.gd` prototype)
+  — the in-process per-frame sequencing/lifecycle engine.
+- `input_sequence_stuck_held_test.gd` — guard for the stuck-held bug fix
+  (PR [#231](https://github.com/satelliteoflove/godot-mcp/pull/231)), kept
+  regardless of the mouse decision.
+
+Recorded as findings only (scripts not retained): `mouse_pointer_recipe_test`,
+`mouse_dpi_scale_test`, `mouse_multiwindow_routing_test`, `mouse_gui_dispatch_test`,
+`mouse_subviewport_test`, `mouse_look_test`, `mouse_lifecycle_safety_test`,
+`mouse_confirm_delta_test`, `mouse_moving_target_test`.
