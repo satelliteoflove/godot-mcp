@@ -294,9 +294,11 @@ per-field summaries:
   root; other roots such as BlendTree yield nothing) gets you state transitions on the
   timeline for free — as does any string key you expose via `_mcp_state()`.
 - Caps and budget: 16 signal connections per watch; 200 signal events per window, shared
-  **fairly** — each connected signal gets an equal sub-budget (`ceil(200 / N)`), so a chatty
+  **fairly** — each connected signal gets an equal sub-budget (`floor(200 / N)`), so a chatty
   signal (e.g. `body_shape_entered`) cannot starve a rare one (a late `died` still records).
-  Within a signal the budget is **keep-first** (earliest emissions win; timestamps are stable
+  The shares sum to at most 200, so each signal keeps its full share regardless of emission
+  order, and `events_dropped_by_signal` attributes every drop to the signal that exceeded its
+  own share. Within a signal the budget is **keep-first** (earliest emissions win; timestamps are stable
   and reproducible). Any loss is reported: `events_dropped` (total) and `events_dropped_by_signal`
   (`{"path:signal": n}`). Signal args are stringified to ~100 chars. Bad paths/names, duplicates,
   and signals with more than 5 parameters are skipped and reported by name in `unresolved_signals`.

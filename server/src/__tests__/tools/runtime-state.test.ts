@@ -610,8 +610,12 @@ describe('runtimeState tool', () => {
       const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
       expect(data.timeline.length).toBe(TIMELINE_MAX);
       expect(data.timeline_truncated).toBe(true);
-      // kept entries are the chronological-first ones
-      expect(data.timeline[0].t_ms).toBeLessThan(data.timeline[TIMELINE_MAX - 1].t_ms);
+      // Kept entries are the chronological-FIRST ones (slice(0,N), not slice(-N)).
+      // 600 samples flapping at t_ms 0..599 -> changes at t_ms 1..599 -> first 500 = t_ms 1..500.
+      // Pinning the absolute boundaries distinguishes keep-first from keep-last
+      // (a last-N slice would start at t_ms 100, not 1).
+      expect(data.timeline[0].t_ms).toBe(1);
+      expect(data.timeline[TIMELINE_MAX - 1].t_ms).toBe(TIMELINE_MAX);
     });
   });
 

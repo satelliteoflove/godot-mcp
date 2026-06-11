@@ -47,6 +47,7 @@ func _run() -> void:
 	await _test_timestamps(sampler, emitter)
 	_test_event_cap(sampler, emitter)
 	_test_fairness(sampler, emitter)
+	_test_fairness_three(sampler, emitter)
 	_test_field_samples_truncated(sampler, emitter)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
@@ -123,6 +124,10 @@ func _test_event_cap(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void
 	_check("cap: events stop at MAX_EVENTS", (result.get("events") as Array).size(),
 		MCPRuntimeStateSampler.MAX_EVENTS)
 	_check("cap: truncation flagged honestly", result.get("events_truncated"), true)
+	# Single-signal path (cap == 200): 250 emitted -> 50 dropped, attributed to it.
+	_check("cap: single signal reports its drops (250 - 200)", result.get("events_dropped"), 50)
+	_check("cap: drop attributed to the single signal",
+		int((result.get("events_dropped_by_signal", {}) as Dictionary).get("/root/FakeAutoload:hit", 0)), 50)
 
 	_start_signals(sampler, [{"path": "/root/FakeAutoload", "signal": "fired"}])
 	emitter.fired.emit()
@@ -147,7 +152,7 @@ func _test_fairness(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
 	var events: Array = result.get("events", [])
 	var hits := events.filter(func(e): return e.get("signal") == "hit")
 	var fireds := events.filter(func(e): return e.get("signal") == "fired")
-	_check("fairness: chatty signal capped at its equal share ceil(200/2)", hits.size(), 100)
+	_check("fairness: chatty signal capped at its equal share floor(200/2)", hits.size(), 100)
 	_check("fairness: rare signal NOT starved (all 5 kept)", fireds.size(), 5)
 	_check("fairness: events_dropped counts only the overflow", result.get("events_dropped"), 150)
 	var by_sig: Dictionary = result.get("events_dropped_by_signal", {})
@@ -158,12 +163,42 @@ func _test_fairness(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
 		_check("keep-first: last kept hit is the 100th, not the 250th", hits[99].get("args"), "[99]")
 
 
+func _test_fairness_three(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
+	# N=3 does NOT divide 200: floor(200/3)=66 each (ceil would give 67, and the global
+	# 200 cap would then clip whichever signal saturates last to 66 -> an UNEQUAL
+	# 67/67/66). floor makes the shares sum to 198 <= 200, so all three get EXACTLY 66
+	# regardless of emission order. Asserting all three == 66 is what distinguishes floor
+	# from ceil — under ceil this case would read 67/67/66 and fail.
+	_start_signals(sampler, [
+		{"path": "/root/FakeAutoload", "signal": "fired"},
+		{"path": "/root/FakeAutoload", "signal": "hit"},
+		{"path": "/root/FakeAutoload", "signal": "moved"},
+	])
+	for i in 100:
+		emitter.fired.emit()
+		emitter.hit.emit(i)
+		emitter.moved.emit(i, i)
+	var result: Dictionary = sampler.stop()
+	var events: Array = result.get("events", [])
+	var n_fired := events.filter(func(e): return e.get("signal") == "fired").size()
+	var n_hit := events.filter(func(e): return e.get("signal") == "hit").size()
+	var n_moved := events.filter(func(e): return e.get("signal") == "moved").size()
+	_check("fairness N=3: fired gets exactly floor(200/3)=66", n_fired, 66)
+	_check("fairness N=3: hit gets exactly floor(200/3)=66", n_hit, 66)
+	_check("fairness N=3: moved gets exactly floor(200/3)=66 (equal, order-independent)", n_moved, 66)
+	_check("fairness N=3: total kept == 3*66, under the global 200 backstop", events.size(), 198)
+	_check("fairness N=3: total dropped == 3*(100-66)", result.get("events_dropped"), 102)
+
+
 func _test_field_samples_truncated(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
 	# Sampled-field history caps at MAX_SAMPLES_PER_FIELD; overflow must be FLAGGED,
 	# not silently dropped (#285 #4). Drive _process directly with the interval forced
 	# to 1 so the sample count is deterministic and independent of the headless frame
 	# rate (which makes the fps-derived _sample_interval unpredictable).
-	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 60, 5000, [])
+	# Watch a real field ("score", saturates) alongside a never-readable "ghost" field
+	# (_read_field returns null, so it never appends and must never appear in
+	# fields_truncated) — proving the flag is genuinely per-field, not blanket.
+	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score", "ghost"]}], 60, 5000, [])
 	sampler._sample_interval = 1
 	for i in MCPRuntimeStateSampler.MAX_SAMPLES_PER_FIELD + 25:
 		sampler._process(0.0)
@@ -174,7 +209,9 @@ func _test_field_samples_truncated(sampler: MCPRuntimeStateSampler, emitter: _Em
 	var samples: Array = (result.get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", [])
 	_check("field saturation: samples stop exactly at the cap", samples.size(),
 		MCPRuntimeStateSampler.MAX_SAMPLES_PER_FIELD)
-	_check("field saturation: an unrelated field is not flagged", ft.size(), 1)
+	_check("field saturation: the un-saturated ghost field is NOT flagged",
+		ft.has("/root/FakeAutoload:ghost"), false)
+	_check("field saturation: only the saturated field is flagged", ft.size(), 1)
 
 
 func _test_arg_caps(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:

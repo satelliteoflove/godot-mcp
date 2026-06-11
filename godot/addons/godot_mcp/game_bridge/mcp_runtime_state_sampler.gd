@@ -122,13 +122,17 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 		connected += 1
 
 	# Equal-share fairness: once we know how many signals actually connected, give
-	# each an equal slice of the global event budget so one chatty signal can't
-	# starve the others. ceil so a small N never rounds a share down to 0; the global
-	# MAX_EVENTS stays a hard backstop (ceil * N can exceed it by < N). Unused shares
-	# are NOT lent out — simplest and fully deterministic. connected == 1 -> cap 200,
-	# i.e. identical to the pre-fairness single-signal behavior.
+	# each an EQUAL integer slice of the budget — floor(MAX_EVENTS / N). floor (not
+	# ceil) so the shares SUM to <= MAX_EVENTS: every signal is then guaranteed its
+	# full share regardless of emission order (a signal that saturates last is not
+	# squeezed), and the global MAX_EVENTS cap below is a pure backstop the fair
+	# shares never reach — so every drop is a genuine per-signal-cap drop and the
+	# per-signal accounting is exact. A chatty signal cannot starve a rare one.
+	# connected == 1 -> 200, i.e. the single-signal behavior is unchanged. Up to N-1
+	# slots may go unused; intentional — true equal-share beats squeezing a few extra
+	# events out of a chatty signal. maxi(1, ...) guards the degenerate large-N case.
 	if connected > 0:
-		_per_signal_cap = int(ceil(float(MAX_EVENTS) / float(connected)))
+		_per_signal_cap = maxi(1, floori(float(MAX_EVENTS) / float(connected)))
 
 	return {
 		"resolved_fields": field_count,
