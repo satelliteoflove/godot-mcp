@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.21.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.20.0...godot-mcp-v3.21.0) (2026-06-11)
+
+
+### Features
+
+* fair per-signal event budget + truncation visibility for the watch timeline ([#299](https://github.com/satelliteoflove/godot-mcp/issues/299)) ([9042db7](https://github.com/satelliteoflove/godot-mcp/commit/9042db7420374526b55c5e815247a8bbe8f23938))
+
 ## [3.20.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.19.0...godot-mcp-v3.20.0) (2026-06-10)
 
 
