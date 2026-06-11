@@ -1,0 +1,10 @@
+{
+  "_comment": "Single source of truth for the godot_runtime_state watch wire contract (#286). The GDScript headless suite (watch_contract_headless_test.gd) and the server vitest suite (server/src/__tests__/tools/watch-contract.test.ts) both assert their literals against THIS file, so a rename of any key on either side breaks its own suite instead of silently drifting. Each shape lists its key names; 'optional' keys may be absent. 'watch_start_request_positional' is the editor->game EngineDebugger argument ORDER (GDScript-internal). KNOWN BOUNDARY: the editor command layer's request-key consume (runtime_state_commands.gd) and the positional decode are GDScript<->GDScript and not exercised at runtime by either suite; the high-value cross-language surface (response/event/sample keys, GDScript producer <-> TS consumer) is pinned from both directions.",
+  "watch_start_request": { "required": ["specs", "hz", "duration_ms", "signals"], "optional": [] },
+  "watch_start_request_positional": ["specs", "hz", "duration_ms", "signals"],
+  "watch_start_response": { "required": ["started", "resolved_fields", "connected_signals", "unresolved_signals"], "optional": [] },
+  "unresolved_signal": { "required": ["path", "signal", "reason"], "optional": [] },
+  "watch_collect_response": { "required": ["window_ms", "sample_count", "fields", "events", "events_truncated", "events_dropped", "events_dropped_by_signal", "fields_truncated"], "optional": [] },
+  "field_sample": { "required": ["t_ms", "value"], "optional": [] },
+  "event": { "required": ["t_ms", "source", "signal"], "optional": ["args"] }
+}
