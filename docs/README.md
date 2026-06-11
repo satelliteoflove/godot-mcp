@@ -11,6 +11,8 @@ This server provides **15 tools** and **3 resources** for AI-assisted Godot deve
 - [Claude Code Setup Guide](claude-code-setup.md) - Configure your project for AI-assisted development
 - [Tools Reference](tools/README.md) - All available MCP tools
 - [Resources Reference](resources.md) - MCP resources for reading project data
+- [Architecture Guide](architecture.md) - How the server, addon, and game bridge fit together
+- [Troubleshooting](troubleshooting.md) - Connection checklist, CLI smoke test, common fixes
 
 ## Tool Categories
 

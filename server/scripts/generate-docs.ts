@@ -488,6 +488,8 @@ This server provides **${totalTools} tools** and **${allResources.length} resour
 - [Claude Code Setup Guide](claude-code-setup.md) - Configure your project for AI-assisted development
 - [Tools Reference](tools/README.md) - All available MCP tools
 - [Resources Reference](resources.md) - MCP resources for reading project data
+- [Architecture Guide](architecture.md) - How the server, addon, and game bridge fit together
+- [Troubleshooting](troubleshooting.md) - Connection checklist, CLI smoke test, common fixes
 
 ## Tool Categories
 
@@ -523,11 +525,19 @@ Add to your MCP configuration:
 
 function generateNpmReadme(): string {
   const rootReadme = readFileSync(ROOT_README, 'utf-8');
+  const blobBase = 'https://github.com/satelliteoflove/godot-mcp/blob/main/';
+  const rawBase = 'https://raw.githubusercontent.com/satelliteoflove/godot-mcp/main/';
 
-  return rootReadme
-    .replace(/\]\(docs\//g, '](../docs/')
-    .replace(/\]\(CONTRIBUTING\.md\)/g, '](../CONTRIBUTING.md)')
-    .replace(/\]\(server\/CHANGELOG\.md\)/g, '](CHANGELOG.md)');
+  // npmjs.com resolves relative links against the repo root, not server/, so
+  // every relative link must become an absolute GitHub URL. Images need raw
+  // URLs (a blob URL is an HTML page and will not render as an image).
+  return rootReadme.replace(
+    /(!?)\[([^\]]*)\]\((?!https?:\/\/|#)([^)\s]+)\)/g,
+    (_match, bang: string, text: string, path: string) => {
+      const isImage = bang === '!' || /\.(png|jpe?g|gif|svg|webp)(#|$)/i.test(path);
+      return `${bang}[${text}](${isImage ? rawBase : blobBase}${path})`;
+    },
+  );
 }
 
 

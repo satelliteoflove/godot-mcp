@@ -1,6 +1,6 @@
 # Installation Guide
 
-How to connect godot-mcp to your MCP client.
+How to connect godot-mcp to your MCP client. If something refuses to connect after setup, see the [Troubleshooting Guide](docs/troubleshooting.md).
 
 ## Prerequisites
 

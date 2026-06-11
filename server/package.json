@@ -1,7 +1,7 @@
 {
   "name": "@satelliteoflove/godot-mcp",
   "version": "3.21.1",
-  "description": "MCP server for Godot Engine integration",
+  "description": "MCP server that gives AI assistants eyes and hands in the Godot editor: scene editing, input injection, deterministic game-time control, and live runtime state for agent-driven playtesting",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -33,12 +33,18 @@
   },
   "keywords": [
     "godot",
+    "godot4",
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "ai",
-    "game-development"
+    "ai-agents",
+    "claude",
+    "game-development",
+    "game-testing",
+    "gdscript"
   ],
-  "author": "",
+  "author": "Christopher Childress",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

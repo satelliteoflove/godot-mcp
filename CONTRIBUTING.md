@@ -67,10 +67,10 @@ If you're unsure, open an issue first. We can figure out the right home for the 
 ## Updating Documentation
 
 This repo has two READMEs:
-- `README.md` (repo root) - What GitHub visitors see
-- `server/README.md` - What npm package users see
+- `README.md` (repo root) - what GitHub visitors see. This is the one you edit.
+- `server/README.md` - what npm package users see. Generated from the root README by `npm run generate-docs`, which rewrites relative links to absolute GitHub URLs so they work on npmjs.com. Never edit it by hand.
 
-If your change affects how users install or configure godot-mcp, update both. Keep them in sync.
+If your change touches the root README, run `npm run generate-docs` to refresh the npm copy.
 
 ## Releases
 
@@ -94,6 +94,8 @@ The MCP server and Godot addon share version numbers and are released together.
 - `server/src/connection/` - WebSocket client to Godot
 - `godot/addons/godot_mcp/commands/` - GDScript command handlers
 - `godot/addons/godot_mcp/core/` - Addon utilities (logger, debugger plugin)
+
+For the full picture — connection lifecycle, the game bridge, release mechanics — see the [Architecture Guide](docs/architecture.md).
 
 ## Questions?
 
