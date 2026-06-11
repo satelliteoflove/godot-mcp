@@ -54,6 +54,10 @@ interface WatchRawResponse {
   // Absent from pre-timeline addon versions.
   events?: WatchRawEvent[];
   events_truncated?: boolean;
+  // Added with the event-budget pass (#285); absent from older addons.
+  events_dropped?: number;
+  events_dropped_by_signal?: Record<string, number>;
+  fields_truncated?: Record<string, boolean>; // full_key -> true when sample buffer saturated
 }
 
 // ── Server-side summarization helpers ───────────────────────────────────────
@@ -66,12 +70,17 @@ export interface NumericFieldSummary {
   mean: number;
   slope: number;
   events: Array<{ t_ms: number; from: number; to: number; kind: 'sign_change' | 'zero_cross' }>;
+  // Set when this field hit MAX_SAMPLES_PER_FIELD: late samples were dropped, so
+  // min/max/slope/events reflect only the early part of the window (#285).
+  samples_truncated?: boolean;
 }
 
 export interface StringFieldSummary {
   start: string;
   end: string;
   changes: Array<{ t_ms: number; from: string; to: string }>;
+  // Set when this field hit MAX_SAMPLES_PER_FIELD: late transitions were dropped (#285).
+  samples_truncated?: boolean;
 }
 
 export function summarizeNumericField(
@@ -126,12 +135,15 @@ export function summarizeStringField(samples: WatchRawSample[]): StringFieldSumm
 
 function summarizeWatchRaw(raw: WatchRawResponse): Record<string, NumericFieldSummary | StringFieldSummary> {
   const result: Record<string, NumericFieldSummary | StringFieldSummary> = {};
+  const truncated = raw.fields_truncated ?? {};
   for (const [key, samples] of Object.entries(raw.fields)) {
     if (samples.length === 0) continue;
     const isNumeric = typeof samples[0].value === 'number';
-    result[key] = isNumeric
+    const summary = isNumeric
       ? summarizeNumericField(samples, raw.window_ms)
       : summarizeStringField(samples);
+    if (truncated[key]) summary.samples_truncated = true;
+    result[key] = summary;
   }
   return result;
 }
@@ -150,6 +162,12 @@ const TIMELINE_KIND_RANK: Record<TimelineEntry['kind'], number> = {
   anim_transition: 1,
   field_change: 2,
 };
+
+// Hard cap on the merged timeline array. Inputs are already bounded (signal events
+// by the per-signal/global budget, string-field changes by MAX_SAMPLES_PER_FIELD),
+// but 32 flapping string fields could still merge to ~6,300 entries; this backstop
+// keeps the payload bounded. Rarely binds in legitimate use. (#285)
+export const TIMELINE_MAX = 500;
 
 export function buildTimeline(
   events: WatchRawEvent[],
@@ -196,14 +214,29 @@ export function buildTimeline(
 
 function summarizeWatchResponse(raw: WatchRawResponse) {
   const fields = summarizeWatchRaw(raw);
+  // Always present (empty array included) so the shape is stable for structured
+  // readers; `?? []` degrades gracefully against older addons.
+  const fullTimeline = buildTimeline(raw.events ?? [], fields);
+  const timelineCapped = fullTimeline.length > TIMELINE_MAX;
+  const timeline = timelineCapped ? fullTimeline.slice(0, TIMELINE_MAX) : fullTimeline;
+  // A saturated STRING field can drop field_change/anim_transition timeline entries;
+  // a saturated NUMERIC field does not feed the timeline (only its own summary), so it
+  // sets samples_truncated on that field but must NOT flip timeline_truncated.
+  const stringFieldTruncated = Object.values(fields).some(
+    (f) => 'changes' in f && f.samples_truncated === true
+  );
   return structured({
     window_ms: raw.window_ms,
     sample_count: raw.sample_count,
     fields,
-    // Always present (empty array included) so the shape is stable for
-    // structured readers; `?? []` degrades gracefully against older addons.
-    timeline: buildTimeline(raw.events ?? [], fields),
-    timeline_truncated: raw.events_truncated ?? false,
+    timeline,
+    // Honest headline: the timeline omits entries for ANY reason — the signal-event
+    // budget, the merged-timeline cap, or a string field saturating its sample buffer.
+    timeline_truncated: (raw.events_truncated ?? false) || timelineCapped || stringFieldTruncated,
+    // Granular visibility (#285): total signal emissions dropped and the per-signal
+    // breakdown that makes the fairness sub-cap observable. `?? ` degrades for old addons.
+    events_dropped: raw.events_dropped ?? 0,
+    events_dropped_by_signal: raw.events_dropped_by_signal ?? {},
   });
 }
 
@@ -309,8 +342,10 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
       .optional()
       .describe(
         'Signals to record as discrete timeline events during the window. Each emission is ' +
-        'buffered as {t_ms, source, signal, args} (max 200 events/window, then truncated with a ' +
-        'flag; args stringified to ~100 chars). watch_collect merges these with string-field ' +
+        'buffered as {t_ms, source, signal, args} (200 events/window shared FAIRLY — each signal ' +
+        'gets an equal sub-budget so a chatty signal cannot starve a rare one; keep-first within ' +
+        'each, with events_dropped + events_dropped_by_signal reporting any loss; args stringified ' +
+        'to ~100 chars). watch_collect merges these with string-field ' +
         'transitions into a time-sorted `timeline`. Signals with more than 5 parameters are ' +
         'skipped and reported in unresolved_signals, as are bad paths/names. Connections stay ' +
         'live until duration_ms elapses or watch_stop. Signals must be emitted on the main ' +

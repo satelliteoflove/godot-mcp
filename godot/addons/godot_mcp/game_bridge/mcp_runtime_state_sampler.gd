@@ -20,6 +20,11 @@ var _sample_interval: int = 1  # sample every N frames
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
 var _events: Array = []        # [{t_ms, source, signal, args?}] -- signal emissions this window
 var _events_truncated: bool = false
+var _events_dropped: int = 0   # total signal emissions dropped (per-signal cap or global cap)
+var _per_signal_cap: int = MAX_EVENTS  # equal share of the budget, set once connections are known
+var _signal_counts: Dictionary = {}    # "source:signal" -> kept count (enforces the per-signal cap)
+var _signal_dropped: Dictionary = {}   # "source:signal" -> dropped count (reported to the agent)
+var _field_truncated: Dictionary = {}  # full_key -> true once MAX_SAMPLES_PER_FIELD was hit
 var _connections: Array = []   # [{node, sig_name, callable}] -- live connections to tear down
 
 
@@ -29,6 +34,11 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 	_samples = {}
 	_events = []
 	_events_truncated = false
+	_events_dropped = 0
+	_per_signal_cap = MAX_EVENTS
+	_signal_counts = {}
+	_signal_dropped = {}
+	_field_truncated = {}
 	_hz = clampi(hz, 1, 60)
 	_duration_ms = clampi(duration_ms, 100, 5000)
 	_start_time = Time.get_ticks_msec()
@@ -111,6 +121,15 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 		_connections.append({"node": emitter, "sig_name": sig_name, "callable": cb})
 		connected += 1
 
+	# Equal-share fairness: once we know how many signals actually connected, give
+	# each an equal slice of the global event budget so one chatty signal can't
+	# starve the others. ceil so a small N never rounds a share down to 0; the global
+	# MAX_EVENTS stays a hard backstop (ceil * N can exceed it by < N). Unused shares
+	# are NOT lent out — simplest and fully deterministic. connected == 1 -> cap 200,
+	# i.e. identical to the pre-fairness single-signal behavior.
+	if connected > 0:
+		_per_signal_cap = int(ceil(float(MAX_EVENTS) / float(connected)))
+
 	return {
 		"resolved_fields": field_count,
 		"connected_signals": connected,
@@ -141,7 +160,13 @@ func _make_recorder(path: String, sig_name: String, arg_count: int) -> Callable:
 func _record_event(source: String, sig_name: String, args: Array) -> void:
 	if not _active:
 		return
-	if _events.size() >= MAX_EVENTS:
+	# Per-signal fairness first, then the global hard cap. Keep-first: when a budget
+	# is full we drop the NEW emission, so the earliest occurrences are preserved
+	# (stable, reproducible t_ms; onset/causality kept). Every drop is counted.
+	var key := source + ":" + sig_name
+	if int(_signal_counts.get(key, 0)) >= _per_signal_cap or _events.size() >= MAX_EVENTS:
+		_signal_dropped[key] = int(_signal_dropped.get(key, 0)) + 1
+		_events_dropped += 1
 		_events_truncated = true
 		return
 	var ev := {
@@ -155,6 +180,7 @@ func _record_event(source: String, sig_name: String, args: Array) -> void:
 		# the tree is the game's bug, not ours.
 		ev["args"] = _stringify_args(args)
 	_events.append(ev)
+	_signal_counts[key] = int(_signal_counts.get(key, 0)) + 1
 
 
 func _stringify_args(args: Array) -> String:
@@ -217,6 +243,8 @@ func _process(_delta: float) -> void:
 				var arr: Array = _samples.get(field_info.full_key, [])
 				if arr.size() < MAX_SAMPLES_PER_FIELD:
 					arr.append({"t_ms": elapsed, "value": "freed"})
+				else:
+					_field_truncated[field_info.full_key] = true
 			continue
 
 		for field_info in spec.fields:
@@ -226,6 +254,8 @@ func _process(_delta: float) -> void:
 			var arr: Array = _samples.get(field_info.full_key, [])
 			if arr.size() < MAX_SAMPLES_PER_FIELD:
 				arr.append({"t_ms": elapsed, "value": value})
+			else:
+				_field_truncated[field_info.full_key] = true
 
 
 func collect() -> Dictionary:
@@ -247,6 +277,9 @@ func collect() -> Dictionary:
 		# copy must not alias the still-growing array.
 		"events": _events.duplicate(true),
 		"events_truncated": _events_truncated,
+		"events_dropped": _events_dropped,
+		"events_dropped_by_signal": _signal_dropped.duplicate(true),
+		"fields_truncated": _field_truncated.duplicate(true),
 	}
 
 

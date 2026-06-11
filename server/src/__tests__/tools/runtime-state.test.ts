@@ -10,6 +10,7 @@ import {
   summarizeNumericField,
   summarizeStringField,
   buildTimeline,
+  TIMELINE_MAX,
 } from '../../tools/runtime-state.js';
 import { toInputSchema } from '../../core/schema.js';
 
@@ -549,6 +550,68 @@ describe('runtimeState tool', () => {
 
       const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, ctx));
       expect(data.timeline_truncated).toBe(true);
+    });
+
+    // ── #285 event-budget visibility ─────────────────────────────────────────
+
+    it('surfaces events_dropped and the per-signal breakdown', async () => {
+      mock.mockResponse({
+        window_ms: 1000,
+        sample_count: 0,
+        fields: {},
+        events: [{ t_ms: 1, source: '/root/G', signal: 'hit' }],
+        events_truncated: true,
+        events_dropped: 150,
+        events_dropped_by_signal: { '/root/G:hit': 150 },
+      });
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
+      expect(data.events_dropped).toBe(150);
+      expect(data.events_dropped_by_signal).toEqual({ '/root/G:hit': 150 });
+      expect(data.timeline_truncated).toBe(true);
+    });
+
+    it('defaults the #285 fields against a pre-#285 addon (keys absent)', async () => {
+      mock.mockResponse({ window_ms: 500, sample_count: 0, fields: {} });
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
+      expect(data.events_dropped).toBe(0);
+      expect(data.events_dropped_by_signal).toEqual({});
+    });
+
+    it('attaches samples_truncated to a saturated STRING field and flips timeline_truncated', async () => {
+      mock.mockResponse({
+        window_ms: 1000,
+        sample_count: 2,
+        fields: { '/root/P:anim': [{ t_ms: 0, value: 'idle' }, { t_ms: 1, value: 'run' }] },
+        fields_truncated: { '/root/P:anim': true },
+      });
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
+      expect(data.fields['/root/P:anim'].samples_truncated).toBe(true);
+      // a STRING field feeds the timeline, so its saturation can drop timeline entries
+      expect(data.timeline_truncated).toBe(true);
+    });
+
+    it('flags a saturated NUMERIC field but does NOT flip timeline_truncated (numeric does not feed the timeline)', async () => {
+      mock.mockResponse({
+        window_ms: 1000,
+        sample_count: 2,
+        fields: { '/root/P:pos.x': [{ t_ms: 0, value: 1 }, { t_ms: 1, value: 2 }] },
+        fields_truncated: { '/root/P:pos.x': true },
+      });
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
+      expect(data.fields['/root/P:pos.x'].samples_truncated).toBe(true);
+      expect(data.timeline_truncated).toBe(false);
+    });
+
+    it('caps the merged timeline at TIMELINE_MAX and flags it', async () => {
+      // One string field flapping every sample -> ~599 field_change entries, past the cap.
+      const samples = [];
+      for (let i = 0; i < 600; i++) samples.push({ t_ms: i, value: i % 2 === 0 ? 'a' : 'b' });
+      mock.mockResponse({ window_ms: 600, sample_count: 600, fields: { '/root/X:state': samples } });
+      const data = structuredOf(await runtimeState.execute({ action: 'watch_collect' }, createToolContext(mock)));
+      expect(data.timeline.length).toBe(TIMELINE_MAX);
+      expect(data.timeline_truncated).toBe(true);
+      // kept entries are the chronological-first ones
+      expect(data.timeline[0].t_ms).toBeLessThan(data.timeline[TIMELINE_MAX - 1].t_ms);
     });
   });
 

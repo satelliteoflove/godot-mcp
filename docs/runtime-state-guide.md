@@ -293,15 +293,23 @@ per-field summaries:
   `anim` field on an `AnimationPlayer`, `AnimatedSprite2D`, or `AnimationTree` (state-machine
   root; other roots such as BlendTree yield nothing) gets you state transitions on the
   timeline for free — as does any string key you expose via `_mcp_state()`.
-- Caps: 16 signal connections per watch, 200 events per window (`timeline_truncated: true`
-  when exceeded — beware high-frequency signals like `body_shape_entered`), signal args
-  stringified to ~100 chars. Bad paths/names, duplicates, and signals with more than 5
-  parameters are skipped and reported by name in `unresolved_signals`.
-- Limitations: signals must be emitted on the main thread (worker-thread or
-  threaded-physics emissions are unsupported). Sampled-field history is capped at 200
-  samples per field, so at `hz` above 40 a 5-second window saturates before it ends and
-  late `anim_transition`/`field_change` entries silently stop — `timeline_truncated` covers
-  only the signal-event budget.
+- Caps and budget: 16 signal connections per watch; 200 signal events per window, shared
+  **fairly** — each connected signal gets an equal sub-budget (`ceil(200 / N)`), so a chatty
+  signal (e.g. `body_shape_entered`) cannot starve a rare one (a late `died` still records).
+  Within a signal the budget is **keep-first** (earliest emissions win; timestamps are stable
+  and reproducible). Any loss is reported: `events_dropped` (total) and `events_dropped_by_signal`
+  (`{"path:signal": n}`). Signal args are stringified to ~100 chars. Bad paths/names, duplicates,
+  and signals with more than 5 parameters are skipped and reported by name in `unresolved_signals`.
+- Sampled-field history is capped at 200 samples per field. When a field saturates (e.g. `hz`
+  above 40 over a 5-second window), late samples are dropped and that field's summary carries
+  `samples_truncated: true` — no longer a silent loss.
+- The merged `timeline` array is itself capped at 500 entries (a backstop against many flapping
+  string fields). `timeline_truncated: true` is the honest headline that the timeline omits
+  entries for ANY reason — the signal-event budget, the merged-timeline cap, or a *string* field
+  saturating its sample buffer. (A saturated *numeric* field does not feed the timeline, so it
+  sets only its own `samples_truncated`, not `timeline_truncated`.)
+- Limitations: signals must be emitted on the main thread (worker-thread or threaded-physics
+  emissions are unsupported).
 
 ---
 

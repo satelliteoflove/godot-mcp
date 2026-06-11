@@ -46,6 +46,8 @@ func _run() -> void:
 	_test_arities_and_args(sampler, emitter)
 	await _test_timestamps(sampler, emitter)
 	_test_event_cap(sampler, emitter)
+	_test_fairness(sampler, emitter)
+	_test_field_samples_truncated(sampler, emitter)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
 	await _test_auto_stop(sampler, emitter)
@@ -126,6 +128,53 @@ func _test_event_cap(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void
 	emitter.fired.emit()
 	var result2: Dictionary = sampler.stop()
 	_check("cap: truncated flag resets on restart", result2.get("events_truncated"), false)
+
+
+func _test_fairness(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
+	# Two signals share the 200 budget -> ceil(200/2) = 100 each. A chatty "hit"
+	# must NOT starve a rare "fired" (the headline #285 fix), and keep-first means
+	# the EARLIEST hits survive. Emit order: 250 hits, THEN 5 fireds — under the old
+	# global keep-first the 200 budget would fill with hits and starve every fired.
+	_start_signals(sampler, [
+		{"path": "/root/FakeAutoload", "signal": "hit"},
+		{"path": "/root/FakeAutoload", "signal": "fired"},
+	])
+	for i in 250:
+		emitter.hit.emit(i)
+	for i in 5:
+		emitter.fired.emit()
+	var result: Dictionary = sampler.stop()
+	var events: Array = result.get("events", [])
+	var hits := events.filter(func(e): return e.get("signal") == "hit")
+	var fireds := events.filter(func(e): return e.get("signal") == "fired")
+	_check("fairness: chatty signal capped at its equal share ceil(200/2)", hits.size(), 100)
+	_check("fairness: rare signal NOT starved (all 5 kept)", fireds.size(), 5)
+	_check("fairness: events_dropped counts only the overflow", result.get("events_dropped"), 150)
+	var by_sig: Dictionary = result.get("events_dropped_by_signal", {})
+	_check("fairness: drops attributed to the chatty signal", int(by_sig.get("/root/FakeAutoload:hit", 0)), 150)
+	_check("fairness: rare signal records no drops", by_sig.has("/root/FakeAutoload:fired"), false)
+	if hits.size() == 100:
+		_check("keep-first: first kept hit is the earliest emission", hits[0].get("args"), "[0]")
+		_check("keep-first: last kept hit is the 100th, not the 250th", hits[99].get("args"), "[99]")
+
+
+func _test_field_samples_truncated(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
+	# Sampled-field history caps at MAX_SAMPLES_PER_FIELD; overflow must be FLAGGED,
+	# not silently dropped (#285 #4). Drive _process directly with the interval forced
+	# to 1 so the sample count is deterministic and independent of the headless frame
+	# rate (which makes the fps-derived _sample_interval unpredictable).
+	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 60, 5000, [])
+	sampler._sample_interval = 1
+	for i in MCPRuntimeStateSampler.MAX_SAMPLES_PER_FIELD + 25:
+		sampler._process(0.0)
+	var result: Dictionary = sampler.stop()
+	var ft: Dictionary = result.get("fields_truncated", {})
+	_check("field saturation: overflow flagged for the saturated field",
+		ft.get("/root/FakeAutoload:score", false), true)
+	var samples: Array = (result.get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", [])
+	_check("field saturation: samples stop exactly at the cap", samples.size(),
+		MCPRuntimeStateSampler.MAX_SAMPLES_PER_FIELD)
+	_check("field saturation: an unrelated field is not flagged", ft.size(), 1)
 
 
 func _test_arg_caps(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
