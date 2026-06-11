@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { getServerVersion } from '../version.js';
 
 const DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const LOG_DIR = path.join(os.homedir(), '.godot-mcp');
@@ -8,6 +9,7 @@ const LOG_FILE = path.join(LOG_DIR, 'usage.log');
 
 interface UsageEntry {
   ts: string;
+  mcp_version: string;
   tool: string;
   action?: string;
   success: boolean;
@@ -69,6 +71,7 @@ export function logToolUsage(
 
   const entry: UsageEntry = {
     ts: new Date().toISOString(),
+    mcp_version: getServerVersion(),
     tool,
     success,
     duration_ms: Math.round(durationMs),
