@@ -12,29 +12,41 @@ Scene management tools
 
 Manage scenes: open, save, or create scenes
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `open`, `save`, `create` | Yes |  |
-| `scene_path` | string | No | Path for the new scene file |
-| `root_type` | string | No | Type of root node, e.g. "Node2D" |
-| `root_name` | string | No | Name of root node (defaults to root_type) |
-
 ### Actions
 
 #### `open`
 
+Open a scene file
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | Yes | Path to scene file to open |
+
 #### `save`
 
+Save the current scene
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | No | Path to save to (defaults to the current scene path) |
+
 #### `create`
+
+Create a new scene
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | Yes | Path for the new scene file |
+| `root_type` | string | Yes | Type of root node, e.g. "Node2D" |
+| `root_name` | string | No | Name of root node (defaults to root_type) |
 
 ### Examples
 
 ```json
 // open
 {
-  "action": "open"
+  "action": "open",
+  "scene_path": "res://scenes/enemy.tscn"
 }
 ```
 
@@ -48,7 +60,9 @@ Manage scenes: open, save, or create scenes
 ```json
 // create
 {
-  "action": "create"
+  "action": "create",
+  "scene_path": "res://scenes/enemy.tscn",
+  "root_type": "example"
 }
 ```
 

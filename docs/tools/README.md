@@ -75,6 +75,12 @@ Observe live game entity state as structured JSON — positions, velocities, ani
 
 - `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup.
 
+## [Game Time Control](game-time.md)
+
+Deterministic game-clock control: freeze the running game, step a bounded slice of game time (or step until a condition holds) with inputs riding inside the window, then thaw — so observation is not racing ahead between tool calls.
+
+- `godot_game_time` - Make game time answer to your clock instead of racing ahead between tool calls: freeze the running game, observe it at leisure (screenshots and state digests work while frozen), then step forward a bounded slice of game time (step) — or until a condition you specify holds (step_until) — with inputs riding inside the window. The game's own pause menu is layered correctly: freezing over it, stepping under it, and thawing back to it all preserve the game's pause intent.
+
 ## [Game Script Execution](exec.md)
 
 Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.

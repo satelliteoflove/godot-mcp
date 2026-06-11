@@ -1,6 +1,8 @@
 import { writeFileSync, readFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
+
+import { z } from 'zod';
 
 import { sceneTools } from '../src/tools/scene.js';
 import { nodeTools } from '../src/tools/node.js';
@@ -14,10 +16,17 @@ import { docsTools } from '../src/tools/docs.js';
 import { inputTools } from '../src/tools/input.js';
 import { profilerTools } from '../src/tools/profiler.js';
 import { runtimeStateTools } from '../src/tools/runtime-state.js';
+import { gameTimeTools } from '../src/tools/game-time.js';
 import { execTools } from '../src/tools/exec.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
+import {
+  getActionVariants,
+  buildVariantExample,
+  rawJsonSchema,
+  type ActionVariant,
+} from '../src/core/doc-examples.js';
 import type { AnyToolDefinition, ResourceDefinition } from '../src/core/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +55,7 @@ const categories: ToolCategory[] = [
   { name: 'Input', filename: 'input', description: 'Input injection for testing running games: named actions, joypad buttons, analog axes and stick vectors, raw keyboard keys with modifier combos, relative mouse-look, and text typing (no absolute cursor positioning)', tools: inputTools },
   { name: 'Profiler', filename: 'profiler', description: 'Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections', tools: profilerTools },
   { name: 'Runtime State', filename: 'runtime-state', description: 'Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas — not just UI). Much cheaper than screenshots.', tools: runtimeStateTools },
+  { name: 'Game Time Control', filename: 'game-time', description: 'Deterministic game-clock control: freeze the running game, step a bounded slice of game time (or step until a condition holds) with inputs riding inside the window, then thaw — so observation is not racing ahead between tool calls.', tools: gameTimeTools },
   { name: 'Game Script Execution', filename: 'exec', description: 'Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.', tools: execTools },
 ];
 
@@ -342,36 +352,17 @@ function getExampleValue(name: string, prop: Record<string, unknown>): unknown {
   }
 }
 
-interface ActionVariant {
-  action: string;
-  properties: Record<string, Record<string, unknown>>;
-  required: string[];
-}
-
-// Discriminated-union schemas serialize to oneOf (one object variant per
-// action). Pull each variant's action literal, properties, and required list.
-function getActionVariants(schema: Record<string, unknown>): ActionVariant[] | null {
-  const branches = (schema.oneOf || schema.anyOf) as Array<Record<string, unknown>> | undefined;
-  if (!Array.isArray(branches)) return null;
-
-  const variants: ActionVariant[] = [];
-  for (const branch of branches) {
-    const properties = (branch.properties as Record<string, Record<string, unknown>>) || {};
-    const actionProp = properties.action;
-    const action =
-      (actionProp?.const as string | undefined) ??
-      (Array.isArray(actionProp?.enum) ? (actionProp!.enum as string[])[0] : undefined);
-    if (action === undefined) continue;
-    variants.push({ action, properties, required: (branch.required as string[]) || [] });
-  }
-  return variants.length > 0 ? variants : null;
-}
-
 function generateUnionActionDocs(variants: ActionVariant[]): string {
   let md = '### Actions\n\n';
 
   for (const variant of variants) {
     md += `#### \`${variant.action}\`\n\n`;
+
+    // The richest per-action copy lives on the action literal's `.describe()`;
+    // surface it under the heading instead of leaving the section bare (#287).
+    const actionDesc = String(variant.properties.action?.description ?? '').trim();
+    if (actionDesc) md += `${actionDesc}\n\n`;
+
     const paramNames = Object.keys(variant.properties).filter((n) => n !== 'action');
 
     if (paramNames.length === 0) {
@@ -394,15 +385,11 @@ function generateUnionActionDocs(variants: ActionVariant[]): string {
   return md;
 }
 
-function generateUnionExamples(variants: ActionVariant[]): string {
+function generateUnionExamples(variants: ActionVariant[], toolSchema: z.ZodType): string {
   let md = '### Examples\n\n';
 
   for (const variant of variants.slice(0, 3)) {
-    const example: Record<string, unknown> = { action: variant.action };
-    for (const name of variant.required) {
-      if (name === 'action') continue;
-      example[name] = getExampleValue(name, variant.properties[name]);
-    }
+    const example = buildVariantExample(variant, toolSchema);
     md += `\`\`\`json\n// ${variant.action}\n${JSON.stringify(example, null, 2)}\n\`\`\`\n\n`;
   }
 
@@ -414,17 +401,19 @@ function generateUnionExamples(variants: ActionVariant[]): string {
 }
 
 function generateToolMarkdown(tool: AnyToolDefinition): string {
-  const schema = toInputSchema(tool.schema);
   let md = `## ${tool.name}\n\n`;
   md += `${tool.description}\n\n`;
 
-  const variants = getActionVariants(schema);
+  // Detect action unions from the raw (un-flattened) schema; toInputSchema would
+  // have collapsed the oneOf, hiding per-action required fields + descriptions.
+  const variants = getActionVariants(rawJsonSchema(tool));
   if (variants) {
     md += generateUnionActionDocs(variants);
-    md += generateUnionExamples(variants);
+    md += generateUnionExamples(variants, tool.schema);
     return md;
   }
 
+  const schema = toInputSchema(tool.schema);
   md += `### Parameters\n\n`;
   md += generateParamsTable(schema);
   md += '\n';
@@ -571,4 +560,8 @@ function main(): void {
   console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools and ${allResources.length} resources.`);
 }
 
-main();
+// Only write files when run as a script (tsx scripts/generate-docs.ts); stay
+// inert when imported by tests so the doc-generation helpers can be unit-tested.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

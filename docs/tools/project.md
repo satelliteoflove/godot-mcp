@@ -12,23 +12,34 @@ Project information tools
 
 Get project information and settings
 
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | `get_info`, `get_settings`, `addon_status`, `check_stale` | Yes |  |
-| `category` | string | No | Settings category to filter by (use "input" for input mappings) |
-| `include_builtin` | boolean | No | Include built-in ui_* actions (with category="input") |
-
 ### Actions
 
 #### `get_info`
 
+Get project name, path, version, and main scene
+
+*No parameters.*
+
 #### `get_settings`
+
+Get project settings
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | No | Settings category to filter by (use "input" for input mappings) |
+| `include_builtin` | boolean | No | Include built-in ui_* actions (with category="input") |
 
 #### `addon_status`
 
+Check addon/server version compatibility
+
+*No parameters.*
+
 #### `check_stale`
+
+Check whether project.godot was edited on disk after the editor loaded it, leaving the editor with stale autoloads / input map (and phantom "Identifier not found" errors in its log that do not exist at runtime). Returns the disk-vs-editor divergence; run godot_editor restart to reload. Useful right after editing project.godot as a file.
+
+*No parameters.*
 
 ### Examples
 
