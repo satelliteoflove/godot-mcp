@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_fairness(sampler, emitter)
 	_test_fairness_three(sampler, emitter)
 	_test_field_samples_truncated(sampler, emitter)
+	_test_freeze_pauses_sampling(sampler, emitter)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
 	await _test_auto_stop(sampler, emitter)
@@ -212,6 +213,34 @@ func _test_field_samples_truncated(sampler: MCPRuntimeStateSampler, emitter: _Em
 	_check("field saturation: the un-saturated ghost field is NOT flagged",
 		ft.has("/root/FakeAutoload:ghost"), false)
 	_check("field saturation: only the saturated field is flagged", ft.size(), 1)
+
+
+func _test_freeze_pauses_sampling(sampler: MCPRuntimeStateSampler, _emitter: _Emitter) -> void:
+	# Regression: under a godot_game_time freeze the bridge holds the tree paused,
+	# but the sampler inherits PROCESS_MODE_ALWAYS so _process keeps firing. Those
+	# paused frames must NOT advance the window or record samples — otherwise the
+	# window (formerly wall-clock) ran down during frozen idle and stepped tests
+	# came back flat. Drive _process directly with the interval forced to 1.
+	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 60, 5000, [])
+	sampler._sample_interval = 1
+	paused = true
+	for i in 5:
+		sampler._process(0.5)  # 5 frames @ 500ms each — would be 2500ms of WALL time
+	var frozen: Dictionary = sampler.collect()
+	var frozen_samples: int = ((frozen.get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
+	_check("freeze: no samples recorded while the tree is paused", frozen_samples, 0)
+	_check("freeze: window_ms does not advance while paused", frozen.get("window_ms"), 0)
+	_check("freeze: window did NOT auto-stop during frozen idle", sampler.is_active(), true)
+	# Unpause (a step): the same _process calls now sample and advance GAME time.
+	paused = false
+	for i in 3:
+		sampler._process(0.5)  # 3 x 500ms == 1500ms of game time
+	var live: Dictionary = sampler.collect()
+	var live_samples: int = ((live.get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
+	_check("freeze: sampling resumes once unpaused (step)", live_samples > 0, true)
+	_check("freeze: window advances in GAME time once unpaused (~1500ms)",
+		int(live.get("window_ms")) >= 1400, true)
+	sampler.stop()
 
 
 func _test_arg_caps(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:

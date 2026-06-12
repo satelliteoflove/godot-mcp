@@ -13,8 +13,10 @@ var _active: bool = false
 var _specs: Array = []       # [{node, fields: [{key, resolver}]}]
 var _hz: int = 20
 var _duration_ms: int = 1000
-var _start_time: int = 0
-var _stop_time: int = 0      # set on auto-stop or manual stop; 0 = still running
+# GAME time accumulated (unpaused, time_scale-scaled), NOT wall clock: under a
+# godot_game_time freeze the tree is paused between steps, and counting wall time
+# there would run the window down / log stale samples before the step that moves.
+var _elapsed_ms: float = 0.0
 var _frame_index: int = 0
 var _sample_interval: int = 1  # sample every N frames
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
@@ -41,7 +43,7 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 	_field_truncated = {}
 	_hz = clampi(hz, 1, 60)
 	_duration_ms = clampi(duration_ms, 100, 5000)
-	_start_time = Time.get_ticks_msec()
+	_elapsed_ms = 0.0
 	_frame_index = 0
 	_sample_interval = max(1, int(Engine.get_frames_per_second() / _hz)) if Engine.get_frames_per_second() > 0 else max(1, int(60.0 / _hz))
 
@@ -70,7 +72,6 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 		if not resolved_fields.is_empty():
 			_specs.append({"node": node, "node_path": node_path, "fields": resolved_fields})
 
-	_stop_time = 0
 	_active = true
 	set_process(true)
 
@@ -174,7 +175,7 @@ func _record_event(source: String, sig_name: String, args: Array) -> void:
 		_events_truncated = true
 		return
 	var ev := {
-		"t_ms": Time.get_ticks_msec() - _start_time,
+		"t_ms": int(_elapsed_ms),
 		"source": source,
 		"signal": sig_name,
 	}
@@ -217,18 +218,26 @@ func _exit_tree() -> void:
 	_disconnect_all()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _active:
 		return
 
-	var elapsed := Time.get_ticks_msec() - _start_time
+	# Measure the window in GAME time and only sample while it actually advances.
+	# The sampler inherits PROCESS_MODE_ALWAYS, so _process keeps firing under a
+	# godot_game_time freeze (tree paused) even though gameplay is static. Counting
+	# those frames would (1) fill the window with stale values and (2) run the
+	# auto-stop down during frozen idle, so a later step lands outside the window.
+	# Skipping while paused makes the window span only live gameplay / step time.
+	var tree := get_tree()
+	if tree != null and tree.paused:
+		return
+	_elapsed_ms += delta * 1000.0  # time_scale-scaled, unpaused-only == game time
 
-	if elapsed >= _duration_ms:
+	if _elapsed_ms >= float(_duration_ms):
 		_active = false
-		_stop_time = Time.get_ticks_msec()
 		set_process(false)
 		# Window over: stop recording signal emissions too. An emission landing
-		# between duration_ms elapsing and this frame is recorded with t_ms
+		# between the window closing and this frame is recorded with t_ms
 		# slightly past the window -- harmless and honest.
 		_disconnect_all()
 		return
@@ -246,7 +255,7 @@ func _process(_delta: float) -> void:
 			for field_info in spec.fields:
 				var arr: Array = _samples.get(field_info.full_key, [])
 				if arr.size() < MAX_SAMPLES_PER_FIELD:
-					arr.append({"t_ms": elapsed, "value": "freed"})
+					arr.append({"t_ms": int(_elapsed_ms), "value": "freed"})
 				else:
 					_field_truncated[field_info.full_key] = true
 			continue
@@ -257,19 +266,13 @@ func _process(_delta: float) -> void:
 				continue
 			var arr: Array = _samples.get(field_info.full_key, [])
 			if arr.size() < MAX_SAMPLES_PER_FIELD:
-				arr.append({"t_ms": elapsed, "value": value})
+				arr.append({"t_ms": int(_elapsed_ms), "value": value})
 			else:
 				_field_truncated[field_info.full_key] = true
 
 
 func collect() -> Dictionary:
-	var elapsed: int
-	if _stop_time > 0:
-		elapsed = _stop_time - _start_time
-	elif _start_time > 0:
-		elapsed = Time.get_ticks_msec() - _start_time
-	else:
-		elapsed = 0  # never started
+	var elapsed := int(_elapsed_ms)
 	var total_samples := 0
 	for key in _samples:
 		total_samples += (_samples[key] as Array).size()
@@ -288,11 +291,9 @@ func collect() -> Dictionary:
 
 
 func stop() -> Dictionary:
+	# _elapsed_ms already holds the game-time window and freezes once _active is
+	# false, so a late manual stop can't inflate window_ms past the real window end.
 	_active = false
-	# Don't clobber an auto-stop's timestamp: a late manual stop would inflate
-	# window_ms to the call time instead of the actual window end.
-	if _stop_time == 0:
-		_stop_time = Time.get_ticks_msec()
 	set_process(false)
 	_disconnect_all()
 	return collect()
