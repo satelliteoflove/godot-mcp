@@ -124,14 +124,6 @@ class ToolRegistry {
     return await resource.handler(ctx);
   }
 
-  hasTool(name: string): boolean {
-    return this.tools.has(name);
-  }
-
-  hasResource(uri: string): boolean {
-    return this.resources.has(uri);
-  }
-
   getResourceByUri(uri: string): ResourceDefinition | undefined {
     return this.resources.get(uri);
   }

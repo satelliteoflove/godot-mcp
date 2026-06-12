@@ -6,6 +6,3 @@ export function registerAllResources(): void {
   registry.registerResources(sceneResources);
   registry.registerResources(scriptResources);
 }
-
-export { sceneResources } from './scene.js';
-export { scriptResources } from './script.js';

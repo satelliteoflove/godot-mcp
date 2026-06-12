@@ -139,22 +139,3 @@ function parsePluginVersion(pluginCfgPath: string): string | undefined {
   }
 }
 
-export function getAddonStatus(projectPath: string): {
-  installed: boolean;
-  version?: string;
-  path?: string;
-} {
-  const absolutePath = resolve(projectPath);
-  const targetDir = join(absolutePath, 'addons', 'godot_mcp');
-  const pluginCfg = join(targetDir, 'plugin.cfg');
-
-  if (!existsSync(pluginCfg)) {
-    return { installed: false };
-  }
-
-  return {
-    installed: true,
-    version: parsePluginVersion(pluginCfg),
-    path: targetDir,
-  };
-}

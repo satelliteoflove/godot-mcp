@@ -407,9 +407,6 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"take_screenshot":
 			_take_screenshot_deferred.call_deferred(data)
 			return true
-		"get_debug_output":
-			_handle_get_debug_output(data)
-			return true
 		"get_performance_metrics":
 			_handle_get_performance_metrics()
 			return true
@@ -525,14 +522,6 @@ func _send_screenshot_error(code: String, message: String) -> void:
 		0,
 		"%s: %s" % [code, message]
 	])
-
-
-func _handle_get_debug_output(data: Array) -> void:
-	var clear: bool = data[0] if data.size() > 0 else false
-	var output := _logger.get_output() if _logger else PackedStringArray()
-	if clear and _logger:
-		_logger.clear()
-	EngineDebugger.send_message("godot_mcp:debug_output_result", [output])
 
 
 func _handle_find_nodes(data: Array) -> void:

@@ -22,11 +22,6 @@ export class GodotTimeoutError extends Error {
   }
 }
 
-export interface ErrorResponse {
-  code: string;
-  message: string;
-}
-
 export function formatError(error: unknown): string {
   if (error instanceof GodotCommandError) {
     return `[${error.code}] ${error.message}`;

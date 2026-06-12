@@ -511,7 +511,7 @@ export class GodotConnection extends EventEmitter {
       this.reconnectTimeout = null;
     }
 
-    for (const [id, pending] of this.pendingRequests) {
+    for (const pending of this.pendingRequests.values()) {
       clearTimeout(pending.timeoutId);
       pending.reject(new GodotConnectionError('Connection closed'));
     }

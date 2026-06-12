@@ -3,14 +3,12 @@ extends EditorDebuggerPlugin
 class_name MCPDebuggerPlugin
 
 signal screenshot_received(success: bool, image_base64: String, width: int, height: int, error: String)
-signal debug_output_received(output: PackedStringArray)
 signal performance_metrics_received(metrics: Dictionary)
 signal find_nodes_received(matches: Array, count: int, error: String)
 signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
 signal sequence_capture_received(requested_ms: int, actual_ms: int, ok: bool, image_base64: String, width: int, height: int, error: String)
 signal type_text_completed(result: Dictionary)
-signal game_response(message_type: String, data: Variant)
 signal bridge_ready()
 
 var _active_session_id: int = -1
@@ -23,7 +21,6 @@ var _pending_screenshot: bool = false
 # (element 6 of screenshot_result; empty for bridges that predate it). Held
 # here instead of widening the screenshot_received signal signature.
 var last_screenshot_warnings: Array = []
-var _pending_debug_output: bool = false
 var _pending_performance_metrics: bool = false
 var _pending_find_nodes: bool = false
 var _pending_input_map: bool = false
@@ -41,9 +38,6 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 	match message:
 		"godot_mcp:screenshot_result":
 			_handle_screenshot_result(data)
-			return true
-		"godot_mcp:debug_output_result":
-			_handle_debug_output_result(data)
 			return true
 		"godot_mcp:performance_metrics_result":
 			_handle_performance_metrics_result(data)
@@ -93,9 +87,6 @@ func _session_stopped() -> void:
 	if _pending_screenshot:
 		_pending_screenshot = false
 		screenshot_received.emit(false, "", 0, 0, "Game session ended")
-	if _pending_debug_output:
-		_pending_debug_output = false
-		debug_output_received.emit(PackedStringArray())
 	if _pending_performance_metrics:
 		_pending_performance_metrics = false
 		performance_metrics_received.emit({})
@@ -157,25 +148,6 @@ func _handle_screenshot_result(data: Array) -> void:
 	var error: String = data[4]
 	last_screenshot_warnings = data[5] if data.size() > 5 and data[5] is Array else []
 	screenshot_received.emit(success, image_base64, width, height, error)
-
-
-func request_debug_output(clear: bool = false) -> void:
-	if _active_session_id < 0:
-		debug_output_received.emit(PackedStringArray())
-		return
-	_pending_debug_output = true
-	var session := get_session(_active_session_id)
-	if session:
-		session.send_message("godot_mcp:get_debug_output", [clear])
-	else:
-		_pending_debug_output = false
-		debug_output_received.emit(PackedStringArray())
-
-
-func _handle_debug_output_result(data: Array) -> void:
-	_pending_debug_output = false
-	var output: PackedStringArray = data[0] if data.size() > 0 else PackedStringArray()
-	debug_output_received.emit(output)
 
 
 func request_performance_metrics() -> void:
@@ -322,7 +294,6 @@ func _handle_game_response(data: Array) -> void:
 	var response_data: Variant = data[1]
 	_pending_requests.erase(msg_type)
 	_responses[msg_type] = response_data
-	game_response.emit(msg_type, response_data)
 
 
 func toggle_frame_profiler(enable: bool) -> void:
