@@ -336,7 +336,11 @@ static func _check_surface(mesh: ArrayMesh, s: int, cull_disabled: bool = false)
 				"fix": "Broken tangents corrupt normal mapping and, with compressed vertex formats, the GPU normals themselves. Usual cause is generate_tangents() over degenerate UVs — fix the UVs (see degenerate_uvs) or skip tangents for untextured meshes.",
 			})
 
-	# 5. Normal sanity.
+	# 5. Normal sanity. NOTE: ArrayMesh stores normals octahedral-encoded, so
+	# zero/NaN SOURCE normals are usually laundered into arbitrary unit
+	# vectors at build time — post-storage they surface as orientation
+	# ambiguity (check 2's degenerate bucket), not here. This check still
+	# covers uncompressed/custom formats where raw values survive.
 	if norms != null:
 		var pn := norms as PackedVector3Array
 		var bad_n := 0
