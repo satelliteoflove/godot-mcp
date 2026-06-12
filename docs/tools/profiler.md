@@ -10,7 +10,7 @@ Performance profiling: snapshots, per-frame time series with spike detection, ac
 
 ## godot_profiler
 
-Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections
+Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks (useful for finding per-frame cost sources); get_signal_connections maps signal wiring. For observing game state rather than performance, use godot_runtime_state.
 
 ### Actions
 

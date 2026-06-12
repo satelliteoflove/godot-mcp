@@ -48,7 +48,7 @@ const ExecSchema = z.discriminatedUnion('action', [
       .describe(
         `Wall-clock patience for the call, used to size the timeout cascade (default ${EXEC_DEFAULT_BUDGET_MS}, ` +
         `max ${EXEC_BUDGET_CAP_MS}). NOT enforcement: a synchronous script cannot be preempted, so an ` +
-        'infinite loop hangs the game past any budget — recover with godot_editor stop.'
+        'infinite loop hangs the game past any budget — recover with godot_editor_edit stop.'
       ),
   }),
   z.object({
@@ -85,8 +85,8 @@ export const exec = defineTool({
   description:
     'Execute GDScript inside the RUNNING game process — the scenario-setup primitive: grant ' +
     'weapons, skip waves, spawn entities, arm persistent test bots, without baking debug hooks ' +
-    'into game code. Errors when no game is running. For launch-time setup, compose: godot_editor ' +
-    'run frozen=true -> godot_exec run (mutate state, attach bots under `holder`) -> ' +
+    'into game code. Errors when no game is running. For launch-time setup, compose: ' +
+    'godot_editor_edit run frozen=true -> godot_exec run (mutate state, attach bots under `holder`) -> ' +
     'godot_game_time thaw. A static denylist rejects accidental process/file-write escape ' +
     '(OS.execute, DirAccess, write-mode FileAccess, ResourceSaver, ProjectSettings.save, ...) and ' +
     'names the offending token — an accident guard, NOT a security boundary. Compile errors ' +

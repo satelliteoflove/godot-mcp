@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
-import { node } from '../../tools/node.js';
+import { nodeRead, nodeEdit } from '../../tools/node.js';
 
-describe('node tool', () => {
+describe('node read tool', () => {
   let mock: MockGodotConnection;
 
   beforeEach(() => {
@@ -10,52 +10,59 @@ describe('node tool', () => {
   });
 
   describe('schema validation', () => {
-    it('requires node_path for get_properties/update', () => {
-      const actionsNeedingNodePath = ['get_properties', 'update'];
-      for (const action of actionsNeedingNodePath) {
-        expect(node.schema.safeParse({ action }).success).toBe(false);
-        expect(node.schema.safeParse({ action, node_path: '/root/Test' }).success).toBe(true);
-      }
-    });
-
-    it('get_scene_tree takes no parameters', () => {
-      expect(node.schema.safeParse({ action: 'get_scene_tree' }).success).toBe(true);
-    });
-
-    it('requires new_parent_path for reparent', () => {
-      expect(node.schema.safeParse({
-        action: 'reparent',
+    it('requires node_path for get_properties', () => {
+      expect(nodeRead.schema.safeParse({ action: 'get_properties' }).success).toBe(false);
+      expect(nodeRead.schema.safeParse({
+        action: 'get_properties',
         node_path: '/root/Test',
-      }).success).toBe(false);
-      expect(node.schema.safeParse({
-        action: 'reparent',
-        node_path: '/root/Test',
-        new_parent_path: '/root/New',
       }).success).toBe(true);
     });
 
+    it('get_scene_tree takes no parameters', () => {
+      expect(nodeRead.schema.safeParse({ action: 'get_scene_tree' }).success).toBe(true);
+    });
+
+    it('find requires name_pattern and/or type', () => {
+      expect(nodeRead.schema.safeParse({ action: 'find' }).success).toBe(false);
+      expect(nodeRead.schema.safeParse({ action: 'find', name_pattern: '*Spawner*' }).success).toBe(true);
+      expect(nodeRead.schema.safeParse({ action: 'find', type: 'Area2D' }).success).toBe(true);
+    });
+
     it('rejects the removed create/delete/script/signal actions', () => {
-      expect(node.schema.safeParse({
+      expect(nodeRead.schema.safeParse({
         action: 'create',
         parent_path: '/root',
         node_type: 'Node2D',
         node_name: 'Test',
       }).success).toBe(false);
-      expect(node.schema.safeParse({
+      expect(nodeRead.schema.safeParse({
         action: 'delete',
         node_path: '/root/Obsolete',
       }).success).toBe(false);
-      expect(node.schema.safeParse({
+      expect(nodeRead.schema.safeParse({
         action: 'attach_script',
         node_path: '/root/Test',
         script_path: 'res://test.gd',
       }).success).toBe(false);
-      expect(node.schema.safeParse({
+      expect(nodeRead.schema.safeParse({
         action: 'connect_signal',
         node_path: '/root/Button',
         signal_name: 'pressed',
         target_path: '/root/Main',
         method_name: '_on_pressed',
+      }).success).toBe(false);
+    });
+
+    it('rejects edit actions belonging to godot_node_edit', () => {
+      expect(nodeRead.schema.safeParse({
+        action: 'update',
+        node_path: '/root/Test',
+        properties: { visible: false },
+      }).success).toBe(false);
+      expect(nodeRead.schema.safeParse({
+        action: 'reparent',
+        node_path: '/root/Test',
+        new_parent_path: '/root/New',
       }).success).toBe(false);
     });
   });
@@ -66,7 +73,7 @@ describe('node tool', () => {
       mock.mockResponse({ properties });
       const ctx = createToolContext(mock);
 
-      const result = await node.execute({ action: 'get_properties', node_path: '/root/Player' }, ctx);
+      const result = await nodeRead.execute({ action: 'get_properties', node_path: '/root/Player' }, ctx);
       expect(structuredOf(result)).toEqual(properties);
     });
   });
@@ -81,9 +88,51 @@ describe('node tool', () => {
       mock.mockResponse({ tree });
       const ctx = createToolContext(mock);
 
-      const result = await node.execute({ action: 'get_scene_tree' }, ctx);
+      const result = await nodeRead.execute({ action: 'get_scene_tree' }, ctx);
       expect(structuredOf(result)).toEqual(tree);
       expect(mock.calls[0].command).toBe('get_scene_tree');
+    });
+  });
+});
+
+describe('node edit tool', () => {
+  let mock: MockGodotConnection;
+
+  beforeEach(() => {
+    mock = createMockGodot();
+  });
+
+  describe('schema validation', () => {
+    it('requires node_path for update', () => {
+      expect(nodeEdit.schema.safeParse({ action: 'update' }).success).toBe(false);
+      expect(nodeEdit.schema.safeParse({
+        action: 'update',
+        node_path: '/root/Test',
+      }).success).toBe(true);
+    });
+
+    it('requires new_parent_path for reparent', () => {
+      expect(nodeEdit.schema.safeParse({
+        action: 'reparent',
+        node_path: '/root/Test',
+      }).success).toBe(false);
+      expect(nodeEdit.schema.safeParse({
+        action: 'reparent',
+        node_path: '/root/Test',
+        new_parent_path: '/root/New',
+      }).success).toBe(true);
+    });
+
+    it('rejects read actions belonging to godot_node_read', () => {
+      expect(nodeEdit.schema.safeParse({
+        action: 'get_properties',
+        node_path: '/root/Test',
+      }).success).toBe(false);
+      expect(nodeEdit.schema.safeParse({ action: 'get_scene_tree' }).success).toBe(false);
+      expect(nodeEdit.schema.safeParse({
+        action: 'find',
+        name_pattern: '*Spawner*',
+      }).success).toBe(false);
     });
   });
 
@@ -92,14 +141,14 @@ describe('node tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({});
-      expect(await node.execute({
+      expect(await nodeEdit.execute({
         action: 'update',
         node_path: '/root/Player',
         properties: { health: 100 },
       }, ctx)).toBe('Updated node: /root/Player');
 
       mock.mockResponse({ new_path: '/root/New/Node' });
-      expect(await node.execute({
+      expect(await nodeEdit.execute({
         action: 'reparent',
         node_path: '/root/Old/Node',
         new_parent_path: '/root/New',

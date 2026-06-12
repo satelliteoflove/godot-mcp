@@ -1,32 +1,22 @@
 {
-  "name": "godot_gridmap",
-  "description": "Query and edit GridMap data: list gridmaps, get info, get/set cells",
+  "name": "godot_gridmap_edit",
+  "description": "Modify GridMap cells in the open scene: set a single cell to a MeshLibrary item with an orientation, clear a cell, clear the whole map, or set many cells in one batch. Use it to build or remove 3D grid content; cell data is stored base64-encoded in the .tscn, so editing the file is not an alternative, and set_cells_batch beats repeated set_cell calls for anything beyond a few cells. To inspect the map, its MeshLibrary, or existing cells without changing anything, use godot_gridmap_read.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "list",
-          "get_info",
-          "get_meshlib_info",
-          "get_used_cells",
-          "get_cell",
-          "get_cells_by_item",
           "set_cell",
           "clear_cell",
           "clear",
           "set_cells_batch"
         ],
-        "description": "list: List GridMap nodes in the scene\nget_info: Get GridMap info\nget_meshlib_info: Get the GridMap's MeshLibrary info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_by_item: Get all cells using a given MeshLibrary item\nset_cell: Set a single cell\nclear_cell: Clear a single cell\nclear: Clear all cells\nset_cells_batch: Set many cells at once"
-      },
-      "root_path": {
-        "description": "Starting node path (defaults to scene root) (for: list)",
-        "type": "string"
+        "description": "set_cell: Set a single cell\nclear_cell: Clear a single cell\nclear: Clear all cells\nset_cells_batch: Set many cells at once"
       },
       "node_path": {
         "type": "string",
-        "description": "Path to the GridMap (required for: get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item, set_cell, clear_cell, clear, set_cells_batch)"
+        "description": "Path to the GridMap"
       },
       "coords": {
         "type": "object",
@@ -53,13 +43,13 @@
           "z"
         ],
         "additionalProperties": false,
-        "description": "Cell coordinates (required for: get_cell, set_cell, clear_cell)"
+        "description": "Cell coordinates (required for: set_cell, clear_cell)"
       },
       "item": {
         "type": "integer",
         "minimum": -9007199254740991,
         "maximum": 9007199254740991,
-        "description": "MeshLibrary item index (required for: get_cells_by_item, set_cell)"
+        "description": "MeshLibrary item index (required for: set_cell)"
       },
       "orientation": {
         "description": "Orientation 0-23, default 0 (for: set_cell)",
@@ -120,13 +110,15 @@
       }
     },
     "required": [
-      "action"
+      "action",
+      "node_path"
     ]
   },
   "annotations": {
-    "title": "GridMap",
+    "title": "GridMap (edit)",
     "readOnlyHint": false,
     "destructiveHint": true,
+    "idempotentHint": true,
     "openWorldHint": false
   }
 }

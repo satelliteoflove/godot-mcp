@@ -39,7 +39,7 @@ export async function main() {
         '(2) SDFGI replaces constant ambient light: to lift shadow sides, add a dim ' +
         'shadowless DirectionalLight (light_specular=0) opposing the key light instead of ' +
         'raising ambient_light_energy, which will appear to do nothing. ' +
-        '(3) After editing .gd files on disk, run godot_editor restart — the editor does ' +
+        '(3) After editing .gd files on disk, run godot_editor_edit restart — the editor does ' +
         'not reliably rescan externally modified scripts.',
     }
   );

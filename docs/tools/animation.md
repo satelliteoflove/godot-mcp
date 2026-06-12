@@ -4,13 +4,14 @@ Animation query, playback, and editing tools
 
 ## Tools
 
-- [godot_animation](#godot_animation)
+- [godot_animation_read](#godot_animation_read)
+- [godot_animation_edit](#godot_animation_edit)
 
 ---
 
-## godot_animation
+## godot_animation_read
 
-Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe
+Inspect animation data on AnimationPlayer nodes in the editor: list players in the scene, read a player's state and libraries, get an animation's tracks and properties, and read a track's keyframes. Reach for it to verify what the editor actually loaded, including after editing animation resources by hand. It changes and previews nothing; use godot_animation_edit to create, modify, or play animations.
 
 ### Actions
 
@@ -48,6 +49,42 @@ Get keyframes for a track
 | `node_path` | string | Yes | Path to the AnimationPlayer |
 | `animation_name` | string | Yes | Animation name |
 | `track_index` | number | Yes | Track index |
+
+### Examples
+
+```json
+// list_players
+{
+  "action": "list_players"
+}
+```
+
+```json
+// get_info
+{
+  "action": "get_info",
+  "node_path": "/root/Main/Player"
+}
+```
+
+```json
+// get_details
+{
+  "action": "get_details",
+  "node_path": "/root/Main/Player",
+  "animation_name": "idle"
+}
+```
+
+*1 more actions available: `get_keyframes`*
+
+---
+
+## godot_animation_edit
+
+Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.
+
+### Actions
 
 #### `play`
 
@@ -180,30 +217,32 @@ Update a keyframe
 ### Examples
 
 ```json
-// list_players
+// play
 {
-  "action": "list_players"
-}
-```
-
-```json
-// get_info
-{
-  "action": "get_info",
-  "node_path": "/root/Main/Player"
-}
-```
-
-```json
-// get_details
-{
-  "action": "get_details",
+  "action": "play",
   "node_path": "/root/Main/Player",
   "animation_name": "idle"
 }
 ```
 
-*12 more actions available: `get_keyframes`, `play`, `stop`, `seek`, `create`, `delete`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
+```json
+// stop
+{
+  "action": "stop",
+  "node_path": "/root/Main/Player"
+}
+```
+
+```json
+// seek
+{
+  "action": "seek",
+  "node_path": "/root/Main/Player",
+  "seconds": 0
+}
+```
+
+*8 more actions available: `create`, `delete`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
 
 ---
 

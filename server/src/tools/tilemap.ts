@@ -16,7 +16,7 @@ const Vector3iSchema = z.object({
 
 const tilemapNodePath = z.string().describe('Path to the TileMapLayer');
 
-const TilemapSchema = z.discriminatedUnion('action', [
+const TilemapReadSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('list_layers').describe('List TileMapLayer nodes in the scene'),
     root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
@@ -44,46 +44,17 @@ const TilemapSchema = z.discriminatedUnion('action', [
       .describe('Local position to convert to map coords'),
     map_coords: Vector2iSchema.optional().describe('Map coordinates to convert to local position'),
   }),
-  z.object({
-    action: z.literal('set_cell').describe('Set a single cell'),
-    node_path: tilemapNodePath,
-    coords: Vector2iSchema.describe('Cell coordinates'),
-    source_id: z.number().int().optional().describe('TileSet source ID, default 0'),
-    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0'),
-    alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0'),
-  }),
-  z.object({
-    action: z.literal('erase_cell').describe('Erase a single cell'),
-    node_path: tilemapNodePath,
-    coords: Vector2iSchema.describe('Cell coordinates'),
-  }),
-  z.object({ action: z.literal('clear_layer').describe('Clear all cells in the layer'), node_path: tilemapNodePath }),
-  z.object({
-    action: z.literal('set_cells_batch').describe('Set many cells at once'),
-    node_path: tilemapNodePath,
-    cells: z
-      .array(
-        z.object({
-          coords: Vector2iSchema,
-          source_id: z.number().int().optional(),
-          atlas_coords: Vector2iSchema.optional(),
-          alternative_tile: z.number().int().optional(),
-        })
-      )
-      .min(1)
-      .describe('Array of cells to set'),
-  }),
 ]);
 
-type TilemapArgs = z.infer<typeof TilemapSchema>;
+type TilemapReadArgs = z.infer<typeof TilemapReadSchema>;
 
-export const tilemap = defineTool({
-  name: 'godot_tilemap',
-  annotations: { title: 'TileMapLayer', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+export const tilemapRead = defineTool({
+  name: 'godot_tilemap_read',
+  annotations: { title: 'TileMapLayer (read)', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
-    'Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates',
-  schema: TilemapSchema,
-  async execute(args: TilemapArgs, { godot }) {
+    'Inspect TileMapLayer data in the open scene: list layers, get layer and TileSet info, read used cells, a single cell, or a rectangular region, and convert between local positions and map coordinates. Use it whenever you need to know what tiles are placed where; cell data is stored base64-encoded in the .tscn, so reading the file is not an alternative. To place, erase, or clear tiles, use godot_tilemap_edit instead.',
+  schema: TilemapReadSchema,
+  async execute(args: TilemapReadArgs, { godot }) {
     switch (args.action) {
       case 'list_layers': {
         const result = await godot.sendCommand<{
@@ -126,6 +97,58 @@ export const tilemap = defineTool({
         });
         return structured(result);
       }
+    }
+  },
+});
+
+const TilemapEditSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('set_cell').describe('Set a single cell'),
+    node_path: tilemapNodePath,
+    coords: Vector2iSchema.describe('Cell coordinates'),
+    source_id: z.number().int().optional().describe('TileSet source ID, default 0'),
+    atlas_coords: Vector2iSchema.optional().describe('Atlas coordinates, default 0,0'),
+    alternative_tile: z.number().int().optional().describe('Alternative tile ID, default 0'),
+  }),
+  z.object({
+    action: z.literal('erase_cell').describe('Erase a single cell'),
+    node_path: tilemapNodePath,
+    coords: Vector2iSchema.describe('Cell coordinates'),
+  }),
+  z.object({ action: z.literal('clear_layer').describe('Clear all cells in the layer'), node_path: tilemapNodePath }),
+  z.object({
+    action: z.literal('set_cells_batch').describe('Set many cells at once'),
+    node_path: tilemapNodePath,
+    cells: z
+      .array(
+        z.object({
+          coords: Vector2iSchema,
+          source_id: z.number().int().optional(),
+          atlas_coords: Vector2iSchema.optional(),
+          alternative_tile: z.number().int().optional(),
+        })
+      )
+      .min(1)
+      .describe('Array of cells to set'),
+  }),
+]);
+
+type TilemapEditArgs = z.infer<typeof TilemapEditSchema>;
+
+export const tilemapEdit = defineTool({
+  name: 'godot_tilemap_edit',
+  annotations: {
+    title: 'TileMapLayer (edit)',
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  description:
+    'Modify TileMapLayer cells in the open scene: set a single cell, erase a cell, clear a whole layer, or set many cells in one batch. Use it to paint or remove tiles; cell data is stored base64-encoded in the .tscn, so editing the file is not an alternative, and set_cells_batch beats repeated set_cell calls for anything beyond a few tiles. To inspect layers, TileSets, or existing cells without changing anything, use godot_tilemap_read.',
+  schema: TilemapEditSchema,
+  async execute(args: TilemapEditArgs, { godot }) {
+    switch (args.action) {
       case 'set_cell': {
         const result = await godot.sendCommand<{
           coords: { x: number; y: number };
@@ -167,7 +190,7 @@ export const tilemap = defineTool({
 
 const gridmapNodePath = z.string().describe('Path to the GridMap');
 
-const GridmapSchema = z.discriminatedUnion('action', [
+const GridmapReadSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('list').describe('List GridMap nodes in the scene'),
     root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
@@ -185,44 +208,17 @@ const GridmapSchema = z.discriminatedUnion('action', [
     node_path: gridmapNodePath,
     item: z.number().int().describe('MeshLibrary item index'),
   }),
-  z.object({
-    action: z.literal('set_cell').describe('Set a single cell'),
-    node_path: gridmapNodePath,
-    coords: Vector3iSchema.describe('Cell coordinates'),
-    item: z.number().int().describe('MeshLibrary item index'),
-    orientation: z.number().int().optional().describe('Orientation 0-23, default 0'),
-  }),
-  z.object({
-    action: z.literal('clear_cell').describe('Clear a single cell'),
-    node_path: gridmapNodePath,
-    coords: Vector3iSchema.describe('Cell coordinates'),
-  }),
-  z.object({ action: z.literal('clear').describe('Clear all cells'), node_path: gridmapNodePath }),
-  z.object({
-    action: z.literal('set_cells_batch').describe('Set many cells at once'),
-    node_path: gridmapNodePath,
-    cells: z
-      .array(
-        z.object({
-          coords: Vector3iSchema,
-          item: z.number().int(),
-          orientation: z.number().int().optional(),
-        })
-      )
-      .min(1)
-      .describe('Array of cells to set'),
-  }),
 ]);
 
-type GridmapArgs = z.infer<typeof GridmapSchema>;
+type GridmapReadArgs = z.infer<typeof GridmapReadSchema>;
 
-export const gridmap = defineTool({
-  name: 'godot_gridmap',
-  annotations: { title: 'GridMap', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+export const gridmapRead = defineTool({
+  name: 'godot_gridmap_read',
+  annotations: { title: 'GridMap (read)', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
-    'Query and edit GridMap data: list gridmaps, get info, get/set cells',
-  schema: GridmapSchema,
-  async execute(args: GridmapArgs, { godot }) {
+    'Inspect GridMap data in the open scene: list GridMap nodes, get map and MeshLibrary info, and read used cells, a single cell, or every cell using a given item. Use it whenever you need to know which mesh items occupy which 3D grid cells; cell data is stored base64-encoded in the .tscn, so reading the file is not an alternative. To place or clear cells, use godot_gridmap_edit instead.',
+  schema: GridmapReadSchema,
+  async execute(args: GridmapReadArgs, { godot }) {
     switch (args.action) {
       case 'list': {
         const result = await godot.sendCommand<{
@@ -253,6 +249,56 @@ export const gridmap = defineTool({
         const result = await godot.sendCommand('get_cells_by_item', { node_path: args.node_path, item: args.item });
         return structured(result);
       }
+    }
+  },
+});
+
+const GridmapEditSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('set_cell').describe('Set a single cell'),
+    node_path: gridmapNodePath,
+    coords: Vector3iSchema.describe('Cell coordinates'),
+    item: z.number().int().describe('MeshLibrary item index'),
+    orientation: z.number().int().optional().describe('Orientation 0-23, default 0'),
+  }),
+  z.object({
+    action: z.literal('clear_cell').describe('Clear a single cell'),
+    node_path: gridmapNodePath,
+    coords: Vector3iSchema.describe('Cell coordinates'),
+  }),
+  z.object({ action: z.literal('clear').describe('Clear all cells'), node_path: gridmapNodePath }),
+  z.object({
+    action: z.literal('set_cells_batch').describe('Set many cells at once'),
+    node_path: gridmapNodePath,
+    cells: z
+      .array(
+        z.object({
+          coords: Vector3iSchema,
+          item: z.number().int(),
+          orientation: z.number().int().optional(),
+        })
+      )
+      .min(1)
+      .describe('Array of cells to set'),
+  }),
+]);
+
+type GridmapEditArgs = z.infer<typeof GridmapEditSchema>;
+
+export const gridmapEdit = defineTool({
+  name: 'godot_gridmap_edit',
+  annotations: {
+    title: 'GridMap (edit)',
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  description:
+    'Modify GridMap cells in the open scene: set a single cell to a MeshLibrary item with an orientation, clear a cell, clear the whole map, or set many cells in one batch. Use it to build or remove 3D grid content; cell data is stored base64-encoded in the .tscn, so editing the file is not an alternative, and set_cells_batch beats repeated set_cell calls for anything beyond a few cells. To inspect the map, its MeshLibrary, or existing cells without changing anything, use godot_gridmap_read.',
+  schema: GridmapEditSchema,
+  async execute(args: GridmapEditArgs, { godot }) {
+    switch (args.action) {
       case 'set_cell': {
         const result = await godot.sendCommand<{
           coords: { x: number; y: number; z: number };
@@ -289,4 +335,4 @@ export const gridmap = defineTool({
   },
 });
 
-export const tilemapTools = [tilemap, gridmap] as AnyToolDefinition[];
+export const tilemapTools = [tilemapRead, tilemapEdit, gridmapRead, gridmapEdit] as AnyToolDefinition[];

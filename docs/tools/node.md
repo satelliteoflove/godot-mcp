@@ -4,13 +4,14 @@ Node manipulation and script attachment tools
 
 ## Tools
 
-- [godot_node](#godot_node)
+- [godot_node_read](#godot_node_read)
+- [godot_node_edit](#godot_node_edit)
 
 ---
 
-## godot_node
+## godot_node_read
 
-Inspect and modify scene nodes in the editor: read effective properties (including class defaults a .tscn read cannot show), view the full scene tree, find nodes, update properties, and reparent (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). To add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with get_scene_tree.
+Inspect scene nodes in the editor: read a node's effective properties (including class defaults a .tscn read cannot show), view the full scene tree as the editor sees it (including children inside instanced sub-scenes), and find nodes by name or type. Use it to discover node paths and verify the live state of the open scene before or after making changes. It cannot modify anything; to update properties or reparent a node, use godot_node_edit.
 
 ### Actions
 
@@ -38,24 +39,6 @@ Find nodes by name and/or type
 | `type` | string | No | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
 | `root_path` | string | No | Path to start search from (defaults to scene root) |
 
-#### `update`
-
-Update a node's properties
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node |
-| `properties` | Record<string, unknown> | No | Properties to set on the node |
-
-#### `reparent`
-
-Move a node to a new parent
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to the node |
-| `new_parent_path` | string | Yes | Path to the new parent node |
-
 ### Examples
 
 ```json
@@ -81,7 +64,50 @@ Move a node to a new parent
 }
 ```
 
-*2 more actions available: `update`, `reparent`*
+---
+
+## godot_node_edit
+
+Modify scene nodes in the editor: update a node's properties, or reparent it (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). Use it to change existing nodes in the open scene. To inspect properties, the scene tree, or search for nodes, use godot_node_read; to add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with godot_node_read's get_scene_tree.
+
+### Actions
+
+#### `update`
+
+Update a node's properties
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
+| `properties` | Record<string, unknown> | No | Properties to set on the node |
+
+#### `reparent`
+
+Move a node to a new parent
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the node |
+| `new_parent_path` | string | Yes | Path to the new parent node |
+
+### Examples
+
+```json
+// update
+{
+  "action": "update",
+  "node_path": "/root/Main/Player"
+}
+```
+
+```json
+// reparent
+{
+  "action": "reparent",
+  "node_path": "/root/Main/Player",
+  "new_parent_path": "/root/UI"
+}
+```
 
 ---
 

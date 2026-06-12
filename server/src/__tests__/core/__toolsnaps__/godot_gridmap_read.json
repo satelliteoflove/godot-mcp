@@ -1,0 +1,71 @@
+{
+  "name": "godot_gridmap_read",
+  "description": "Inspect GridMap data in the open scene: list GridMap nodes, get map and MeshLibrary info, and read used cells, a single cell, or every cell using a given item. Use it whenever you need to know which mesh items occupy which 3D grid cells; cell data is stored base64-encoded in the .tscn, so reading the file is not an alternative. To place or clear cells, use godot_gridmap_edit instead.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list",
+          "get_info",
+          "get_meshlib_info",
+          "get_used_cells",
+          "get_cell",
+          "get_cells_by_item"
+        ],
+        "description": "list: List GridMap nodes in the scene\nget_info: Get GridMap info\nget_meshlib_info: Get the GridMap's MeshLibrary info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_by_item: Get all cells using a given MeshLibrary item"
+      },
+      "root_path": {
+        "description": "Starting node path (defaults to scene root) (for: list)",
+        "type": "string"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the GridMap (required for: get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item)"
+      },
+      "coords": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "z": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "z"
+        ],
+        "additionalProperties": false,
+        "description": "Cell coordinates (required for: get_cell)"
+      },
+      "item": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "MeshLibrary item index (required for: get_cells_by_item)"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "GridMap (read)",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

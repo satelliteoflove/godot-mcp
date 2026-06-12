@@ -10,7 +10,7 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 ## godot_resource
 
-Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.
+Inspect a Resource file by path with type-aware structured output (SpriteFrames animations, TileSet, Material, Texture2D, etc.). Use it for imported or binary resources (.res, .scn, compressed textures) that a plain file read cannot parse, or when you want sub-resources resolved into the engine's view rather than raw .tres text. For nodes inside a scene, use godot_node_read instead.
 
 ### Actions
 

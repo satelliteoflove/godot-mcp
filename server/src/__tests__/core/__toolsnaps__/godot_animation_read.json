@@ -1,0 +1,44 @@
+{
+  "name": "godot_animation_read",
+  "description": "Inspect animation data on AnimationPlayer nodes in the editor: list players in the scene, read a player's state and libraries, get an animation's tracks and properties, and read a track's keyframes. Reach for it to verify what the editor actually loaded, including after editing animation resources by hand. It changes and previews nothing; use godot_animation_edit to create, modify, or play animations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list_players",
+          "get_info",
+          "get_details",
+          "get_keyframes"
+        ],
+        "description": "list_players: List AnimationPlayer nodes in the scene\nget_info: Get AnimationPlayer state and library list\nget_details: Get an animation's tracks and properties\nget_keyframes: Get keyframes for a track"
+      },
+      "root_path": {
+        "description": "Starting node path (defaults to scene root) (for: list_players)",
+        "type": "string"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the AnimationPlayer (required for: get_info, get_details, get_keyframes)"
+      },
+      "animation_name": {
+        "type": "string",
+        "description": "Animation name (required for: get_details, get_keyframes)"
+      },
+      "track_index": {
+        "type": "number",
+        "description": "Track index (required for: get_keyframes)"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Animation (read)",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

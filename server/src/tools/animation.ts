@@ -21,7 +21,7 @@ const animNameField = z.string().describe('Animation name');
 const trackIndexField = z.number().describe('Track index');
 const keyframeIndexField = z.number().describe('Keyframe index');
 
-const AnimationSchema = z.discriminatedUnion('action', [
+const AnimationReadSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('list_players').describe('List AnimationPlayer nodes in the scene'),
     root_path: z.string().optional().describe('Starting node path (defaults to scene root)'),
@@ -41,6 +41,9 @@ const AnimationSchema = z.discriminatedUnion('action', [
     animation_name: animNameField,
     track_index: trackIndexField,
   }),
+]);
+
+const AnimationEditSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('play').describe('Play an animation'),
     node_path: nodePathField,
@@ -127,15 +130,21 @@ const AnimationSchema = z.discriminatedUnion('action', [
   }),
 ]);
 
-type AnimationArgs = z.infer<typeof AnimationSchema>;
+type AnimationReadArgs = z.infer<typeof AnimationReadSchema>;
+type AnimationEditArgs = z.infer<typeof AnimationEditSchema>;
 
-export const animation = defineTool({
-  name: 'godot_animation',
-  annotations: { title: 'Animation', readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+export const animationRead = defineTool({
+  name: 'godot_animation_read',
+  annotations: {
+    title: 'Animation (read)',
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false,
+  },
   description:
-    'Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe',
-  schema: AnimationSchema,
-  async execute(args: AnimationArgs, { godot }) {
+    "Inspect animation data on AnimationPlayer nodes in the editor: list players in the scene, read a player's state and libraries, get an animation's tracks and properties, and read a track's keyframes. Reach for it to verify what the editor actually loaded, including after editing animation resources by hand. It changes and previews nothing; use godot_animation_edit to create, modify, or play animations.",
+  schema: AnimationReadSchema,
+  async execute(args: AnimationReadArgs, { godot }) {
     switch (args.action) {
       case 'list_players': {
         const result = await godot.sendCommand<{
@@ -198,6 +207,23 @@ export const animation = defineTool({
         });
         return structured(result);
       }
+    }
+  },
+});
+
+export const animationEdit = defineTool({
+  name: 'godot_animation_edit',
+  annotations: {
+    title: 'Animation (edit)',
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+  },
+  description:
+    "Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.",
+  schema: AnimationEditSchema,
+  async execute(args: AnimationEditArgs, { godot }) {
+    switch (args.action) {
       case 'play': {
         const result = await godot.sendCommand<{ playing: string; from_position: number }>(
           'play_animation',
@@ -331,4 +357,4 @@ export const animation = defineTool({
   },
 });
 
-export const animationTools = [animation] as AnyToolDefinition[];
+export const animationTools = [animationRead, animationEdit] as AnyToolDefinition[];

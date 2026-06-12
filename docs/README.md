@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **16 tools** for AI-assisted Godot development.
+This server provides **21 tools** for AI-assisted Godot development.
 
 ## Quick Links
 
@@ -18,11 +18,11 @@ This server provides **16 tools** for AI-assisted Godot development.
 | Category | Tools | Description |
 |----------|-------|-------------|
 | [Scene](tools/scene.md) | 1 | Scene management tools |
-| [Node](tools/node.md) | 1 | Node manipulation and script attachment tools |
-| [Editor](tools/editor.md) | 1 | Editor control, debugging, and screenshot tools |
+| [Node](tools/node.md) | 2 | Node manipulation and script attachment tools |
+| [Editor](tools/editor.md) | 2 | Editor control, debugging, and screenshot tools |
 | [Project](tools/project.md) | 1 | Project information tools |
-| [Animation](tools/animation.md) | 1 | Animation query, playback, and editing tools |
-| [TileMapLayer/GridMap](tools/tilemap.md) | 2 | TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap) |
+| [Animation](tools/animation.md) | 2 | Animation query, playback, and editing tools |
+| [TileMapLayer/GridMap](tools/tilemap.md) | 4 | TileMapLayer and GridMap editing tools (uses Godot 4.3+ TileMapLayer, not deprecated TileMap) |
 | [Resource](tools/resource.md) | 1 | Resource inspection tools for SpriteFrames, TileSet, Materials, etc. |
 | [Scene3D](tools/scene3d.md) | 1 | 3D spatial information and bounding box tools |
 | [Documentation](tools/docs.md) | 1 | Fetch Godot Engine documentation with smart extraction |

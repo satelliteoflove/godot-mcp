@@ -1,0 +1,44 @@
+{
+  "name": "godot_node_edit",
+  "description": "Modify scene nodes in the editor: update a node's properties, or reparent it (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). Use it to change existing nodes in the open scene. To inspect properties, the scene tree, or search for nodes, use godot_node_read; to add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with godot_node_read's get_scene_tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "update",
+          "reparent"
+        ],
+        "description": "update: Update a node's properties\nreparent: Move a node to a new parent"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the node"
+      },
+      "properties": {
+        "description": "Properties to set on the node (for: update)",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "new_parent_path": {
+        "type": "string",
+        "description": "Path to the new parent node (required for: reparent)"
+      }
+    },
+    "required": [
+      "action",
+      "node_path"
+    ]
+  },
+  "annotations": {
+    "title": "Node (edit)",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  }
+}

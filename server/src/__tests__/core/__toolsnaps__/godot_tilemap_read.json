@@ -1,0 +1,140 @@
+{
+  "name": "godot_tilemap_read",
+  "description": "Inspect TileMapLayer data in the open scene: list layers, get layer and TileSet info, read used cells, a single cell, or a rectangular region, and convert between local positions and map coordinates. Use it whenever you need to know what tiles are placed where; cell data is stored base64-encoded in the .tscn, so reading the file is not an alternative. To place, erase, or clear tiles, use godot_tilemap_edit instead.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list_layers",
+          "get_info",
+          "get_tileset_info",
+          "get_used_cells",
+          "get_cell",
+          "get_cells_in_region",
+          "convert_coords"
+        ],
+        "description": "list_layers: List TileMapLayer nodes in the scene\nget_info: Get TileMapLayer info\nget_tileset_info: Get the layer's TileSet info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_in_region: Get cells within a rectangular region\nconvert_coords: Convert between local position and map coordinates"
+      },
+      "root_path": {
+        "description": "Starting node path (defaults to scene root) (for: list_layers)",
+        "type": "string"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the TileMapLayer (required for: get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords)"
+      },
+      "coords": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "description": "Cell coordinates (required for: get_cell)"
+      },
+      "min_coords": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "description": "Minimum corner of region (required for: get_cells_in_region)"
+      },
+      "max_coords": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "description": "Maximum corner of region (required for: get_cells_in_region)"
+      },
+      "local_position": {
+        "description": "Local position to convert to map coords (for: convert_coords)",
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      },
+      "map_coords": {
+        "description": "Map coordinates to convert to local position (for: convert_coords)",
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "TileMapLayer (read)",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

@@ -76,7 +76,7 @@ export const scene3d = defineTool({
   name: 'godot_scene3d',
   annotations: { title: '3D Scene Info', readOnlyHint: true, openWorldHint: false },
   description:
-    'Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.',
+    'Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs, combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.',
   schema: Scene3DSchema,
   async execute(args: Scene3DArgs, { godot }) {
     switch (args.action) {

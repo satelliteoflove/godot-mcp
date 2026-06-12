@@ -4,13 +4,14 @@ Editor control, debugging, and screenshot tools
 
 ## Tools
 
-- [godot_editor](#godot_editor)
+- [godot_editor_read](#godot_editor_read)
+- [godot_editor_edit](#godot_editor_edit)
 
 ---
 
-## godot_editor
+## godot_editor_read
 
-Control the Godot editor: get state, manage selection, run/stop project, restart the editor, capture screenshots, read log messages and stack traces, control 2D viewport
+Observe the editor and running game: get editor state (open scene, play state, camera, viewport), read the current node selection, pull editor log messages (with an incremental cursor) and stack traces, and capture lossless PNG screenshots of the running game or an editor viewport. Reach for it to check what the editor sees before and after a change; screenshot_game needs a running game, while every other action works in the bare editor. It changes nothing - to select nodes, run/stop/restart, or move the 2D viewport use godot_editor_edit; errors from the running game (not the editor process) come via minimal-godot-mcp's get_console_output when that companion server is installed.
 
 ### Actions
 
@@ -25,37 +26,6 @@ Get editor state: current scene, play state, version, camera, viewport
 Get the currently selected nodes
 
 *No parameters.*
-
-#### `select`
-
-Select a node in the editor
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `node_path` | string | Yes | Path to node to select |
-
-#### `run`
-
-Run the project
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `scene_path` | string | No | Scene to run (optional, defaults to main scene) |
-| `frozen` | boolean | No | Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance. |
-
-#### `stop`
-
-Stop the running project
-
-*No parameters.*
-
-#### `restart`
-
-Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `save` | boolean | No | Save the project before restarting (default: true). Set false to discard unsaved editor changes. |
 
 #### `get_log_messages`
 
@@ -91,16 +61,6 @@ Capture a lossless PNG screenshot of an editor viewport
 | `viewport` | `2d`, `3d` | No | Which editor viewport to capture |
 | `max_width` | integer | No | Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. |
 
-#### `set_viewport_2d`
-
-Center and zoom the 2D editor viewport
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `center_x` | number | No | X coordinate to center the 2D viewport on |
-| `center_y` | number | No | Y coordinate to center the 2D viewport on |
-| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% |
-
 ### Examples
 
 ```json
@@ -118,6 +78,66 @@ Center and zoom the 2D editor viewport
 ```
 
 ```json
+// get_log_messages
+{
+  "action": "get_log_messages"
+}
+```
+
+*3 more actions available: `get_stack_trace`, `screenshot_game`, `screenshot_editor`*
+
+---
+
+## godot_editor_edit
+
+Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it), and use restart to recover when externally edited .gd files or a stale project.godot have left the running editor out of sync with disk. For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.
+
+### Actions
+
+#### `select`
+
+Select a node in the editor
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to node to select |
+
+#### `run`
+
+Run the project
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `scene_path` | string | No | Scene to run (optional, defaults to main scene) |
+| `frozen` | boolean | No | Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance. |
+
+#### `stop`
+
+Stop the running project
+
+*No parameters.*
+
+#### `restart`
+
+Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `save` | boolean | No | Save the project before restarting (default: true). Set false to discard unsaved editor changes. |
+
+#### `set_viewport_2d`
+
+Center and zoom the 2D editor viewport
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `center_x` | number | No | X coordinate to center the 2D viewport on |
+| `center_y` | number | No | Y coordinate to center the 2D viewport on |
+| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% |
+
+### Examples
+
+```json
 // select
 {
   "action": "select",
@@ -125,7 +145,21 @@ Center and zoom the 2D editor viewport
 }
 ```
 
-*8 more actions available: `run`, `stop`, `restart`, `get_log_messages`, `get_stack_trace`, `screenshot_game`, `screenshot_editor`, `set_viewport_2d`*
+```json
+// run
+{
+  "action": "run"
+}
+```
+
+```json
+// stop
+{
+  "action": "stop"
+}
+```
+
+*2 more actions available: `restart`, `set_viewport_2d`*
 
 ---
 

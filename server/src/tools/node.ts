@@ -8,7 +8,7 @@ const propertiesField = z
   .optional()
   .describe('Properties to set on the node');
 
-const NodeSchema = z
+const NodeReadSchema = z
   .discriminatedUnion('action', [
     z.object({
       action: z.literal('get_properties').describe('Get a node\'s properties'),
@@ -36,16 +36,6 @@ const NodeSchema = z
         .optional()
         .describe('Path to start search from (defaults to scene root)'),
     }),
-    z.object({
-      action: z.literal('update').describe('Update a node\'s properties'),
-      node_path: z.string().describe('Path to the node'),
-      properties: propertiesField,
-    }),
-    z.object({
-      action: z.literal('reparent').describe('Move a node to a new parent'),
-      node_path: z.string().describe('Path to the node'),
-      new_parent_path: z.string().describe('Path to the new parent node'),
-    }),
   ])
   // Constraints a discriminated union can't express on its own, so they live here:
   .refine(
@@ -53,15 +43,35 @@ const NodeSchema = z
     { message: 'find requires name_pattern and/or type' }
   );
 
-type NodeArgs = z.infer<typeof NodeSchema>;
+type NodeReadArgs = z.infer<typeof NodeReadSchema>;
 
-export const node = defineTool({
-  name: 'godot_node',
-  annotations: { title: 'Node', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+const NodeEditSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('update').describe('Update a node\'s properties'),
+    node_path: z.string().describe('Path to the node'),
+    properties: propertiesField,
+  }),
+  z.object({
+    action: z.literal('reparent').describe('Move a node to a new parent'),
+    node_path: z.string().describe('Path to the node'),
+    new_parent_path: z.string().describe('Path to the new parent node'),
+  }),
+]);
+
+type NodeEditArgs = z.infer<typeof NodeEditSchema>;
+
+export const nodeRead = defineTool({
+  name: 'godot_node_read',
+  annotations: {
+    title: 'Node (read)',
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false,
+  },
   description:
-    'Inspect and modify scene nodes in the editor: read effective properties (including class defaults a .tscn read cannot show), view the full scene tree, find nodes, update properties, and reparent (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). To add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with get_scene_tree.',
-  schema: NodeSchema,
-  async execute(args: NodeArgs, { godot }) {
+    'Inspect scene nodes in the editor: read a node\'s effective properties (including class defaults a .tscn read cannot show), view the full scene tree as the editor sees it (including children inside instanced sub-scenes), and find nodes by name or type. Use it to discover node paths and verify the live state of the open scene before or after making changes. It cannot modify anything; to update properties or reparent a node, use godot_node_edit.',
+  schema: NodeReadSchema,
+  async execute(args: NodeReadArgs, { godot }) {
     switch (args.action) {
       case 'get_properties': {
         const result = await godot.sendCommand<{
@@ -90,7 +100,24 @@ export const node = defineTool({
         const lines = result.matches.map((m) => `${m.path} (${m.type})`);
         return `Found ${result.count} nodes:\n${lines.join('\n')}`;
       }
+    }
+  },
+});
 
+export const nodeEdit = defineTool({
+  name: 'godot_node_edit',
+  annotations: {
+    title: 'Node (edit)',
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  description:
+    'Modify scene nodes in the editor: update a node\'s properties, or reparent it (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). Use it to change existing nodes in the open scene. To inspect properties, the scene tree, or search for nodes, use godot_node_read; to add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with godot_node_read\'s get_scene_tree.',
+  schema: NodeEditSchema,
+  async execute(args: NodeEditArgs, { godot }) {
+    switch (args.action) {
       case 'update': {
         await godot.sendCommand('update_node', {
           node_path: args.node_path,
@@ -110,4 +137,4 @@ export const node = defineTool({
   },
 });
 
-export const nodeTools = [node] as AnyToolDefinition[];
+export const nodeTools = [nodeRead, nodeEdit] as AnyToolDefinition[];

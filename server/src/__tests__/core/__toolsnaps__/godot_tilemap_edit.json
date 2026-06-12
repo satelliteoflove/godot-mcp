@@ -1,33 +1,22 @@
 {
-  "name": "godot_tilemap",
-  "description": "Query and edit TileMapLayer data: list layers, get info, get/set cells, convert coordinates",
+  "name": "godot_tilemap_edit",
+  "description": "Modify TileMapLayer cells in the open scene: set a single cell, erase a cell, clear a whole layer, or set many cells in one batch. Use it to paint or remove tiles; cell data is stored base64-encoded in the .tscn, so editing the file is not an alternative, and set_cells_batch beats repeated set_cell calls for anything beyond a few tiles. To inspect layers, TileSets, or existing cells without changing anything, use godot_tilemap_read.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "list_layers",
-          "get_info",
-          "get_tileset_info",
-          "get_used_cells",
-          "get_cell",
-          "get_cells_in_region",
-          "convert_coords",
           "set_cell",
           "erase_cell",
           "clear_layer",
           "set_cells_batch"
         ],
-        "description": "list_layers: List TileMapLayer nodes in the scene\nget_info: Get TileMapLayer info\nget_tileset_info: Get the layer's TileSet info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_in_region: Get cells within a rectangular region\nconvert_coords: Convert between local position and map coordinates\nset_cell: Set a single cell\nerase_cell: Erase a single cell\nclear_layer: Clear all cells in the layer\nset_cells_batch: Set many cells at once"
-      },
-      "root_path": {
-        "description": "Starting node path (defaults to scene root) (for: list_layers)",
-        "type": "string"
+        "description": "set_cell: Set a single cell\nerase_cell: Erase a single cell\nclear_layer: Clear all cells in the layer\nset_cells_batch: Set many cells at once"
       },
       "node_path": {
         "type": "string",
-        "description": "Path to the TileMapLayer (required for: get_info, get_tileset_info, get_used_cells, get_cell, get_cells_in_region, convert_coords, set_cell, erase_cell, clear_layer, set_cells_batch)"
+        "description": "Path to the TileMapLayer"
       },
       "coords": {
         "type": "object",
@@ -48,87 +37,7 @@
           "y"
         ],
         "additionalProperties": false,
-        "description": "Cell coordinates (required for: get_cell, set_cell, erase_cell)"
-      },
-      "min_coords": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "additionalProperties": false,
-        "description": "Minimum corner of region (required for: get_cells_in_region)"
-      },
-      "max_coords": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "additionalProperties": false,
-        "description": "Maximum corner of region (required for: get_cells_in_region)"
-      },
-      "local_position": {
-        "description": "Local position to convert to map coords (for: convert_coords)",
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "number"
-          },
-          "y": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "additionalProperties": false
-      },
-      "map_coords": {
-        "description": "Map coordinates to convert to local position (for: convert_coords)",
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "additionalProperties": false
+        "description": "Cell coordinates (required for: set_cell, erase_cell)"
       },
       "source_id": {
         "description": "TileSet source ID, default 0 (for: set_cell)",
@@ -229,13 +138,15 @@
       }
     },
     "required": [
-      "action"
+      "action",
+      "node_path"
     ]
   },
   "annotations": {
-    "title": "TileMapLayer",
+    "title": "TileMapLayer (edit)",
     "readOnlyHint": false,
     "destructiveHint": true,
+    "idempotentHint": true,
     "openWorldHint": false
   }
 }

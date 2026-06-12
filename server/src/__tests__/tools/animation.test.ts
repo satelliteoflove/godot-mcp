@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createMockGodot, createToolContext, MockGodotConnection, structuredOf } from '../helpers/mock-godot.js';
-import { animation } from '../../tools/animation.js';
+import { animationRead, animationEdit } from '../../tools/animation.js';
 
-describe('animation tool', () => {
+describe('animationRead tool', () => {
   let mock: MockGodotConnection;
 
   beforeEach(() => {
@@ -14,7 +14,7 @@ describe('animation tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ animation_players: [] });
-      expect(await animation.execute({ action: 'list_players' }, ctx))
+      expect(await animationRead.execute({ action: 'list_players' }, ctx))
         .toBe('No AnimationPlayer nodes found in scene');
 
       mock.mockResponse({
@@ -23,7 +23,7 @@ describe('animation tool', () => {
           { path: '/root/Enemy/AnimPlayer', name: 'AnimPlayer' },
         ],
       });
-      const result = await animation.execute({ action: 'list_players' }, ctx);
+      const result = await animationRead.execute({ action: 'list_players' }, ctx);
       expect(result).toContain('Found 2 AnimationPlayer(s)');
       expect(result).toContain('/root/Player/AnimPlayer');
     });
@@ -33,14 +33,14 @@ describe('animation tool', () => {
 
       const info = { current_animation: 'idle', is_playing: true };
       mock.mockResponse(info);
-      expect(structuredOf(await animation.execute({
+      expect(structuredOf(await animationRead.execute({
         action: 'get_info',
         node_path: '/root/AnimPlayer',
       }, ctx) as string)).toEqual(info);
 
       const details = { name: 'walk', length: 1.5, track_count: 3 };
       mock.mockResponse(details);
-      expect(structuredOf(await animation.execute({
+      expect(structuredOf(await animationRead.execute({
         action: 'get_details',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -48,7 +48,7 @@ describe('animation tool', () => {
 
       const keyframes = { track_path: 'Sprite:frame', keyframes: [{ time: 0, value: 0 }] };
       mock.mockResponse(keyframes);
-      expect(structuredOf(await animation.execute({
+      expect(structuredOf(await animationRead.execute({
         action: 'get_keyframes',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -60,11 +60,35 @@ describe('animation tool', () => {
       mock.mockError(new Error('Node not found'));
       const ctx = createToolContext(mock);
 
-      await expect(animation.execute({
+      await expect(animationRead.execute({
         action: 'get_info',
         node_path: '/root/Missing',
       }, ctx)).rejects.toThrow('Node not found');
     });
+  });
+
+  describe('schema boundaries', () => {
+    it('rejects edit actions belonging to godot_animation_edit', () => {
+      expect(animationRead.schema.safeParse({
+        action: 'play',
+        node_path: '/root/AnimPlayer',
+        animation_name: 'run',
+      }).success).toBe(false);
+
+      expect(animationRead.schema.safeParse({
+        action: 'delete',
+        node_path: '/root/AnimPlayer',
+        animation_name: 'old_anim',
+      }).success).toBe(false);
+    });
+  });
+});
+
+describe('animationEdit tool', () => {
+  let mock: MockGodotConnection;
+
+  beforeEach(() => {
+    mock = createMockGodot();
   });
 
   describe('playback actions', () => {
@@ -72,20 +96,20 @@ describe('animation tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ playing: 'run', from_position: 0 });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'play',
         node_path: '/root/AnimPlayer',
         animation_name: 'run',
       }, ctx)).toBe('Playing animation: run');
 
       mock.mockResponse({});
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'stop',
         node_path: '/root/AnimPlayer',
       }, ctx)).toBe('Animation stopped');
 
       mock.mockResponse({ position: 1.5 });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'seek',
         node_path: '/root/AnimPlayer',
         seconds: 1.5,
@@ -96,7 +120,7 @@ describe('animation tool', () => {
       mock.mockResponse({ playing: 'walk', from_position: 0 });
       const ctx = createToolContext(mock);
 
-      await animation.execute({
+      await animationEdit.execute({
         action: 'play',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -116,7 +140,7 @@ describe('animation tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ created: 'new_anim', library: '' });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'create',
         node_path: '/root/AnimPlayer',
         animation_name: 'new_anim',
@@ -124,7 +148,7 @@ describe('animation tool', () => {
       }, ctx)).toBe('Created animation: new_anim');
 
       mock.mockResponse({ created: 'walk', library: 'movement' });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'create',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -132,7 +156,7 @@ describe('animation tool', () => {
       }, ctx)).toBe('Created animation: walk in library: movement');
 
       mock.mockResponse({ deleted: 'old_anim' });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'delete',
         node_path: '/root/AnimPlayer',
         animation_name: 'old_anim',
@@ -143,7 +167,7 @@ describe('animation tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ track_index: 0, track_path: 'Sprite2D:frame', track_type: 'value' });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'add_track',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -152,7 +176,7 @@ describe('animation tool', () => {
       }, ctx)).toBe('Added track 0: value -> Sprite2D:frame');
 
       mock.mockResponse({ removed_track: 2 });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'remove_track',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -164,7 +188,7 @@ describe('animation tool', () => {
       const ctx = createToolContext(mock);
 
       mock.mockResponse({ keyframe_index: 0, time: 0.5, value: 3 });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'add_keyframe',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -174,7 +198,7 @@ describe('animation tool', () => {
       }, ctx)).toBe('Added keyframe 0 at 0.5s');
 
       mock.mockResponse({ removed_keyframe: 1, track_index: 0 });
-      expect(await animation.execute({
+      expect(await animationEdit.execute({
         action: 'remove_keyframe',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -183,7 +207,7 @@ describe('animation tool', () => {
       }, ctx)).toBe('Removed keyframe 1 from track 0');
 
       mock.mockResponse({ updated_keyframe: 0, changes: { time: 0.75, value: 5 } });
-      const result = await animation.execute({
+      const result = await animationEdit.execute({
         action: 'update_keyframe',
         node_path: '/root/AnimPlayer',
         animation_name: 'walk',
@@ -193,6 +217,19 @@ describe('animation tool', () => {
         value: 5,
       }, ctx);
       expect(result).toContain('Updated keyframe 0');
+    });
+  });
+
+  describe('schema boundaries', () => {
+    it('rejects read actions belonging to godot_animation_read', () => {
+      expect(animationEdit.schema.safeParse({
+        action: 'list_players',
+      }).success).toBe(false);
+
+      expect(animationEdit.schema.safeParse({
+        action: 'get_info',
+        node_path: '/root/AnimPlayer',
+      }).success).toBe(false);
     });
   });
 });
