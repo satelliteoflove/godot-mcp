@@ -1,32 +1,20 @@
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-
-type LogLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency';
-
-interface QueuedMessage {
-  level: LogLevel;
-  logger: string;
-  data: unknown;
-}
+type LogLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical';
 
 const LOGGER_NAME = 'godot-mcp';
-const MAX_QUEUE_SIZE = 100;
 const RATE_LIMIT_WINDOW_MS = 5000;
 const MAX_MESSAGES_PER_WINDOW = 10;
 
-let mcpServer: Server | null = null;
-let messageQueue: QueuedMessage[] = [];
+// stdio servers log to stderr (spec 2025-11-25 blesses this explicitly); the
+// MCP logging capability is not declared, so no notifications/message is sent.
+// debug/info/notice are gated behind GODOT_MCP_VERBOSE to keep stderr quiet in
+// normal operation — warnings and errors always print.
+const VERBOSE_LEVELS: ReadonlySet<LogLevel> = new Set(['debug', 'info', 'notice']);
+
 const rateLimitCounts = new Map<string, { count: number; windowStart: number }>();
 
-export function setMcpServer(server: Server): void {
-  mcpServer = server;
-  flushQueue();
-}
-
-function flushQueue(): void {
-  for (const msg of messageQueue) {
-    sendToMcp(msg.level, msg.data, msg.logger);
-  }
-  messageQueue = [];
+function isVerboseEnabled(): boolean {
+  const envValue = process.env.GODOT_MCP_VERBOSE;
+  return envValue === '1' || envValue?.toLowerCase() === 'true';
 }
 
 function shouldRateLimit(key: string): boolean {
@@ -40,26 +28,10 @@ function shouldRateLimit(key: string): boolean {
   return entry.count > MAX_MESSAGES_PER_WINDOW;
 }
 
-function sendToMcp(level: LogLevel, data: unknown, loggerName: string = LOGGER_NAME): void {
-  if (mcpServer) {
-    mcpServer.sendLoggingMessage({ level, logger: loggerName, data }).catch(() => {});
-  }
-}
-
 function log(level: LogLevel, message: string, data?: Record<string, unknown>): void {
-  const logData = data ? { message, ...data } : message;
-
-  // Send to MCP (for compliant clients)
-  if (mcpServer) {
-    sendToMcp(level, logData);
-  } else if (messageQueue.length < MAX_QUEUE_SIZE) {
-    messageQueue.push({ level, logger: LOGGER_NAME, data: logData });
-  }
-
-  // Write errors/warnings to stderr (visible during development)
-  if (level === 'error' || level === 'critical' || level === 'warning') {
-    console.error(`[${LOGGER_NAME}] [${level}] ${message}`);
-  }
+  if (VERBOSE_LEVELS.has(level) && !isVerboseEnabled()) return;
+  const suffix = data ? ` ${JSON.stringify(data)}` : '';
+  console.error(`[${LOGGER_NAME}] [${level}] ${message}${suffix}`);
 }
 
 function logRateLimited(level: LogLevel, key: string, message: string, data?: Record<string, unknown>): void {
@@ -80,11 +52,5 @@ export const logger = {
 };
 
 export function _resetForTesting(): void {
-  mcpServer = null;
-  messageQueue = [];
   rateLimitCounts.clear();
-}
-
-export function _getQueueForTesting(): QueuedMessage[] {
-  return messageQueue;
 }

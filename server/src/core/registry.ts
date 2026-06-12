@@ -33,14 +33,12 @@ class ToolRegistry {
     name: string;
     description: string;
     inputSchema: object;
-    outputSchema?: object;
     annotations?: ToolAnnotations;
   }> {
     return Array.from(this.tools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: toInputSchema(tool.schema),
-      ...(tool.outputSchema ? { outputSchema: toInputSchema(tool.outputSchema) } : {}),
       ...(tool.annotations ? { annotations: tool.annotations } : {}),
     }));
   }

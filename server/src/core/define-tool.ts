@@ -6,7 +6,6 @@ export function defineTool<TSchema extends z.ZodType>(config: {
   description: string;
   annotations?: ToolAnnotations;
   schema: TSchema;
-  outputSchema?: z.ZodType;
   execute: (args: z.infer<TSchema>, ctx: ToolContext) => Promise<ToolExecuteResult>;
 }): ToolDefinition<TSchema> {
   return config;

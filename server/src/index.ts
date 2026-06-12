@@ -10,7 +10,7 @@ import { registry } from './core/registry.js';
 import { isStructuredResult } from './core/structured.js';
 import { registerAllTools } from './tools/index.js';
 import { GodotCommandError } from './utils/errors.js';
-import { setMcpServer, logger } from './utils/logger.js';
+import { logger } from './utils/logger.js';
 import { getServerVersion } from './version.js';
 
 registerAllTools();
@@ -19,18 +19,32 @@ export async function main() {
   const server = new Server(
     {
       name: 'godot-mcp',
+      title: 'Godot MCP',
       version: getServerVersion(),
+      description:
+        'Eyes and hands in the Godot editor and the running game: scene and node editing, ' +
+        'input injection, deterministic game-time control, and live runtime state for ' +
+        'agent-driven playtesting.',
+      websiteUrl: 'https://github.com/satelliteoflove/godot-mcp',
     },
     {
       capabilities: {
         tools: {},
-        logging: {},
       },
-      // Injected into the client's context at connect time: the traps below
-      // produce NO error anywhere, so guidance must arrive before the symptom
-      // is misread (e.g. "too dark" tuned as lighting when the mesh data is
-      // corrupt). Keep this short — it is paid by every session.
+      // Injected into the client's context at connect time. With tool search
+      // deferring schemas, this is the primary session-start surface: lead
+      // with WHAT the tools cover (so search routes here), then the pitfalls
+      // that produce no error anywhere and get misread without warning.
+      // Keep under 2KB — Claude Code truncates beyond that.
       instructions:
+        'godot-mcp controls a live Godot editor and the game it runs: open/save scenes, ' +
+        'inspect and edit nodes, animations, tilemaps, and gridmaps, read project settings ' +
+        'and engine-computed 3D data, run the game and drive it like a player (input ' +
+        'injection, frozen game-time stepping, in-game GDScript for scenario setup), and ' +
+        'observe it cheaply (runtime-state digests instead of screenshots, profiler, editor ' +
+        'logs). Reach for godot_* tools whenever a task touches a Godot project; all ' +
+        'godot_*_read tools are safe to auto-allow. Requires the editor to be open with the ' +
+        'godot-mcp addon enabled. ' +
         'Godot pitfalls that produce no errors: ' +
         '(1) If 3D rendering looks wrong with nothing in any log (black/too-dark surfaces, ' +
         'invisible or one-sided walls/floors, lighting that ignores light changes), run ' +
@@ -39,12 +53,12 @@ export async function main() {
         '(2) SDFGI replaces constant ambient light: to lift shadow sides, add a dim ' +
         'shadowless DirectionalLight (light_specular=0) opposing the key light instead of ' +
         'raising ambient_light_energy, which will appear to do nothing. ' +
-        '(3) After editing .gd files on disk, run godot_editor_edit restart — the editor does ' +
-        'not reliably rescan externally modified scripts.',
+        '(3) After editing .gd files on disk, run godot_editor_edit restart — the editor ' +
+        'does not reliably rescan externally modified scripts. ' +
+        '(4) After editing project.godot on disk, run godot_project check_stale — the ' +
+        'editor never re-reads it on its own.',
     }
   );
-
-  setMcpServer(server);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return { tools: registry.getToolList() };

@@ -47,7 +47,7 @@
   "author": "Christopher Childress",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "ws": "^8.18.0",
     "zod": "^4.3.6"
   },

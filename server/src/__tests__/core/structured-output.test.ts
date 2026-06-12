@@ -32,15 +32,13 @@ describe('structured tool output', () => {
     expect(isStructuredResult({ type: 'image', data: 'x', mimeType: 'image/png' })).toBe(false);
   });
 
-  it('advertises outputSchema for godot_resource', () => {
-    const tool = byName().get('godot_resource');
-    const schema = tool?.outputSchema as { type?: string; required?: string[] } | undefined;
-    expect(schema?.type).toBe('object');
-    expect(schema?.required).toEqual(expect.arrayContaining(['resource_path', 'resource_type']));
-  });
-
-  it('omits outputSchema for tools that do not define one', () => {
-    expect(byName().get('godot_scene')).not.toHaveProperty('outputSchema');
+  it('no tool advertises outputSchema (policy: structuredContent + text fallback only)', () => {
+    // Declaring outputSchema creates a MUST-conform contract and has broken
+    // whole tools on schema-strict clients; GitHub's and Playwright's MCP
+    // servers skip it too. structuredContent still ships on every query tool.
+    for (const tool of byName().values()) {
+      expect(tool, tool.name).not.toHaveProperty('outputSchema');
+    }
   });
 
   it('resource get_info returns a structured result, not a string', async () => {

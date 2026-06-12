@@ -1,102 +1,23 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { logger, setMcpServer, _resetForTesting, _getQueueForTesting } from '../../utils/logger.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { logger, _resetForTesting } from '../../utils/logger.js';
 
-describe('logger', () => {
+describe('logger (stderr-only)', () => {
   beforeEach(() => {
     _resetForTesting();
+    delete process.env.GODOT_MCP_VERBOSE;
   });
 
-  describe('queue behavior', () => {
-    it('queues messages when no server is bound and flushes on bind', () => {
-      logger.info('queued message');
-      logger.error('queued error', { code: 123 });
-
-      const queue = _getQueueForTesting();
-      expect(queue).toHaveLength(2);
-
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
-      };
-      setMcpServer(mockServer as never);
-
-      expect(mockServer.sendLoggingMessage).toHaveBeenCalledTimes(2);
-      expect(_getQueueForTesting()).toHaveLength(0);
-    });
-
-    it('respects max queue size of 100', () => {
-      for (let i = 0; i < 150; i++) {
-        logger.info(`message ${i}`);
-      }
-      expect(_getQueueForTesting().length).toBeLessThanOrEqual(100);
-    });
+  afterEach(() => {
+    delete process.env.GODOT_MCP_VERBOSE;
   });
 
-  describe('log levels', () => {
-    const levels = ['debug', 'info', 'notice', 'warning', 'error', 'critical'] as const;
-
-    it.each(levels)('sends %s level correctly', (level) => {
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
-      };
-      setMcpServer(mockServer as never);
-
-      logger[level](`${level} message`);
-
-      expect(mockServer.sendLoggingMessage).toHaveBeenCalledWith({
-        level,
-        logger: 'godot-mcp',
-        data: `${level} message`,
-      });
-    });
-  });
-
-  describe('structured data', () => {
-    it('formats message with additional data as object', () => {
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
-      };
-      setMcpServer(mockServer as never);
-
-      logger.error('Connection failed', { host: 'localhost', port: 6550 });
-
-      expect(mockServer.sendLoggingMessage).toHaveBeenCalledWith({
-        level: 'error',
-        logger: 'godot-mcp',
-        data: { message: 'Connection failed', host: 'localhost', port: 6550 },
-      });
-    });
-  });
-
-  describe('rate limiting', () => {
-    it('limits messages per key and uses separate limits for different keys', () => {
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
-      };
-      setMcpServer(mockServer as never);
-
-      for (let i = 0; i < 15; i++) {
-        logger.warningRateLimited('key-a', `message a${i}`);
-      }
-      const callsAfterKeyA = mockServer.sendLoggingMessage.mock.calls.length;
-      expect(callsAfterKeyA).toBeLessThanOrEqual(10);
-
-      for (let i = 0; i < 5; i++) {
-        logger.warningRateLimited('key-b', `message b${i}`);
-      }
-      expect(mockServer.sendLoggingMessage.mock.calls.length).toBe(callsAfterKeyA + 5);
-    });
-  });
-
-  describe('stderr output', () => {
-    it('writes warning/error/critical to stderr, not info/debug', () => {
+  describe('level gating', () => {
+    it('writes warning/error/critical to stderr, not info/debug/notice', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockResolvedValue(undefined),
-      };
-      setMcpServer(mockServer as never);
 
       logger.debug('debug');
       logger.info('info');
+      logger.notice('notice');
       expect(consoleSpy).not.toHaveBeenCalled();
 
       logger.warning('warning');
@@ -106,16 +27,50 @@ describe('logger', () => {
 
       consoleSpy.mockRestore();
     });
+
+    it('GODOT_MCP_VERBOSE enables debug/info/notice output', () => {
+      process.env.GODOT_MCP_VERBOSE = '1';
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      logger.debug('debug');
+      logger.info('info');
+      logger.notice('notice');
+      expect(consoleSpy).toHaveBeenCalledTimes(3);
+
+      consoleSpy.mockRestore();
+    });
   });
 
-  describe('error handling', () => {
-    it('silently handles sendLoggingMessage failures', () => {
-      const mockServer = {
-        sendLoggingMessage: vi.fn().mockRejectedValue(new Error('send failed')),
-      };
-      setMcpServer(mockServer as never);
+  describe('structured data', () => {
+    it('appends data as JSON after the message', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      expect(() => logger.info('this should not throw')).not.toThrow();
+      logger.error('Connection failed', { host: 'localhost', port: 6550 });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[godot-mcp] [error] Connection failed {"host":"localhost","port":6550}'
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('rate limiting', () => {
+    it('limits messages per key and uses separate limits for different keys', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      for (let i = 0; i < 15; i++) {
+        logger.warningRateLimited('key-a', `message a${i}`);
+      }
+      const callsAfterKeyA = consoleSpy.mock.calls.length;
+      expect(callsAfterKeyA).toBeLessThanOrEqual(10);
+
+      for (let i = 0; i < 5; i++) {
+        logger.warningRateLimited('key-b', `message b${i}`);
+      }
+      expect(consoleSpy.mock.calls.length).toBe(callsAfterKeyA + 5);
+
+      consoleSpy.mockRestore();
     });
   });
 });
