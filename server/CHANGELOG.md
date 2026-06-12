@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.23.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.22.0...godot-mcp-v3.23.0) (2026-06-12)
+
+
+### Features
+
+* godot_validate_meshes — detect silently corrupt procedural mesh data ([#309](https://github.com/satelliteoflove/godot-mcp/issues/309)) ([cf16893](https://github.com/satelliteoflove/godot-mcp/commit/cf16893dc9a17dd00774e258c2dd97d0441e0ec6))
+
 ## [3.22.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.21.1...godot-mcp-v3.22.0) (2026-06-11)
 
 
