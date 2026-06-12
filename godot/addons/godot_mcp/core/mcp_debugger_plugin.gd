@@ -19,6 +19,10 @@ var _active_session_id: int = -1
 # has_active_session() alone is not enough to know input will land (#241).
 var _bridge_ready: bool = false
 var _pending_screenshot: bool = false
+# Mesh-integrity warnings that rode along with the last screenshot result
+# (element 6 of screenshot_result; empty for bridges that predate it). Held
+# here instead of widening the screenshot_received signal signature.
+var last_screenshot_warnings: Array = []
 var _pending_debug_output: bool = false
 var _pending_performance_metrics: bool = false
 var _pending_find_nodes: bool = false
@@ -151,6 +155,7 @@ func _handle_screenshot_result(data: Array) -> void:
 	var width: int = data[2]
 	var height: int = data[3]
 	var error: String = data[4]
+	last_screenshot_warnings = data[5] if data.size() > 5 and data[5] is Array else []
 	screenshot_received.emit(success, image_base64, width, height, error)
 
 

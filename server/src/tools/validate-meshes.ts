@@ -48,7 +48,8 @@ export const validateMeshes = defineTool({
     'normals), dropped triangles / orphaned vertices (e.g. SurfaceTool.append_from of an ' +
     'indexed mesh mixed with raw add_vertex silently discards most of the batch), degenerate ' +
     'UVs that make generate_tangents() emit garbage, and NaN/zero normals or tangents. Every ' +
-    'finding includes its likely cause and the fix. Read-only and cheap. Also run it after ' +
+    'finding includes its likely cause and the fix. Read-only and cheap. Walks the current ' +
+    'scene only (meshes parented elsewhere under root are not seen). Also run it after ' +
     'writing or changing mesh-generation code — BEFORE spending time tuning lights or ' +
     'materials to rescue a "too dark" scene.',
   schema: ValidateMeshesSchema,
@@ -57,6 +58,17 @@ export const validateMeshes = defineTool({
     const result = await godot.sendCommand<ValidateMeshesResponse>('validate_meshes', {
       max_findings: args.max_findings ?? 25,
     });
+    // Nothing checked is NOT a clean bill — saying "no problems" over zero
+    // evidence is exactly the confident-lie failure mode this tool exists to
+    // prevent.
+    if (result.checked_surfaces === 0) {
+      const reason = result.note ?? 'the current scene has no code-built (ArrayMesh) triangle surfaces';
+      return (
+        `No mesh data was validated (${reason}). ` +
+        'This is NOT a clean bill — nothing was checked. Engine primitives (BoxMesh, etc.) and ' +
+        'imported scenes parented outside the current scene are not covered.'
+      );
+    }
     if (result.total_findings === 0) {
       return (
         `Checked ${result.checked_meshes} meshes (${result.checked_surfaces} surfaces) — no integrity problems. ` +

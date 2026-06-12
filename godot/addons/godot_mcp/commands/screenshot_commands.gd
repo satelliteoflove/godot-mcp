@@ -50,11 +50,18 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 func _on_screenshot_received(success: bool, image_base64: String, width: int, height: int, error: String) -> void:
 	_screenshot_pending = false
 	if success:
-		_screenshot_result = _success({
+		var payload := {
 			"image_base64": image_base64,
 			"width": width,
 			"height": height
-		})
+		}
+		# Mesh-integrity warnings ride the same game message (no extra
+		# round-trip, no version-skew timeout); pass them through so the
+		# server can attach the advisory to the image.
+		var dp = _plugin.get_debugger_plugin() if _plugin else null
+		if dp != null and not (dp.last_screenshot_warnings as Array).is_empty():
+			payload["mesh_warnings"] = dp.last_screenshot_warnings
+		_screenshot_result = _success(payload)
 	else:
 		_screenshot_result = _error("CAPTURE_FAILED", error)
 

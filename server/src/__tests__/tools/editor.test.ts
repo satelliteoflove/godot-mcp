@@ -263,6 +263,33 @@ describe('editor tool', () => {
       expect(result).toEqual({ type: 'image', data: base64, mimeType: 'image/png' });
     });
 
+    it('appends a mesh-integrity advisory when warnings ride the screenshot response', async () => {
+      const base64 = 'iVBORw0KGgoAAAANSUhEUg==';
+      mock.mockResponse({
+        image_base64: base64,
+        width: 800,
+        height: 600,
+        mesh_warnings: ['Floor surf 0: 66% of vertices unreferenced — dropped triangles'],
+      });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'screenshot_game' }, ctx);
+      expect(Array.isArray(result)).toBe(true);
+      const blocks = result as Array<{ type: string; text?: string }>;
+      expect(blocks[0]).toEqual({ type: 'image', data: base64, mimeType: 'image/png' });
+      expect(blocks[1].type).toBe('text');
+      expect(blocks[1].text).toContain('Mesh integrity');
+      expect(blocks[1].text).toContain('godot_validate_meshes');
+    });
+
+    it('returns a bare image when the response carries no mesh warnings', async () => {
+      mock.mockResponse({ image_base64: 'abc', width: 8, height: 8, mesh_warnings: [] });
+      const ctx = createToolContext(mock);
+
+      const result = await editor.execute({ action: 'screenshot_game' }, ctx);
+      expect(result).toEqual({ type: 'image', data: 'abc', mimeType: 'image/png' });
+    });
+
     it('passes viewport and max_width params for editor screenshot', async () => {
       mock.mockResponse({ image_base64: 'abc', width: 800, height: 600 });
       const ctx = createToolContext(mock);

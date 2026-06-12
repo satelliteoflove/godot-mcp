@@ -111,6 +111,12 @@ func _process(delta: float) -> void:
 
 
 func _mesh_sniff_process() -> void:
+	# The autoload ships in exports and _process runs even when _ready bailed
+	# out early — without this gate, non-debug runs (including shipped games)
+	# would pay full mesh-array copies on every scene load for a result
+	# nothing consumes.
+	if not EngineDebugger.is_active():
+		return
 	var tree := get_tree()
 	if tree == null or tree.current_scene == null:
 		return
@@ -147,10 +153,6 @@ func _handle_validate_meshes(data: Array) -> void:
 	else:
 		result = MeshValidator.validate(tree.current_scene, max_findings)
 	EngineDebugger.send_message("godot_mcp:game_response", ["validate_meshes", result])
-
-
-func _handle_get_mesh_warnings() -> void:
-	EngineDebugger.send_message("godot_mcp:game_response", ["get_mesh_warnings", {"warnings": _mesh_warnings}])
 
 
 # Processing is needed by three independent features; only switch it off when
@@ -474,9 +476,6 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"validate_meshes":
 			_handle_validate_meshes(data)
 			return true
-		"get_mesh_warnings":
-			_handle_get_mesh_warnings()
-			return true
 	return false
 
 
@@ -504,12 +503,17 @@ func _capture_and_send_screenshot(max_width: int) -> void:
 		image.resize(max_width, new_height, Image.INTERPOLATE_LANCZOS)
 	var png_buffer := image.save_png_to_buffer()
 	var base64 := Marshalls.raw_to_base64(png_buffer)
+	# Element 6 piggybacks the scene's cached mesh-integrity warnings: the
+	# moment the agent LOOKS at a wrong-looking render is when they're
+	# actionable, and riding the same message costs no extra round-trip and
+	# cannot time out on version skew (older receivers ignore the element).
 	EngineDebugger.send_message("godot_mcp:screenshot_result", [
 		true,
 		base64,
 		image.get_width(),
 		image.get_height(),
-		""
+		"",
+		_mesh_warnings.duplicate()
 	])
 
 

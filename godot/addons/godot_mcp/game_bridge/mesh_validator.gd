@@ -24,24 +24,32 @@ const _FRACTION_WARN := 0.05
 # surfaces are stride-sampled and the finding says so.
 const _MAX_TRIS_SCANNED := 50000
 const _SNIFF_SAMPLE_TRIS := 48
+const _SNIFF_MAX_ELEMENTS := 300000
 
 
 static func validate(root: Node, max_findings: int) -> Dictionary:
 	var findings: Array[Dictionary] = []
 	var checked_meshes := 0
 	var checked_surfaces := 0
+	# A mesh RESOURCE shared by many instances has one set of data — validate
+	# it once, attributed to the first node found, instead of N duplicate
+	# findings.
+	var seen: Dictionary = {}
 	var stack: Array[Node] = [root]
 	while not stack.is_empty():
 		var n: Node = stack.pop_back()
 		for child in n.get_children():
 			stack.push_back(child)
 		var mesh: ArrayMesh = _array_mesh_of(n)
-		if mesh == null:
+		if mesh == null or seen.has(mesh.get_instance_id()):
 			continue
+		seen[mesh.get_instance_id()] = true
 		checked_meshes += 1
 		for s in mesh.get_surface_count():
+			if mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+				continue
 			checked_surfaces += 1
-			for f in _check_surface(mesh, s):
+			for f in _check_surface(mesh, s, _surface_cull_disabled(n, mesh, s)):
 				f["node"] = str(root.get_path_to(n)) if root.is_ancestor_of(n) else str(n.name)
 				f["surface"] = s
 				findings.append(f)
@@ -67,6 +75,8 @@ static func sniff(n: Node) -> Array[String]:
 	if mesh == null:
 		return warnings
 	for s in mesh.get_surface_count():
+		if mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+			continue
 		var vlen := mesh.surface_get_array_len(s)
 		var ilen := mesh.surface_get_array_index_len(s)
 		# O(1) red flag for surfaces too big to walk here: fewer index slots
@@ -74,6 +84,12 @@ static func sniff(n: Node) -> Array[String]:
 		# behind ilen >= vlen — so below a size budget we count for real.)
 		if ilen > 0 and vlen > 0 and ilen < vlen:
 			warnings.append("%s surf %d: %d verts but only %d indices — dropped triangles" % [n.name, s, vlen, ilen])
+			continue
+		# The budget bounds the ARRAY COPY too: surface_get_arrays() duplicates
+		# every channel, a multi-MB scene-load hitch on big imported meshes.
+		# Oversized surfaces keep only the O(1) check; the on-demand full
+		# validate (stride-sampled) is the path that inspects them.
+		if vlen + ilen > _SNIFF_MAX_ELEMENTS:
 			continue
 		var arrays: Array = mesh.surface_get_arrays(s)
 		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -83,7 +99,7 @@ static func sniff(n: Node) -> Array[String]:
 		var idx = arrays[Mesh.ARRAY_INDEX]
 		# Real orphan count when affordable (integer-only pass): the definitive
 		# dropped-triangles signature regardless of how the counts balance.
-		if idx != null and vlen + ilen < 300000:
+		if idx != null and vlen + ilen < _SNIFF_MAX_ELEMENTS:
 			var pidx := idx as PackedInt32Array
 			var used := PackedByteArray()
 			used.resize(verts.size())
@@ -151,7 +167,8 @@ static func _orientation(verts: PackedVector3Array, norms: PackedVector3Array, i
 	var a := verts[ia]
 	var b := verts[ib]
 	var c := verts[ic]
-	if not (a.is_finite() and b.is_finite() and c.is_finite() and norms[ia].is_finite()):
+	if not (a.is_finite() and b.is_finite() and c.is_finite()
+			and norms[ia].is_finite() and norms[ib].is_finite() and norms[ic].is_finite()):
 		return -2
 	var cross := (b - a).cross(c - a)
 	var cl := cross.length()
@@ -168,7 +185,22 @@ static func _orientation(verts: PackedVector3Array, norms: PackedVector3Array, i
 	return -1
 
 
-static func _check_surface(mesh: ArrayMesh, s: int) -> Array[Dictionary]:
+# Effective material for one surface, in Godot's own precedence order. A
+# double-sided material makes wrong winding invisible (nothing is culled), so
+# winding findings on such surfaces are downgraded — but not dropped, because
+# the inverted normals still break lighting.
+static func _surface_cull_disabled(n: Node, mesh: ArrayMesh, s: int) -> bool:
+	var mat: Material = null
+	if n is GeometryInstance3D and (n as GeometryInstance3D).material_override != null:
+		mat = (n as GeometryInstance3D).material_override
+	elif n is MeshInstance3D and (n as MeshInstance3D).get_surface_override_material(s) != null:
+		mat = (n as MeshInstance3D).get_surface_override_material(s)
+	else:
+		mat = mesh.surface_get_material(s)
+	return mat is BaseMaterial3D and (mat as BaseMaterial3D).cull_mode == BaseMaterial3D.CULL_DISABLED
+
+
+static func _check_surface(mesh: ArrayMesh, s: int, cull_disabled: bool = false) -> Array[Dictionary]:
 	var findings: Array[Dictionary] = []
 	var arrays: Array = mesh.surface_get_arrays(s)
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -240,19 +272,21 @@ static func _check_surface(mesh: ArrayMesh, s: int) -> Array[Dictionary]:
 	if sampled > 0:
 		var io_frac := float(inside_out) / float(sampled)
 		if io_frac > _FRACTION_WARN:
+			var wind_severity := "warning" if cull_disabled else "error"
+			var cull_note := " NOTE: this surface's material is double-sided (cull disabled), so wrong winding hides nothing here — but inverted normals still mislight; this may also be intentional (foliage cards, decals)." if cull_disabled else ""
 			if correct > sampled / 10:
 				findings.append({
-					"severity": "error",
+					"severity": wind_severity,
 					"kind": "mixed_winding",
 					"stat": "%d%% of triangles wind inside-out, %d%% correctly%s" % [int(io_frac * 100.0), correct * 100 / sampled, sampled_note],
-					"fix": "The generator's point ordering is inconsistent between face families, so no fixed fan order is right for all of them. Enforce winding PER FACE: Godot front faces wind clockwise seen from the normal side, i.e. (b-a).cross(c-a).dot(normal) must be < 0 for every front triangle — swap two indices when it is not. Symptoms: some faces invisible from the side their normal points (see-through floors/walls), others lit on the wrong side (black under any sun).",
+					"fix": "The generator's point ordering is inconsistent between face families, so no fixed fan order is right for all of them. Enforce winding PER FACE: Godot front faces wind clockwise seen from the normal side, i.e. (b-a).cross(c-a).dot(normal) must be < 0 for every front triangle — swap two indices when it is not. Symptoms: some faces invisible from the side their normal points (see-through floors/walls), others lit on the wrong side (black under any sun)." + cull_note,
 				})
 			else:
 				findings.append({
-					"severity": "error",
+					"severity": wind_severity,
 					"kind": "inside_out_winding",
 					"stat": "%d%% of triangles wind inside-out%s" % [int(io_frac * 100.0), sampled_note],
-					"fix": "Triangles wind counter-clockwise seen from their normal side, but Godot front faces wind CLOCKWISE — these faces are invisible from the side their normal points and/or are lit with an inverted normal (renders black under any light, looks like 'lighting is broken'). Fix the emission order so (b-a).cross(c-a).dot(normal) < 0, or as a stopgap set cull_mode = CULL_DISABLED to confirm the diagnosis visually.",
+					"fix": "Triangles wind counter-clockwise seen from their normal side, but Godot front faces wind CLOCKWISE — these faces are invisible from the side their normal points and/or are lit with an inverted normal (renders black under any light, looks like 'lighting is broken'). Fix the emission order so (b-a).cross(c-a).dot(normal) < 0, or as a stopgap set cull_mode = CULL_DISABLED to confirm the diagnosis visually." + cull_note,
 				})
 		if non_finite_tris > 0:
 			findings.append({

@@ -18,6 +18,7 @@ import { profilerTools } from '../src/tools/profiler.js';
 import { runtimeStateTools } from '../src/tools/runtime-state.js';
 import { gameTimeTools } from '../src/tools/game-time.js';
 import { execTools } from '../src/tools/exec.js';
+import { validateMeshesTools } from '../src/tools/validate-meshes.js';
 import { sceneResources } from '../src/resources/scene.js';
 import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
@@ -57,6 +58,7 @@ const categories: ToolCategory[] = [
   { name: 'Runtime State', filename: 'runtime-state', description: 'Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas — not just UI). Much cheaper than screenshots.', tools: runtimeStateTools },
   { name: 'Game Time Control', filename: 'game-time', description: 'Deterministic game-clock control: freeze the running game, step a bounded slice of game time (or step until a condition holds) with inputs riding inside the window, then thaw — so observation is not racing ahead between tool calls.', tools: gameTimeTools },
   { name: 'Game Script Execution', filename: 'exec', description: 'Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.', tools: execTools },
+  { name: 'Mesh Validation', filename: 'validate-meshes', description: 'Detect silently corrupt procedurally generated mesh data (inside-out winding, dropped triangles, degenerate UVs, NaN normals/tangents) that renders without errors and masquerades as lighting problems. Findings carry their likely cause and fix; a cheap scene-load sniff also attaches one-line warnings to game screenshots.', tools: validateMeshesTools },
 ];
 
 const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];

@@ -5,10 +5,6 @@ class_name MCPMeshCommands
 
 # Full validation walks every ArrayMesh surface — generous timeout for big scenes.
 const VALIDATE_TIMEOUT := 20.0
-# Warnings are served from the bridge's cache; this only guards version skew
-# (an older bridge that doesn't know the message would otherwise stall callers
-# like screenshot_game that ask opportunistically).
-const WARNINGS_TIMEOUT := 2.0
 
 var _last_error: Dictionary = {}
 
@@ -16,7 +12,6 @@ var _last_error: Dictionary = {}
 func get_commands() -> Dictionary:
 	return {
 		"validate_meshes": validate_meshes,
-		"get_mesh_warnings": get_mesh_warnings,
 	}
 
 
@@ -27,15 +22,6 @@ func validate_meshes(params: Dictionary) -> Dictionary:
 	if result is Dictionary:
 		return _success(result)
 	return _success({"data": result})
-
-
-func get_mesh_warnings(_params: Dictionary) -> Dictionary:
-	var result = await _send_and_wait("get_mesh_warnings", [], WARNINGS_TIMEOUT)
-	if result == null:
-		return _last_error
-	if result is Dictionary:
-		return _success(result)
-	return _success({"warnings": []})
 
 
 func _send_and_wait(msg_type: String, args: Array, timeout: float):
