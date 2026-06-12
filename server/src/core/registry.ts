@@ -1,6 +1,5 @@
 import type {
   AnyToolDefinition,
-  ResourceDefinition,
   ToolAnnotations,
   ToolContext,
   ToolExecuteResult,
@@ -17,7 +16,6 @@ import { logToolUsage, categorizeError } from '../utils/usage-logger.js';
 
 class ToolRegistry {
   private tools: Map<string, AnyToolDefinition> = new Map();
-  private resources: Map<string, ResourceDefinition> = new Map();
 
   registerTool(tool: AnyToolDefinition): void {
     if (this.tools.has(tool.name)) {
@@ -28,17 +26,6 @@ class ToolRegistry {
 
   registerTools(tools: AnyToolDefinition[]): void {
     tools.forEach((tool) => this.registerTool(tool));
-  }
-
-  registerResource(resource: ResourceDefinition): void {
-    if (this.resources.has(resource.uri)) {
-      throw new Error(`Resource '${resource.uri}' already registered`);
-    }
-    this.resources.set(resource.uri, resource);
-  }
-
-  registerResources(resources: ResourceDefinition[]): void {
-    resources.forEach((resource) => this.registerResource(resource));
   }
 
   getToolList(): Array<{
@@ -55,22 +42,6 @@ class ToolRegistry {
       ...(tool.outputSchema ? { outputSchema: toInputSchema(tool.outputSchema) } : {}),
       ...(tool.annotations ? { annotations: tool.annotations } : {}),
     }));
-  }
-
-  getResourceList(): Array<{
-    uri: string;
-    name: string;
-    description: string;
-    mimeType: string;
-  }> {
-    return Array.from(this.resources.values()).map(
-      ({ uri, name, description, mimeType }) => ({
-        uri,
-        name,
-        description,
-        mimeType,
-      })
-    );
   }
 
   async executeTool(
@@ -116,17 +87,6 @@ class ToolRegistry {
     }
   }
 
-  async readResource(uri: string, ctx: ToolContext): Promise<string> {
-    const resource = this.resources.get(uri);
-    if (!resource) {
-      throw new Error(`Unknown resource: ${uri}`);
-    }
-    return await resource.handler(ctx);
-  }
-
-  getResourceByUri(uri: string): ResourceDefinition | undefined {
-    return this.resources.get(uri);
-  }
 }
 
 export const registry = new ToolRegistry();

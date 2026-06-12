@@ -10,7 +10,7 @@ Scene management tools
 
 ## godot_scene
 
-Manage scenes: open, save, or create scenes
+Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly (omit the uid attribute; the editor assigns one on import) and open it with this tool.
 
 ### Actions
 
@@ -30,16 +30,6 @@ Save the current scene
 |-----------|------|----------|-------------|
 | `scene_path` | string | No | Path to save to (defaults to the current scene path) |
 
-#### `create`
-
-Create a new scene
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `scene_path` | string | Yes | Path for the new scene file |
-| `root_type` | string | Yes | Type of root node, e.g. "Node2D" |
-| `root_name` | string | No | Name of root node (defaults to root_type) |
-
 ### Examples
 
 ```json
@@ -54,15 +44,6 @@ Create a new scene
 // save
 {
   "action": "save"
-}
-```
-
-```json
-// create
-{
-  "action": "create",
-  "scene_path": "res://scenes/enemy.tscn",
-  "root_type": "example"
 }
 ```
 

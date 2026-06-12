@@ -15,14 +15,12 @@ describe('scene tool', () => {
       expect(scene.schema.safeParse({ action: 'open', scene_path: 'res://test.tscn' }).success).toBe(true);
     });
 
-    it('requires root_type and scene_path for create', () => {
-      expect(scene.schema.safeParse({ action: 'create' }).success).toBe(false);
-      expect(scene.schema.safeParse({ action: 'create', root_type: 'Node2D' }).success).toBe(false);
+    it('rejects the removed create action', () => {
       expect(scene.schema.safeParse({
         action: 'create',
         root_type: 'Node2D',
         scene_path: 'res://test.tscn',
-      }).success).toBe(true);
+      }).success).toBe(false);
     });
 
     it('save works with or without scene_path', () => {
@@ -31,7 +29,7 @@ describe('scene tool', () => {
     });
   });
 
-  describe('open/save/create actions', () => {
+  describe('open/save actions', () => {
     it('open returns confirmation with path', async () => {
       mock.mockResponse({});
       const ctx = createToolContext(mock);
@@ -49,21 +47,6 @@ describe('scene tool', () => {
       mock.mockResponse({ path: 'res://new.tscn' });
       await scene.execute({ action: 'save', scene_path: 'res://new.tscn' }, ctx);
       expect(mock.calls[1].params).toEqual({ path: 'res://new.tscn' });
-    });
-
-    it('create returns confirmation with UID and uses root_type as default root_name', async () => {
-      mock.mockResponse({ path: 'res://world.tscn', uid: 'uid://abc123' });
-      const ctx = createToolContext(mock);
-
-      const result = await scene.execute({
-        action: 'create',
-        root_type: 'Node3D',
-        scene_path: 'res://world.tscn',
-      }, ctx);
-
-      expect(result).toContain('Created scene: res://world.tscn');
-      expect(result).toContain('UID: uid://abc123');
-      expect(mock.calls[0].params.root_name).toBe('Node3D');
     });
   });
 });

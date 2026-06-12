@@ -6,13 +6,13 @@ This documentation is auto-generated from the tool definitions.
 
 Scene management tools
 
-- `godot_scene` - Manage scenes: open, save, or create scenes
+- `godot_scene` - Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly (omit the uid attribute; the editor assigns one on import) and open it with this tool.
 
 ## [Node](node.md)
 
 Node manipulation and script attachment tools
 
-- `godot_node` - Manage scene nodes: get properties, find, create, update, delete, reparent, attach/detach scripts, connect signals
+- `godot_node` - Inspect and modify scene nodes in the editor: read effective properties (including class defaults a .tscn read cannot show), view the full scene tree, find nodes, update properties, and reparent (the editor rewrites child paths and signal connections correctly; hand-editing .tscn for a reparent does not). To add or remove nodes, or attach scripts and connect signals, edit the .tscn file directly, then verify with get_scene_tree.
 
 ## [Editor](editor.md)
 

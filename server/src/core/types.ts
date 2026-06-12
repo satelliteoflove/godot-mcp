@@ -52,14 +52,6 @@ export interface AnyToolDefinition {
   execute: (args: unknown, ctx: ToolContext) => Promise<ToolExecuteResult>;
 }
 
-export interface ResourceDefinition {
-  uri: string;
-  name: string;
-  description: string;
-  mimeType: string;
-  handler: (ctx: ToolContext) => Promise<string>;
-}
-
 export interface Vector3 {
   x: number;
   y: number;

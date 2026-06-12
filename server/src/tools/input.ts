@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { deriveTimeouts, INPUT_BUDGET_CAP_MS } from '../connection/timeouts.js';
-import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
+import { staleAdvisory, type ProjectStaleness } from '../utils/project-staleness.js';
 import type { AnyToolDefinition, ToolResult } from '../core/types.js';
 
 const TimingFields = {

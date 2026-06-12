@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
-import { staleAdvisory, type ProjectStaleness } from './project-staleness.js';
+import { staleAdvisory, type ProjectStaleness } from '../utils/project-staleness.js';
 import type { AnyToolDefinition, ImageContent, Vector3 } from '../core/types.js';
 
 interface ScreenshotResponse {

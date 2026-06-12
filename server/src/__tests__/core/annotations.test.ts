@@ -26,7 +26,8 @@ describe('tool annotations passthrough', () => {
   it('write-capable tools are not read-only and flag destructive where apt', () => {
     const map = byName();
     expect(map.get('godot_node')?.annotations?.readOnlyHint).toBe(false);
-    expect(map.get('godot_node')?.annotations?.destructiveHint).toBe(true);
+    // node delete was removed; update/reparent are reversible writes
+    expect(map.get('godot_node')?.annotations?.destructiveHint).toBe(false);
     expect(map.get('godot_tilemap')?.annotations?.destructiveHint).toBe(true);
   });
 

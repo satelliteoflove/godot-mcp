@@ -3,21 +3,17 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { initializeConnection, getGodotConnection } from './connection/websocket.js';
 import { registry } from './core/registry.js';
 import { isStructuredResult } from './core/structured.js';
 import { registerAllTools } from './tools/index.js';
-import { registerAllResources } from './resources/index.js';
 import { GodotCommandError } from './utils/errors.js';
 import { setMcpServer, logger } from './utils/logger.js';
 import { getServerVersion } from './version.js';
 
 registerAllTools();
-registerAllResources();
 
 export async function main() {
   const server = new Server(
@@ -28,7 +24,6 @@ export async function main() {
     {
       capabilities: {
         tools: {},
-        resources: {},
         logging: {},
       },
       // Injected into the client's context at connect time: the traps below
@@ -95,26 +90,6 @@ export async function main() {
         content: [{ type: 'text', text: `Error: ${message}` }],
         isError: true,
       };
-    }
-  });
-
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return { resources: registry.getResourceList() };
-  });
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const { uri } = request.params;
-    const godot = getGodotConnection();
-    const resource = registry.getResourceByUri(uri);
-
-    try {
-      const content = await registry.readResource(uri, { godot });
-      return {
-        contents: [{ uri, mimeType: resource?.mimeType ?? 'application/json', text: content }],
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to read resource: ${message}`);
     }
   });
 

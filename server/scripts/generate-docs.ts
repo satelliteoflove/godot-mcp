@@ -19,8 +19,6 @@ import { runtimeStateTools } from '../src/tools/runtime-state.js';
 import { gameTimeTools } from '../src/tools/game-time.js';
 import { execTools } from '../src/tools/exec.js';
 import { validateMeshesTools } from '../src/tools/validate-meshes.js';
-import { sceneResources } from '../src/resources/scene.js';
-import { scriptResources } from '../src/resources/script.js';
 import { toInputSchema } from '../src/core/schema.js';
 import {
   getActionVariants,
@@ -28,7 +26,7 @@ import {
   rawJsonSchema,
   type ActionVariant,
 } from '../src/core/doc-examples.js';
-import type { AnyToolDefinition, ResourceDefinition } from '../src/core/types.js';
+import type { AnyToolDefinition } from '../src/core/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = join(__dirname, '../../docs');
@@ -60,8 +58,6 @@ const categories: ToolCategory[] = [
   { name: 'Game Script Execution', filename: 'exec', description: 'Run GDScript inside the running game for test scenario setup: one-shot state mutations plus persistent holder-managed nodes, behind a denylist accident guard.', tools: execTools },
   { name: 'Mesh Validation', filename: 'validate-meshes', description: 'Detect silently corrupt procedurally generated mesh data (inside-out winding, dropped triangles, degenerate UVs, NaN normals/tangents) that renders without errors and masquerades as lighting problems. Findings carry their likely cause and fix; a cheap scene-load sniff also attaches one-line warnings to game screenshots.', tools: validateMeshesTools },
 ];
-
-const allResources: ResourceDefinition[] = [...sceneResources, ...scriptResources];
 
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) {
@@ -459,21 +455,6 @@ function generateToolsIndex(): string {
   return md;
 }
 
-function generateResourcesDoc(): string {
-  let md = `# Resources Reference\n\n`;
-  md += `MCP resources provide read-only access to Godot project data.\n\n`;
-
-  for (const resource of allResources) {
-    md += `## ${resource.name}\n\n`;
-    md += `**URI:** \`${resource.uri}\`\n\n`;
-    md += `**MIME Type:** \`${resource.mimeType}\`\n\n`;
-    md += `${resource.description}\n\n`;
-    md += '---\n\n';
-  }
-
-  return md;
-}
-
 function generateMainReadme(): string {
   const totalTools = categories.reduce((sum, cat) => sum + cat.tools.length, 0);
 
@@ -483,13 +464,12 @@ MCP (Model Context Protocol) server for Godot Engine integration.
 
 ## Overview
 
-This server provides **${totalTools} tools** and **${allResources.length} resources** for AI-assisted Godot development.
+This server provides **${totalTools} tools** for AI-assisted Godot development.
 
 ## Quick Links
 
 - [Claude Code Setup Guide](claude-code-setup.md) - Configure your project for AI-assisted development
 - [Tools Reference](tools/README.md) - All available MCP tools
-- [Resources Reference](resources.md) - MCP resources for reading project data
 - [Architecture Guide](architecture.md) - How the server, addon, and game bridge fit together
 - [Troubleshooting](troubleshooting.md) - Connection checklist, CLI smoke test, common fixes
 
@@ -563,13 +543,10 @@ function main(): void {
     console.log(`  Created docs/tools/${category.filename}.md`);
   }
 
-  writeFileSync(join(DOCS_DIR, 'resources.md'), generateResourcesDoc());
-  console.log('  Created docs/resources.md');
-
   writeFileSync(NPM_README, generateNpmReadme());
   console.log('  Created server/README.md (synced from root with adjusted paths)');
 
-  console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools and ${allResources.length} resources.`);
+  console.log(`\nGenerated documentation for ${categories.reduce((sum, c) => sum + c.tools.length, 0)} tools.`);
 }
 
 // Only write files when run as a script (tsx scripts/generate-docs.ts); stay

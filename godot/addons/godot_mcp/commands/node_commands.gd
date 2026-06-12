@@ -12,11 +12,8 @@ func get_commands() -> Dictionary:
 	return {
 		"get_node_properties": get_node_properties,
 		"find_nodes": find_nodes,
-		"create_node": create_node,
 		"update_node": update_node,
-		"delete_node": delete_node,
-		"reparent_node": reparent_node,
-		"connect_signal": connect_signal
+		"reparent_node": reparent_node
 	}
 
 
@@ -120,79 +117,6 @@ func _find_recursive(node: Node, scene_root: Node, name_pattern: String, type_fi
 		_find_recursive(child, scene_root, name_pattern, type_filter, results)
 
 
-func create_node(params: Dictionary) -> Dictionary:
-	var scene_check := _require_scene_open()
-	if not scene_check.is_empty():
-		return scene_check
-
-	var parent_path: String = params.get("parent_path", "")
-	var node_type: String = params.get("node_type", "")
-	var scene_path: String = params.get("scene_path", "")
-	var node_name: String = params.get("node_name", "")
-	var properties: Dictionary = params.get("properties", {})
-
-	if parent_path.is_empty():
-		return _error("INVALID_PARAMS", "parent_path is required")
-	if node_name.is_empty():
-		return _error("INVALID_PARAMS", "node_name is required")
-	if node_type.is_empty() and scene_path.is_empty():
-		return _error("INVALID_PARAMS", "Either node_type or scene_path is required")
-	if not node_type.is_empty() and not scene_path.is_empty():
-		return _error("INVALID_PARAMS", "Provide node_type OR scene_path, not both")
-
-	var parent := _get_node(parent_path)
-	if not parent:
-		return _error("NODE_NOT_FOUND", "Parent node not found: %s" % parent_path)
-
-	var node: Node
-	if not scene_path.is_empty():
-		if not ResourceLoader.exists(scene_path):
-			return _error("SCENE_NOT_FOUND", "Scene not found: %s" % scene_path)
-		var packed_scene: PackedScene = load(scene_path)
-		if not packed_scene:
-			return _error("LOAD_FAILED", "Failed to load scene: %s" % scene_path)
-		node = packed_scene.instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE)
-		if not node:
-			return _error("INSTANTIATE_FAILED", "Failed to instantiate: %s" % scene_path)
-	else:
-		if not ClassDB.class_exists(node_type):
-			return _error("INVALID_TYPE", "Unknown node type: %s" % node_type)
-		node = ClassDB.instantiate(node_type)
-		if not node:
-			return _error("CREATE_FAILED", "Failed to create node of type: %s" % node_type)
-
-	node.name = node_name
-
-	for key in properties:
-		if node.has_method("set") and key in node:
-			var deserialized := MCPUtils.deserialize_value(properties[key])
-			node.set(key, deserialized)
-
-	parent.add_child(node)
-	var scene_root := EditorInterface.get_edited_scene_root()
-	_set_owner_recursive(node, scene_root)
-
-	# Re-apply spatial transforms after add_child: the editor viewport may
-	# snap newly added Node3D nodes to the current 3D cursor position,
-	# overriding properties set before add_child.
-	if node is Node3D:
-		var n3d := node as Node3D
-		if "position" in properties:
-			n3d.position = MCPUtils.deserialize_value(properties["position"])
-		if "rotation" in properties:
-			n3d.rotation = MCPUtils.deserialize_value(properties["rotation"])
-		if "scale" in properties:
-			n3d.scale = MCPUtils.deserialize_value(properties["scale"])
-
-	return _success({"node_path": str(scene_root.get_path_to(node))})
-
-
-func _set_owner_recursive(node: Node, owner: Node) -> void:
-	node.owner = owner
-	for child in node.get_children():
-		_set_owner_recursive(child, owner)
-
-
 func update_node(params: Dictionary) -> Dictionary:
 	var node_path: String = params.get("node_path", "")
 	var properties: Dictionary = params.get("properties", {})
@@ -210,29 +134,6 @@ func update_node(params: Dictionary) -> Dictionary:
 		if key in node:
 			var deserialized := MCPUtils.deserialize_value(properties[key])
 			node.set(key, deserialized)
-
-	return _success({})
-
-
-func delete_node(params: Dictionary) -> Dictionary:
-	var scene_check := _require_scene_open()
-	if not scene_check.is_empty():
-		return scene_check
-
-	var node_path: String = params.get("node_path", "")
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-
-	var node := _get_node(node_path)
-	if not node:
-		return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
-
-	var root := EditorInterface.get_edited_scene_root()
-	if node == root:
-		return _error("CANNOT_DELETE_ROOT", "Cannot delete the root node")
-
-	node.get_parent().remove_child(node)
-	node.queue_free()
 
 	return _success({})
 
@@ -268,47 +169,5 @@ func reparent_node(params: Dictionary) -> Dictionary:
 	node.reparent(new_parent)
 
 	return _success({"new_path": str(root.get_path_to(node))})
-
-
-func connect_signal(params: Dictionary) -> Dictionary:
-	var scene_check := _require_scene_open()
-	if not scene_check.is_empty():
-		return scene_check
-
-	var node_path: String = params.get("node_path", "")
-	var signal_name: String = params.get("signal_name", "")
-	var target_path: String = params.get("target_path", "")
-	var method_name: String = params.get("method_name", "")
-
-	if node_path.is_empty():
-		return _error("INVALID_PARAMS", "node_path is required")
-	if signal_name.is_empty():
-		return _error("INVALID_PARAMS", "signal_name is required")
-	if target_path.is_empty():
-		return _error("INVALID_PARAMS", "target_path is required")
-	if method_name.is_empty():
-		return _error("INVALID_PARAMS", "method_name is required")
-
-	var source_node := _get_node(node_path)
-	if not source_node:
-		return _error("NODE_NOT_FOUND", "Source node not found: %s" % node_path)
-
-	var target_node := _get_node(target_path)
-	if not target_node:
-		return _error("NODE_NOT_FOUND", "Target node not found: %s" % target_path)
-
-	if not source_node.has_signal(signal_name):
-		return _error("SIGNAL_NOT_FOUND", "Signal '%s' not found on node %s" % [signal_name, node_path])
-
-	if source_node.is_connected(signal_name, Callable(target_node, method_name)):
-		return _error("ALREADY_CONNECTED", "Signal '%s' is already connected to %s.%s()" % [signal_name, target_path, method_name])
-
-	var err := source_node.connect(signal_name, Callable(target_node, method_name), CONNECT_PERSIST)
-	if err != OK:
-		return _error("CONNECT_FAILED", "Failed to connect signal: %s" % error_string(err))
-
-	EditorInterface.mark_scene_as_unsaved()
-
-	return _success({})
 
 
