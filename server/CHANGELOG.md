@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.23.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.23.0...godot-mcp-v3.23.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* runtime_state watch tracks game time, not wall clock ([#311](https://github.com/satelliteoflove/godot-mcp/issues/311)) ([9a30246](https://github.com/satelliteoflove/godot-mcp/commit/9a302468e0aebbf87f489480fc043b1a1adc7049))
+
 ## [3.23.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.22.0...godot-mcp-v3.23.0) (2026-06-12)
 
 
