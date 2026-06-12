@@ -31,6 +31,21 @@ export async function main() {
         resources: {},
         logging: {},
       },
+      // Injected into the client's context at connect time: the traps below
+      // produce NO error anywhere, so guidance must arrive before the symptom
+      // is misread (e.g. "too dark" tuned as lighting when the mesh data is
+      // corrupt). Keep this short — it is paid by every session.
+      instructions:
+        'Godot pitfalls that produce no errors: ' +
+        '(1) If 3D rendering looks wrong with nothing in any log (black/too-dark surfaces, ' +
+        'invisible or one-sided walls/floors, lighting that ignores light changes), run ' +
+        'godot_validate_meshes BEFORE tuning lights or materials — procedurally generated ' +
+        'meshes are often silently corrupt (winding, dropped triangles, bad tangents). ' +
+        '(2) SDFGI replaces constant ambient light: to lift shadow sides, add a dim ' +
+        'shadowless DirectionalLight (light_specular=0) opposing the key light instead of ' +
+        'raising ambient_light_energy, which will appear to do nothing. ' +
+        '(3) After editing .gd files on disk, run godot_editor restart — the editor does ' +
+        'not reliably rescan externally modified scripts.',
     }
   );
 

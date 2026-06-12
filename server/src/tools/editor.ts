@@ -247,7 +247,31 @@ export const editor = defineTool({
           'capture_game_screenshot',
           { max_width: args.max_width }
         );
-        return toImageContent(result.image_base64);
+        const image = toImageContent(result.image_base64);
+        // Mesh-integrity advisory: corrupt procedural meshes render as "too
+        // dark / invisible" with NO error anywhere, so an agent's first
+        // hypothesis is lighting and it tunes instead of validating. The
+        // moment it LOOKS at the game is the moment the warning is
+        // actionable — append the bridge's cached sniff result here.
+        // Best-effort: an older bridge or a just-booted game simply has none.
+        try {
+          const sniff = await godot.sendCommand<{ warnings?: string[] }>('get_mesh_warnings');
+          const warnings = sniff.warnings ?? [];
+          if (warnings.length > 0) {
+            return [
+              image,
+              {
+                type: 'text',
+                text:
+                  `⚠ Mesh integrity: ${warnings.join(' | ')}. ` +
+                  'If the render looks wrong, this is likely why — run godot_validate_meshes for causes and fixes before tuning lights/materials.',
+              },
+            ];
+          }
+        } catch {
+          // No game session / older addon — the screenshot itself is the result.
+        }
+        return image;
       }
 
       case 'screenshot_editor': {

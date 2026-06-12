@@ -3,6 +3,7 @@ class_name MCPGameBridge
 
 const DEFAULT_MAX_WIDTH := 1024
 const Onscreen := preload("onscreen.gd")
+const MeshValidator := preload("mesh_validator.gd")
 
 # Cap on frames waited for the main scene to appear before announcing ready
 # anyway. The scene is normally added within a frame or two of the bridge
@@ -17,6 +18,17 @@ var _sampler: MCPRuntimeStateSampler
 # Set once the bridge has told the editor the game is ready to drive. Guards the
 # announcement against firing twice and lets the headless test observe it.
 var _ready_announced := false
+
+# On-scene-load mesh-integrity sniff. Corrupt procedural meshes render with no
+# error anywhere (inside-out winding, dropped triangles), so the warning must
+# come TO the agent: the server appends these one-liners to screenshot results
+# — the moment the agent looks at the game is the moment a wrong-looking render
+# becomes actionable. Full diagnosis lives in the validate_meshes command.
+const SNIFF_DELAY_FRAMES := 30  # let _ready-time procedural level builds finish
+const SNIFF_MAX_WARNINGS := 8
+var _mesh_warnings: Array[String] = []
+var _sniff_scene_id: int = 0
+var _sniff_countdown: int = -1
 
 
 func _ready() -> void:
@@ -95,6 +107,50 @@ func _emit_bridge_ready(scene_path: String) -> void:
 func _process(delta: float) -> void:
 	_game_time_process(delta)
 	_sequence_process(delta)
+	_mesh_sniff_process()
+
+
+func _mesh_sniff_process() -> void:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var sid := tree.current_scene.get_instance_id()
+	if sid != _sniff_scene_id:
+		_sniff_scene_id = sid
+		_sniff_countdown = SNIFF_DELAY_FRAMES
+	if _sniff_countdown > 0:
+		_sniff_countdown -= 1
+		if _sniff_countdown == 0:
+			_run_mesh_sniff(tree.current_scene)
+
+
+func _run_mesh_sniff(scene_root: Node) -> void:
+	_mesh_warnings.clear()
+	var stack: Array[Node] = [scene_root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for child in n.get_children():
+			stack.push_back(child)
+		for w in MeshValidator.sniff(n):
+			_mesh_warnings.append(w)
+			if _mesh_warnings.size() >= SNIFF_MAX_WARNINGS:
+				return
+
+
+func _handle_validate_meshes(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	var max_findings: int = params.get("max_findings", 25)
+	var tree := get_tree()
+	var result: Dictionary
+	if tree == null or tree.current_scene == null:
+		result = {"checked_meshes": 0, "checked_surfaces": 0, "total_findings": 0, "findings": [], "note": "no current scene"}
+	else:
+		result = MeshValidator.validate(tree.current_scene, max_findings)
+	EngineDebugger.send_message("godot_mcp:game_response", ["validate_meshes", result])
+
+
+func _handle_get_mesh_warnings() -> void:
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_mesh_warnings", {"warnings": _mesh_warnings}])
 
 
 # Processing is needed by three independent features; only switch it off when
@@ -414,6 +470,12 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"exec_clear":
 			_handle_exec_clear(data)
+			return true
+		"validate_meshes":
+			_handle_validate_meshes(data)
+			return true
+		"get_mesh_warnings":
+			_handle_get_mesh_warnings()
 			return true
 	return false
 

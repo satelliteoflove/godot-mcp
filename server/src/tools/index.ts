@@ -13,6 +13,7 @@ import { profilerTools } from './profiler.js';
 import { runtimeStateTools } from './runtime-state.js';
 import { gameTimeTools } from './game-time.js';
 import { execTools } from './exec.js';
+import { validateMeshesTools } from './validate-meshes.js';
 
 export function registerAllTools(): void {
   registry.registerTools(sceneTools);
@@ -29,6 +30,7 @@ export function registerAllTools(): void {
   registry.registerTools(runtimeStateTools);
   registry.registerTools(gameTimeTools);
   registry.registerTools(execTools);
+  registry.registerTools(validateMeshesTools);
 }
 
 export { sceneTools } from './scene.js';
@@ -45,3 +47,4 @@ export { profilerTools } from './profiler.js';
 export { runtimeStateTools } from './runtime-state.js';
 export { gameTimeTools } from './game-time.js';
 export { execTools } from './exec.js';
+export { validateMeshesTools } from './validate-meshes.js';
