@@ -1,0 +1,364 @@
+{
+  "name": "godot_input",
+  "description": "Inject input into a running Godot game for testing: named actions (with analog strength), joypad buttons, analog axes, stick vectors, raw keyboard keys (with modifier combos), and relative mouse-look. Use get_map to discover available input actions and their bindings, sequence to execute inputs with precise timing (optionally with an effect probe that proves the inputs changed game state), or type_text to type into UI elements. Note: relative mouse-look is supported (look: [dx, dy], for FPS-camera _input handlers); absolute cursor positioning is not (see docs/design/mouse-input-spike.md).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "get_map",
+          "sequence",
+          "type_text"
+        ],
+        "description": "get_map: List available input actions from the project Input Map\nsequence: Execute an input timeline\ntype_text: Type text into the focused UI element"
+      },
+      "inputs": {
+        "minItems": 1,
+        "type": "array",
+        "items": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "action_name": {
+                  "type": "string",
+                  "description": "The input action name from the project Input Map"
+                },
+                "strength": {
+                  "description": "Analog press strength (default 1.0). Drives Input.get_action_strength/get_vector even for actions with no joypad bindings, but BYPASSES the InputMap deadzone — use an axis entry when real deadzone behavior matters.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "action_name",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "joy_button": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "a",
+                        "b",
+                        "x",
+                        "y",
+                        "back",
+                        "guide",
+                        "start",
+                        "left_stick",
+                        "right_stick",
+                        "left_shoulder",
+                        "right_shoulder",
+                        "dpad_up",
+                        "dpad_down",
+                        "dpad_left",
+                        "dpad_right",
+                        "misc1",
+                        "paddle1",
+                        "paddle2",
+                        "paddle3",
+                        "paddle4",
+                        "touchpad"
+                      ]
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20
+                    }
+                  ],
+                  "description": "Joypad button by Godot JoyButton name (e.g. \"a\", \"right_shoulder\", \"dpad_up\") or raw index. Drives bound actions, raw _input handlers, and polled Input.is_joy_button_pressed."
+                },
+                "device": {
+                  "default": 0,
+                  "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "joy_button",
+                "device",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "axis": {
+                  "type": "string",
+                  "enum": [
+                    "left_x",
+                    "left_y",
+                    "right_x",
+                    "right_y",
+                    "trigger_left",
+                    "trigger_right"
+                  ],
+                  "description": "Joypad axis by Godot JoyAxis name. Sticks range -1..1 and rest at 0; triggers range 0..1 and rest at 0."
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1,
+                  "description": "Axis value held for duration_ms, then returned to 0. Drives axis-bound actions with REAL InputMap deadzone math, raw _input handlers, and polled Input.get_joy_axis."
+                },
+                "device": {
+                  "default": 0,
+                  "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "axis",
+                "value",
+                "device",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "stick": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "right"
+                  ],
+                  "description": "Stick vector shorthand: compiles into a paired _x/_y axis hold with the same timing."
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1,
+                  "description": "Stick x deflection: -1 = left, +1 = right."
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1,
+                  "description": "Stick y deflection in Godot joypad convention: -1 = UP, +1 = down. Aim 30 degrees above horizontal-right = {x: 0.866, y: -0.5}; half-tilt right = {x: 0.5, y: 0}."
+                },
+                "device": {
+                  "default": 0,
+                  "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "stick",
+                "x",
+                "y",
+                "device",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  ],
+                  "description": "Raw keyboard key by name with optional modifier prefixes (\"a\", \"escape\", \"ctrl+s\", \"shift+alt+f1\"), or a raw Godot Key enum int. Modifiers: ctrl, shift, alt, meta (aka cmd/super). Drives InputMap key bindings, raw _input/_unhandled_input handlers, and polled Input.is_key_pressed; each modifier is pressed as a real key so Input.is_key_pressed(KEY_CTRL) also holds (so injecting \"ctrl+s\" also fires any action bound to bare Ctrl, like a real keyboard). For typing into focused text fields use type_text instead."
+                },
+                "physical": {
+                  "description": "Target the physical key position (layout-independent): sends a physical-keycode-only event for Input.is_physical_key_pressed and physical-keycode InputMap bindings. Default false sends both logical and physical keycodes (a US-layout key press). WARNING: with physical:true the logical keycode is unset, so keycode-bound InputMap actions will NOT match — use the default for those.",
+                  "type": "boolean"
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "key",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "look": {
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "description": "Relative mouse-look: a mouse movement of [dx, dy] SCREEN pixels (+x = right, +y = down), injected as InputEventMouseMotion to drive FPS-camera code that integrates event.relative in _input/_unhandled_input. The camera sees event.relative == [dx, dy] in projects with no 2D stretch (the default, and typical for a 3D FPS); a 2D content-scale stretch scales it, exactly as a physical mouse would. duration_ms 0 (default) snaps the whole delta in one event; duration_ms >= 16 distributes it as a smooth multi-event sweep (~16ms/chunk = 60Hz, up to 256 sub-events) summing to the delta within float32 precision; a shorter non-zero duration collapses to a single snap. This is RELATIVE motion, never cursor positioning (absolute mouse coordinates remain unsupported — see docs/design/mouse-input-spike.md). The game owns Input.mouse_mode (set MOUSE_MODE_CAPTURED via godot_exec for capture-gated cameras)."
+                },
+                "start_ms": {
+                  "default": 0,
+                  "description": "When to start the input (milliseconds from sequence start)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duration_ms": {
+                  "default": 0,
+                  "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "look",
+                "start_ms",
+                "duration_ms"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "description": "Array of inputs to execute. Each entry is one of: a named ACTION (action_name, optional analog strength), a joypad BUTTON (joy_button), an analog AXIS hold (axis + value), a STICK vector (stick + x/y), a raw KEY (key, e.g. \"ctrl+s\"), or relative mouse LOOK (look: [dx, dy]) — mix freely on one timeline. Joypad events drive bound actions (with real deadzone math), raw _input handlers, and the polled Input singletons (get_joy_axis / is_joy_button_pressed); key events likewise drive bound actions, _input/_unhandled_input, and Input.is_key_pressed; look events deliver InputEventMouseMotion.relative to _input/_unhandled_input for FPS-camera code (duration_ms >= 16 distributes the delta as a smooth sweep). No physical pad, keyboard, or mouse is needed. Limitation: Input.get_connected_joypads() never reports a virtual pad, so games that gate controller mode on pad DETECTION cannot be switched into it. (required for: sequence)"
+      },
+      "report": {
+        "description": "Optional effect probe: GDScript expressions evaluated once before the first input and again after the last, to prove the inputs actually changed something (vs. falling into the void — player dead, UI focus elsewhere, wrong action). Reference autoloads by name (e.g. \"G.shots\", \"G.wave\") plus `tree`/`root` (e.g. \"tree.get_nodes_in_group('enemies').size()\"), same context as godot_game_time step_until. Each expression returns {before, after, changed}; the result also carries any_changed. Expressions do NOT short-circuit and a parse/eval error rejects the call. The after-reading is sampled a couple frames past the final input, so only near-immediate effects register — for slower effects use godot_game_time or runtime_state watch. (for: sequence)",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "screenshot_at_ms": {
+        "description": "Optional: millisecond offsets (from sequence start) at which to capture a lossless PNG frame DURING the real-time run. The bridge owns the sequence clock, so it grabs each frame at the right moment and returns them with the result — letting you catch transient visuals (muzzle flashes, explosions, kill banners) that fade long before a separate screenshot call could land. Up to 8 frames, each returned as an image labeled with its actual offset; an offset (like the whole sequence) must fall within the 40000ms single-call window. COST: each frame costs vision tokens by RESOLUTION (~width*height/750), independent of format, and persists in context on every following turn — so prefer a few frames at a modest screenshot_max_width over many large ones. For frozen/precise inspection prefer godot_game_time step + screenshot_game instead. (for: sequence)",
+        "maxItems": 8,
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "screenshot_max_width": {
+        "description": "Max width in px for captured frames (default 640). Resolution is the real vision-token lever (cost ~width*height/750 per frame); lower it to spend less context, raise it only when fine detail matters. (for: sequence)",
+        "type": "integer",
+        "minimum": 16,
+        "maximum": 1920
+      },
+      "text": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Text to type (required for: type_text)"
+      },
+      "delay_ms": {
+        "default": 50,
+        "description": "Delay between keystrokes in milliseconds (default 50) (required for: type_text)",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "submit": {
+        "default": false,
+        "description": "Press Enter after typing to submit (for LineEdit text_submitted) (required for: type_text)",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Input Injection",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

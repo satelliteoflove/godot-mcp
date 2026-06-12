@@ -1,0 +1,147 @@
+{
+  "name": "godot_animation",
+  "description": "Query, control, and edit animations. Query: list_players, get_info, get_details, get_keyframes. Playback: play, stop, seek. Edit: create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list_players",
+          "get_info",
+          "get_details",
+          "get_keyframes",
+          "play",
+          "stop",
+          "seek",
+          "create",
+          "delete",
+          "update_props",
+          "add_track",
+          "remove_track",
+          "add_keyframe",
+          "remove_keyframe",
+          "update_keyframe"
+        ],
+        "description": "list_players: List AnimationPlayer nodes in the scene\nget_info: Get AnimationPlayer state and library list\nget_details: Get an animation's tracks and properties\nget_keyframes: Get keyframes for a track\nplay: Play an animation\nstop: Stop playback\nseek: Seek to a position in the current animation\ncreate: Create an animation\ndelete: Delete an animation\nupdate_props: Update animation properties\nadd_track: Add a track to an animation\nremove_track: Remove a track\nadd_keyframe: Add a keyframe to a track\nremove_keyframe: Remove a keyframe\nupdate_keyframe: Update a keyframe"
+      },
+      "root_path": {
+        "description": "Starting node path (defaults to scene root) (for: list_players)",
+        "type": "string"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the AnimationPlayer (required for: get_info, get_details, get_keyframes, play, stop, seek, create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe)"
+      },
+      "animation_name": {
+        "type": "string",
+        "description": "Animation name (required for: get_details, get_keyframes, play, create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe)"
+      },
+      "track_index": {
+        "type": "number",
+        "description": "Track index (required for: get_keyframes, remove_track, add_keyframe, remove_keyframe, update_keyframe)"
+      },
+      "custom_blend": {
+        "description": "Custom blend time, -1 for default (for: play)",
+        "type": "number"
+      },
+      "custom_speed": {
+        "description": "Playback speed, 1.0 default (for: play)",
+        "type": "number"
+      },
+      "from_end": {
+        "description": "Play from end for reverse (for: play)",
+        "type": "boolean"
+      },
+      "keep_state": {
+        "description": "Keep current animation state (for: stop)",
+        "type": "boolean"
+      },
+      "seconds": {
+        "type": "number",
+        "description": "Position to seek to (required for: seek)"
+      },
+      "update": {
+        "description": "Update node immediately, default true (for: seek)",
+        "type": "boolean"
+      },
+      "library_name": {
+        "description": "Library name (for: create, delete)",
+        "type": "string"
+      },
+      "length": {
+        "description": "Animation length in seconds (for: create, update_props)",
+        "type": "number"
+      },
+      "loop_mode": {
+        "description": "Loop mode: none, linear, pingpong (for: create, update_props)",
+        "type": "string",
+        "enum": [
+          "none",
+          "linear",
+          "pingpong"
+        ]
+      },
+      "step": {
+        "description": "Step value for keyframe snapping (for: create, update_props)",
+        "type": "number"
+      },
+      "track_type": {
+        "type": "string",
+        "enum": [
+          "value",
+          "position_3d",
+          "rotation_3d",
+          "scale_3d",
+          "blend_shape",
+          "method",
+          "bezier",
+          "audio",
+          "animation"
+        ],
+        "description": "Type of track (required for: add_track)"
+      },
+      "track_path": {
+        "type": "string",
+        "description": "Node path and property, e.g. \"Sprite2D:frame\" (required for: add_track)"
+      },
+      "insert_at": {
+        "description": "Track index to insert at, -1 for end (for: add_track)",
+        "type": "number"
+      },
+      "time": {
+        "description": "Keyframe time in seconds (required for: add_keyframe; optional for: update_keyframe)",
+        "type": "number"
+      },
+      "value": {
+        "description": "Keyframe value (for: add_keyframe, update_keyframe)"
+      },
+      "transition": {
+        "description": "Transition curve, 1.0 = linear (for: add_keyframe, update_keyframe)",
+        "type": "number"
+      },
+      "method_name": {
+        "description": "Method name for method tracks (for: add_keyframe)",
+        "type": "string"
+      },
+      "args": {
+        "description": "Method arguments (for: add_keyframe)",
+        "type": "array",
+        "items": {}
+      },
+      "keyframe_index": {
+        "type": "number",
+        "description": "Keyframe index (required for: remove_keyframe, update_keyframe)"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Animation",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "openWorldHint": false
+  }
+}

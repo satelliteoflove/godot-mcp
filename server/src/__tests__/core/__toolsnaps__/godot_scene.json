@@ -1,0 +1,30 @@
+{
+  "name": "godot_scene",
+  "description": "Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly (omit the uid attribute; the editor assigns one on import) and open it with this tool.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "open",
+          "save"
+        ],
+        "description": "open: Open a scene file\nsave: Save the current scene"
+      },
+      "scene_path": {
+        "description": "for open: Path to scene file to open; for save: Path to save to (defaults to the current scene path) (required for: open; optional for: save)",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Scene",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

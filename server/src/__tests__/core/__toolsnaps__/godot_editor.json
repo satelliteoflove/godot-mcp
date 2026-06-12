@@ -1,0 +1,103 @@
+{
+  "name": "godot_editor",
+  "description": "Control the Godot editor: get state, manage selection, run/stop project, restart the editor, capture screenshots, read log messages and stack traces, control 2D viewport",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "get_state",
+          "get_selection",
+          "select",
+          "run",
+          "stop",
+          "restart",
+          "get_log_messages",
+          "get_stack_trace",
+          "screenshot_game",
+          "screenshot_editor",
+          "set_viewport_2d"
+        ],
+        "description": "get_state: Get editor state: current scene, play state, version, camera, viewport\nget_selection: Get the currently selected nodes\nselect: Select a node in the editor\nrun: Run the project\nstop: Stop the running project\nrestart: Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.\nget_log_messages: Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp's get_console_output (game console via DAP). Filter by severity (errors-only = \"did my change break the editor?\") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty.\nget_stack_trace: Get the most recent error stack trace\nscreenshot_game: Capture a lossless PNG screenshot of the running game\nscreenshot_editor: Capture a lossless PNG screenshot of an editor viewport\nset_viewport_2d: Center and zoom the 2D editor viewport"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to node to select (required for: select)"
+      },
+      "scene_path": {
+        "description": "Scene to run (optional, defaults to main scene) (for: run)",
+        "type": "string"
+      },
+      "frozen": {
+        "description": "Launch with game time frozen from frame 0 (gameplay never starts racing your latency). Use godot_game_time step/thaw to advance. (for: run)",
+        "type": "boolean"
+      },
+      "save": {
+        "description": "Save the project before restarting (default: true). Set false to discard unsaved editor changes. (for: restart)",
+        "type": "boolean"
+      },
+      "clear": {
+        "description": "Clear the editor error buffer after reading (for: get_log_messages)",
+        "type": "boolean"
+      },
+      "limit": {
+        "description": "Maximum number of messages to return (default: 50) (for: get_log_messages)",
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      },
+      "severity": {
+        "description": "Filter by severity: \"error\" drops warnings (the \"did anything actually break?\" check), \"warning\" returns only warnings, \"all\" (default) returns both. (for: get_log_messages)",
+        "type": "string",
+        "enum": [
+          "all",
+          "error",
+          "warning"
+        ]
+      },
+      "since": {
+        "description": "Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning). (for: get_log_messages)",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "max_width": {
+        "description": "Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. (for: screenshot_game, screenshot_editor)",
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "viewport": {
+        "description": "Which editor viewport to capture (for: screenshot_editor)",
+        "type": "string",
+        "enum": [
+          "2d",
+          "3d"
+        ]
+      },
+      "center_x": {
+        "description": "X coordinate to center the 2D viewport on (for: set_viewport_2d)",
+        "type": "number"
+      },
+      "center_y": {
+        "description": "Y coordinate to center the 2D viewport on (for: set_viewport_2d)",
+        "type": "number"
+      },
+      "zoom": {
+        "description": "Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (for: set_viewport_2d)",
+        "type": "number",
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Editor Control",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+  }
+}

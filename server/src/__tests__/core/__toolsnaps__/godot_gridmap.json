@@ -1,0 +1,132 @@
+{
+  "name": "godot_gridmap",
+  "description": "Query and edit GridMap data: list gridmaps, get info, get/set cells",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list",
+          "get_info",
+          "get_meshlib_info",
+          "get_used_cells",
+          "get_cell",
+          "get_cells_by_item",
+          "set_cell",
+          "clear_cell",
+          "clear",
+          "set_cells_batch"
+        ],
+        "description": "list: List GridMap nodes in the scene\nget_info: Get GridMap info\nget_meshlib_info: Get the GridMap's MeshLibrary info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_by_item: Get all cells using a given MeshLibrary item\nset_cell: Set a single cell\nclear_cell: Clear a single cell\nclear: Clear all cells\nset_cells_batch: Set many cells at once"
+      },
+      "root_path": {
+        "description": "Starting node path (defaults to scene root) (for: list)",
+        "type": "string"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the GridMap (required for: get_info, get_meshlib_info, get_used_cells, get_cell, get_cells_by_item, set_cell, clear_cell, clear, set_cells_batch)"
+      },
+      "coords": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "z": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "z"
+        ],
+        "additionalProperties": false,
+        "description": "Cell coordinates (required for: get_cell, set_cell, clear_cell)"
+      },
+      "item": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "MeshLibrary item index (required for: get_cells_by_item, set_cell)"
+      },
+      "orientation": {
+        "description": "Orientation 0-23, default 0 (for: set_cell)",
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "cells": {
+        "minItems": 1,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "coords": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "item": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "orientation": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "coords",
+            "item"
+          ],
+          "additionalProperties": false
+        },
+        "description": "Array of cells to set (required for: set_cells_batch)"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "GridMap",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "openWorldHint": false
+  }
+}

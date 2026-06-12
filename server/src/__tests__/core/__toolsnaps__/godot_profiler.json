@@ -1,0 +1,33 @@
+{
+  "name": "godot_profiler",
+  "description": "Performance profiling and analysis: snapshot all engine metrics, collect per-frame time series data with spike detection, list active _process/_physics_process scripts, inspect signal connections",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "snapshot",
+          "start",
+          "stop",
+          "get_data",
+          "get_active_processes",
+          "get_signal_connections"
+        ],
+        "description": "snapshot: Full performance snapshot (all engine metrics)\nstart: Start per-frame time-series profiling\nstop: Stop time-series profiling\nget_data: Get collected time-series data with spike detection\nget_active_processes: List active _process/_physics_process scripts\nget_signal_connections: Inspect signal connections"
+      },
+      "node_path": {
+        "description": "Node path (defaults to scene root) (for: get_signal_connections)",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "Profiler",
+    "readOnlyHint": true,
+    "openWorldHint": false
+  }
+}

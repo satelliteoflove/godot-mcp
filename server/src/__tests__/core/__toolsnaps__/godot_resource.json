@@ -1,0 +1,67 @@
+{
+  "name": "godot_resource",
+  "description": "Manage Godot resources: inspect Resource files by path. Returns type-specific structured data for SpriteFrames, TileSet, Material, Texture2D, etc.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "get_info"
+        ],
+        "description": "get_info: Inspect a Resource file by path"
+      },
+      "resource_path": {
+        "type": "string",
+        "description": "Resource path (e.g., \"res://player/sprites.tres\")"
+      },
+      "max_depth": {
+        "description": "Detail level: 0 = summary only, 1 = full detail (default), 2+ = expand sub-resources",
+        "type": "number"
+      },
+      "include_internal": {
+        "description": "Include internal properties starting with underscore (default: false)",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "action",
+      "resource_path"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "resource_path": {
+        "type": "string"
+      },
+      "resource_type": {
+        "type": "string"
+      },
+      "type_specific": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "properties": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "resource_path",
+      "resource_type"
+    ],
+    "additionalProperties": {}
+  },
+  "annotations": {
+    "title": "Resource Inspector",
+    "readOnlyHint": true,
+    "openWorldHint": false
+  }
+}

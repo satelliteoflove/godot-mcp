@@ -4,7 +4,8 @@ import type {
   ToolContext,
   ToolExecuteResult,
 } from './types.js';
-import { toInputSchema } from './schema.js';
+import { z } from 'zod';
+import { describeValidationError, toInputSchema } from './schema.js';
 import { isStructuredResult } from './structured.js';
 import {
   formatError,
@@ -79,6 +80,9 @@ class ToolRegistry {
         error instanceof GodotTimeoutError
       ) {
         throw error;
+      }
+      if (error instanceof z.ZodError) {
+        throw new Error(describeValidationError(name, tool.schema, args, error));
       }
       throw new Error(formatError(error));
     } finally {

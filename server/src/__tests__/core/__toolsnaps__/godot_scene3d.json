@@ -1,0 +1,101 @@
+{
+  "name": "godot_scene3d",
+  "description": "Get spatial information for 3D nodes: global transforms, bounding boxes, visibility. Use get_spatial_info for node details, get_bounds for combined AABB of a subtree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "get_spatial_info",
+          "get_bounds"
+        ],
+        "description": "get_spatial_info: Get spatial data for a Node3D and optionally its children\nget_bounds: Get the combined AABB of a subtree"
+      },
+      "node_path": {
+        "type": "string",
+        "description": "Path to the Node3D (required for: get_spatial_info)"
+      },
+      "include_children": {
+        "default": false,
+        "description": "Include child nodes (required for: get_spatial_info)",
+        "type": "boolean"
+      },
+      "type_filter": {
+        "description": "Filter by node type, e.g. \"MeshInstance3D\" (for: get_spatial_info)",
+        "type": "string"
+      },
+      "max_results": {
+        "description": "Limit number of results. Defaults to 50 when include_children=true. Set higher (e.g., 500) if needed. (for: get_spatial_info)",
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      },
+      "within_aabb": {
+        "description": "Only include nodes whose global position is within this AABB (for: get_spatial_info)",
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "Min corner of the AABB"
+          },
+          "size": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "Size of the AABB"
+          }
+        },
+        "required": [
+          "position",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "root_path": {
+        "description": "Path to search root (defaults to scene root) (for: get_bounds)",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "annotations": {
+    "title": "3D Scene Info",
+    "readOnlyHint": true,
+    "openWorldHint": false
+  }
+}
