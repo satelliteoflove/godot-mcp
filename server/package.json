@@ -29,7 +29,8 @@
     "dev:cli": "nodemon --exec \"tsx src/cli.ts\" --ext ts --watch src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate-docs": "tsx scripts/generate-docs.ts"
+    "generate-docs": "tsx scripts/generate-docs.ts",
+    "eval": "tsx evals/run-evals.ts"
   },
   "keywords": [
     "godot",

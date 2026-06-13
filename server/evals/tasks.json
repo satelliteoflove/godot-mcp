@@ -1,0 +1,83 @@
+{
+  "$comment": "Eval tasks for godot-mcp. Each task is a realistic agent prompt run via `claude -p` against a real Godot project with the bridge connected. required_calls entries are 'tool' or 'tool.action' strings that must each appear at least once in the transcript; forbidden_calls must never appear. requires_game tasks run the project inside the connected editor — only run them when that is acceptable.",
+  "tasks": [
+    {
+      "id": "project-info",
+      "requires_game": false,
+      "prompt": "Using the godot-mcp tools, report this Godot project's name, Godot version, and main scene path, and check whether the editor is running stale project settings.",
+      "required_calls": ["godot_project.get_info", "godot_project.check_stale"],
+      "forbidden_calls": ["godot_editor_edit", "godot_exec", "godot_input"]
+    },
+    {
+      "id": "scene-tree",
+      "requires_game": false,
+      "prompt": "Open this project's main scene in the Godot editor and report its full node hierarchy, including any instanced sub-scenes' children.",
+      "required_calls": ["godot_scene.open", "godot_node_read.get_scene_tree"],
+      "forbidden_calls": ["godot_editor_edit.run", "godot_exec"]
+    },
+    {
+      "id": "node-inspect",
+      "requires_game": false,
+      "prompt": "In the currently open scene (open the main scene first if none is open), find every node whose type inherits from Node2D or Node3D, pick the first match, and report its position and visibility as the editor sees them.",
+      "required_calls": ["godot_node_read.find", "godot_node_read.get_properties"],
+      "forbidden_calls": ["godot_node_edit", "godot_exec"]
+    },
+    {
+      "id": "animation-inventory",
+      "requires_game": false,
+      "prompt": "List every AnimationPlayer in this project's main scene. For the first one you find, list its animations and report the track types and keyframe counts of one animation.",
+      "required_calls": [
+        "godot_animation_read.list_players",
+        "godot_animation_read.get_details"
+      ],
+      "forbidden_calls": ["godot_animation_edit"]
+    },
+    {
+      "id": "animation-authoring",
+      "requires_game": false,
+      "$comment": "The gating task for any future decision about removing animation authoring tools: it exercises create, track, and keyframe editing end to end, with verification through the read tool.",
+      "prompt": "On the first AnimationPlayer in this project's main scene, create a new animation named mcp_eval_flash, 0.2 seconds long. Add a track animating the parent node's modulate property: keyframe at 0.0 with the current color, keyframe at 0.1 with red, keyframe at 0.2 back to the original color. Verify your work by reading the keyframes back, then preview it with play and stop, and finally delete the mcp_eval_flash animation to leave the project clean.",
+      "required_calls": [
+        "godot_animation_read.list_players",
+        "godot_animation_edit.create",
+        "godot_animation_edit.add_track",
+        "godot_animation_edit.add_keyframe",
+        "godot_animation_read.get_keyframes",
+        "godot_animation_edit.delete"
+      ],
+      "forbidden_calls": ["godot_exec"]
+    },
+    {
+      "id": "file-edit-then-verify",
+      "requires_game": false,
+      "$comment": "Validates the v4 division of labor: scene creation happens by writing the .tscn file directly, then the bridge verifies what the editor loaded.",
+      "prompt": "Create a new scene at res://mcp_eval_scene.tscn by writing the .tscn file directly with your file tools (root node: Node2D named EvalRoot, one Label child named EvalLabel with text 'eval'). Then open it in the Godot editor with the godot-mcp tools and confirm the editor sees both nodes by reading the scene tree. Report what the editor loaded, then delete the file you created.",
+      "required_calls": ["godot_scene.open", "godot_node_read.get_scene_tree"],
+      "forbidden_calls": ["godot_exec", "godot_editor_edit.run"]
+    },
+    {
+      "id": "playtest-boot",
+      "requires_game": true,
+      "prompt": "Run this project's main scene with game time frozen at frame 0. Take a runtime state digest and a screenshot of the frozen first frame, then stop the game. Report what entities exist at boot.",
+      "required_calls": [
+        "godot_editor_edit.run",
+        "godot_runtime_state.digest",
+        "godot_editor_read.screenshot_game",
+        "godot_editor_edit.stop"
+      ],
+      "forbidden_calls": []
+    },
+    {
+      "id": "deterministic-step",
+      "requires_game": true,
+      "prompt": "Run this project's main scene frozen, then step exactly 500 milliseconds of game time forward and report how entity positions changed between frame 0 and after the step, using runtime state digests rather than screenshots. Stop the game when done.",
+      "required_calls": [
+        "godot_editor_edit.run",
+        "godot_game_time.step",
+        "godot_runtime_state.digest",
+        "godot_editor_edit.stop"
+      ],
+      "forbidden_calls": ["godot_editor_read.screenshot_game"]
+    }
+  ]
+}
