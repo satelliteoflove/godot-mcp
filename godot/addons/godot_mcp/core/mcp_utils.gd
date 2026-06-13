@@ -112,7 +112,7 @@ static func _create_resource(spec: Dictionary) -> Resource:
 # errors that do not exist at runtime, and its input map is out of date — while
 # spawned games (which read disk fresh at launch) work fine. We detect that by
 # content-diffing the two sections that actually cause the trap, [autoload] and
-# [input], disk vs the editor's in-memory state. Recovery is `godot_editor
+# [input], disk vs the editor's in-memory state. Recovery is `godot_editor_edit
 # restart` (#250). A content diff (not an mtime check) is used deliberately: it
 # never false-positives when the editor itself saves project.godot (e.g. the
 # plugin's own startup autoload write), because disk is then written FROM memory.
@@ -180,7 +180,7 @@ static func _staleness_summary(a_added: Array, a_removed: Array, a_changed: Arra
 		return "project.godot on disk matches the editor's loaded settings."
 	return ("project.godot was edited on disk after the editor loaded it: %s. The editor's in-memory "
 		+ "settings are stale (its log may show phantom \"Identifier not found\" errors that do not "
-		+ "exist at runtime). Run `godot_editor restart` to reload project.godot (save:false to discard "
+		+ "exist at runtime). Run `godot_editor_edit restart` to reload project.godot (save:false to discard "
 		+ "unsaved editor changes).") % "; ".join(parts)
 
 

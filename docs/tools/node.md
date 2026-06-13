@@ -31,7 +31,7 @@ Full hierarchy of the open scene as the editor sees it, including children insid
 
 #### `find`
 
-Find nodes by name and/or type
+Find nodes by name and/or type. Searches the RUNNING game's live tree when a game is playing (spawned entities included); otherwise searches the scene open in the editor.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -79,7 +79,7 @@ Update a node's properties
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `node_path` | string | Yes | Path to the node |
-| `properties` | Record<string, unknown> | No | Properties to set on the node |
+| `properties` | Record<string, unknown> | Yes | Properties to set on the node |
 
 #### `reparent`
 
@@ -96,7 +96,8 @@ Move a node to a new parent
 // update
 {
   "action": "update",
-  "node_path": "/root/Main/Player"
+  "node_path": "/root/Main/Player",
+  "properties": {}
 }
 ```
 

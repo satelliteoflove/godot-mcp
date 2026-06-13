@@ -50,16 +50,20 @@ describe('tool annotations', () => {
     }
   });
 
-  it('destructive hints sit only where data is actually destroyed', () => {
-    const map = byName();
-    expect(map.get('godot_animation_edit')?.annotations?.destructiveHint).toBe(true);
-    expect(map.get('godot_tilemap_edit')?.annotations?.destructiveHint).toBe(true);
-    expect(map.get('godot_gridmap_edit')?.annotations?.destructiveHint).toBe(true);
-    expect(map.get('godot_exec')?.annotations?.destructiveHint).toBe(true);
-    // reversible writes are not destructive
-    expect(map.get('godot_node_edit')?.annotations?.destructiveHint).toBe(false);
-    expect(map.get('godot_editor_edit')?.annotations?.destructiveHint).toBe(false);
-    expect(map.get('godot_scene')?.annotations?.destructiveHint).toBe(false);
+  it('destructive hints sit exactly where data is actually destroyed', () => {
+    // Set equality over the whole registry, so a new destructive tool (or a
+    // wrongly-flagged reversible one) fails this test rather than slipping by.
+    const destructive = registry
+      .getToolList()
+      .filter((t) => t.annotations?.destructiveHint === true)
+      .map((t) => t.name)
+      .sort();
+    expect(destructive).toEqual([
+      'godot_animation_edit',
+      'godot_exec',
+      'godot_gridmap_edit',
+      'godot_tilemap_edit',
+    ]);
   });
 
   it('only the docs tool reaches the open world', () => {

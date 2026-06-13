@@ -63,7 +63,8 @@ describe('logger (stderr-only)', () => {
         logger.warningRateLimited('key-a', `message a${i}`);
       }
       const callsAfterKeyA = consoleSpy.mock.calls.length;
-      expect(callsAfterKeyA).toBeLessThanOrEqual(10);
+      // Exactly the per-window budget: not suppressed entirely, not unlimited.
+      expect(callsAfterKeyA).toBe(10);
 
       for (let i = 0; i < 5; i++) {
         logger.warningRateLimited('key-b', `message b${i}`);

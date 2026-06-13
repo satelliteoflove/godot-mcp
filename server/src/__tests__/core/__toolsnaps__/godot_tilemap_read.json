@@ -29,63 +29,48 @@
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
         ],
-        "additionalProperties": false,
         "description": "Cell coordinates (required for: get_cell)"
       },
       "min_coords": {
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
         ],
-        "additionalProperties": false,
         "description": "Minimum corner of region (required for: get_cells_in_region)"
       },
       "max_coords": {
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
         ],
-        "additionalProperties": false,
         "description": "Maximum corner of region (required for: get_cells_in_region)"
       },
       "local_position": {
@@ -102,29 +87,23 @@
         "required": [
           "x",
           "y"
-        ],
-        "additionalProperties": false
+        ]
       },
       "map_coords": {
         "description": "Map coordinates to convert to local position (for: convert_coords)",
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "required": [

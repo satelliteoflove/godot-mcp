@@ -23,9 +23,9 @@ interface JsonRpcMessage {
   error?: { code: number; message: string };
 }
 
-function rpc(env: NodeJS.ProcessEnv, requests: object[]): Promise<Map<number, JsonRpcMessage>> {
+function rpc(cliArgs: string[], requests: object[]): Promise<Map<number, JsonRpcMessage>> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [CLI], { env: { ...process.env, ...env } });
+    const child = spawn('node', [CLI, ...cliArgs]);
     const responses = new Map<number, JsonRpcMessage>();
     let buffer = '';
     const timer = setTimeout(() => {
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   }
 
   console.log('initialize + tools/list (full mode)');
-  const full = await rpc({}, [
+  const full = await rpc([], [
     INIT,
     INITIALIZED,
     { jsonrpc: '2.0', id: 2, method: 'tools/list' },
@@ -145,8 +145,8 @@ async function main(): Promise<void> {
     errorText.slice(0, 120)
   );
 
-  console.log('tools/list (read-only mode)');
-  const readOnly = await rpc({ GODOT_MCP_READ_ONLY: '1' }, [
+  console.log('tools/list (read-only mode, via the --read-only flag)');
+  const readOnly = await rpc(['--read-only'], [
     INIT,
     INITIALIZED,
     { jsonrpc: '2.0', id: 2, method: 'tools/list' },

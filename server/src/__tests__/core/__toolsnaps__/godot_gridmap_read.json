@@ -28,19 +28,13 @@
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "z": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
@@ -48,13 +42,10 @@
           "y",
           "z"
         ],
-        "additionalProperties": false,
         "description": "Cell coordinates (required for: get_cell)"
       },
       "item": {
         "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991,
         "description": "MeshLibrary item index (required for: get_cells_by_item)"
       }
     },

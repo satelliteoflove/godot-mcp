@@ -35,21 +35,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "action_name",
-                "start_ms",
-                "duration_ms"
+                "action_name"
               ],
               "additionalProperties": false
             },
@@ -96,29 +92,23 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "joy_button",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "joy_button"
               ],
               "additionalProperties": false
             },
@@ -147,30 +137,24 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
                 "axis",
-                "value",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "value"
               ],
               "additionalProperties": false
             },
@@ -201,31 +185,25 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
                 "stick",
                 "x",
-                "y",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "y"
               ],
               "additionalProperties": false
             },
@@ -239,9 +217,7 @@
                       "minLength": 1
                     },
                     {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "type": "integer"
                     }
                   ],
                   "description": "Raw keyboard key by name with optional modifier prefixes (\"a\", \"escape\", \"ctrl+s\", \"shift+alt+f1\"), or a raw Godot Key enum int. Modifiers: ctrl, shift, alt, meta (aka cmd/super). Drives InputMap key bindings, raw _input/_unhandled_input handlers, and polled Input.is_key_pressed; each modifier is pressed as a real key so Input.is_key_pressed(KEY_CTRL) also holds (so injecting \"ctrl+s\" also fires any action bound to bare Ctrl, like a real keyboard). For typing into focused text fields use type_text instead."
@@ -254,21 +230,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "key",
-                "start_ms",
-                "duration_ms"
+                "key"
               ],
               "additionalProperties": false
             },
@@ -288,21 +260,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "look",
-                "start_ms",
-                "duration_ms"
+                "look"
               ],
               "additionalProperties": false
             }
@@ -323,8 +291,7 @@
         "type": "array",
         "items": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
+          "minimum": 0
         }
       },
       "screenshot_max_width": {
@@ -340,14 +307,13 @@
       },
       "delay_ms": {
         "default": 50,
-        "description": "Delay between keystrokes in milliseconds (default 50) (required for: type_text)",
+        "description": "Delay between keystrokes in milliseconds (default 50) (for: type_text)",
         "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
+        "minimum": 0
       },
       "submit": {
         "default": false,
-        "description": "Press Enter after typing to submit (for LineEdit text_submitted) (required for: type_text)",
+        "description": "Press Enter after typing to submit (for LineEdit text_submitted) (for: type_text)",
         "type": "boolean"
       }
     },

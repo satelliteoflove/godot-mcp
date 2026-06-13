@@ -11,7 +11,7 @@
           "get_scene_tree",
           "find"
         ],
-        "description": "get_properties: Get a node's properties\nget_scene_tree: Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those)\nfind: Find nodes by name and/or type"
+        "description": "get_properties: Get a node's properties\nget_scene_tree: Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those)\nfind: Find nodes by name and/or type. Searches the RUNNING game's live tree when a game is playing (spawned entities included); otherwise searches the scene open in the editor."
       },
       "node_path": {
         "type": "string",

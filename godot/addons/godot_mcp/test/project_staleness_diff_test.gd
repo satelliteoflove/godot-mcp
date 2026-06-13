@@ -73,7 +73,7 @@ func _test_autoload_added() -> void:
 	_check("autoload added: stale", r["stale"], true)
 	_check("autoload added: names the added autoload", r["autoload"]["added"], ["FX"])
 	_check("autoload added: nothing removed", r["autoload"]["removed"], [])
-	_check("autoload added: summary mentions it + restart", r["summary"].contains("FX") and r["summary"].contains("godot_editor restart"), true)
+	_check("autoload added: summary mentions it + restart", r["summary"].contains("FX") and r["summary"].contains("godot_editor_edit restart"), true)
 
 
 func _test_autoload_removed() -> void:

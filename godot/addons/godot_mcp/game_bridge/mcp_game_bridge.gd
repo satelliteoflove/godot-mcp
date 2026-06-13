@@ -1234,12 +1234,6 @@ class _MCPGameLogger extends Logger:
 	func get_dropped() -> int:
 		return _dropped
 
-	func clear() -> void:
-		_mutex.lock()
-		_dropped += _output.size()  # cleared lines are gone the same as trimmed ones
-		_output.clear()
-		_mutex.unlock()
-
 
 func _handle_get_input_map() -> void:
 	var actions: Array = []
@@ -2345,7 +2339,7 @@ func _handle_exec_run(data: Array) -> void:
 	mark = _exec_logger_mark()
 	var t0 := Time.get_ticks_msec()
 	# Synchronous and non-preemptible: an infinite loop here hangs the game (the
-	# relay/server time out; godot_editor stop kills the process). That is the
+	# relay/server time out; godot_editor_edit stop kills the process). That is the
 	# documented contract — no wall budget is pretended.
 	var result: Variant = inst.callv("_mcp_run", ctx["inputs"])
 	var duration := Time.get_ticks_msec() - t0

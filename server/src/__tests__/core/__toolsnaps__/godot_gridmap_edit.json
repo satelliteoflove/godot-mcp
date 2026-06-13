@@ -22,19 +22,13 @@
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "z": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
@@ -42,20 +36,15 @@
           "y",
           "z"
         ],
-        "additionalProperties": false,
         "description": "Cell coordinates (required for: set_cell, clear_cell)"
       },
       "item": {
         "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991,
         "description": "MeshLibrary item index (required for: set_cell)"
       },
       "orientation": {
         "description": "Orientation 0-23, default 0 (for: set_cell)",
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+        "type": "integer"
       },
       "cells": {
         "minItems": 1,
@@ -67,44 +56,32 @@
               "type": "object",
               "properties": {
                 "x": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 },
                 "y": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 },
                 "z": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 }
               },
               "required": [
                 "x",
                 "y",
                 "z"
-              ],
-              "additionalProperties": false
+              ]
             },
             "item": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
+              "type": "integer"
             },
             "orientation": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
+              "type": "integer"
             }
           },
           "required": [
             "coords",
             "item"
-          ],
-          "additionalProperties": false
+          ]
         },
         "description": "Array of cells to set (required for: set_cells_batch)"
       }

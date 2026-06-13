@@ -13,7 +13,7 @@ func get_commands() -> Dictionary:
 
 # Detect whether project.godot was edited on disk after the editor loaded it,
 # leaving the editor's in-memory ProjectSettings / InputMap stale (#245). Always
-# returns the full report (stale or not); recovery is `godot_editor restart`.
+# returns the full report (stale or not); recovery is `godot_editor_edit restart`.
 func get_project_staleness(_params: Dictionary) -> Dictionary:
 	return _success(MCPUtils.detect_project_staleness())
 

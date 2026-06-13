@@ -111,7 +111,7 @@ func _send_and_wait(msg_type: String, args: Array, timeout: float, call_id: int)
 			debugger_plugin.clear_response(msg_type)
 			var hint := ""
 			if debugger_plugin.is_session_breaked():
-				hint = " (the game is paused in the editor debugger and did not resume; press Continue in the editor or run godot_editor stop)"
+				hint = " (the game is paused in the editor debugger and did not resume; press Continue in the editor or run godot_editor_edit stop)"
 			_last_error = _error("TIMEOUT", "Timed out waiting for %s response%s" % [msg_type, hint])
 			return null
 	return null  # unreachable; satisfies the parser

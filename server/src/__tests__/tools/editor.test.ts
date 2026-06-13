@@ -135,7 +135,7 @@ describe('editorRead tool', () => {
       const ctx = createToolContext(mock);
       const staleness = {
         stale: true,
-        summary: 'project.godot was edited on disk after the editor loaded it: 1 autoload(s) added on disk (FX). Run `godot_editor restart` to reload.',
+        summary: 'project.godot was edited on disk after the editor loaded it: 1 autoload(s) added on disk (FX). Run `godot_editor_edit restart` to reload.',
         autoload: { added: ['FX'], removed: [], changed: [] },
         input: { added: [] },
       };
@@ -147,7 +147,7 @@ describe('editorRead tool', () => {
       const result = await editorRead.execute({ action: 'get_log_messages' }, ctx);
       const structured = structuredOf(result);
       expect(structured.advisory).toContain('STALE PROJECT SETTINGS:');
-      expect(structured.advisory).toContain('godot_editor restart');
+      expect(structured.advisory).toContain('godot_editor_edit restart');
       expect(structured.staleness).toEqual(staleness);
     });
 

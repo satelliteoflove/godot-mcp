@@ -117,7 +117,6 @@ describe('godot_docs tool', () => {
         action: 'fetch_page',
         path: '/tutorials/2d/2d_movement.html',
         version: 'stable',
-        section: 'full',
       }, ctx) as string;
 
       expect(result).toContain('Source: https://docs.godotengine.org');

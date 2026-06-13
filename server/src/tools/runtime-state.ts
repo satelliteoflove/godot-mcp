@@ -408,7 +408,7 @@ export const runtimeState = defineTool({
   },
   description:
     'Observe live game state as structured data. ' +
-    'Use digest for a one-shot entity snapshot (replaces most screenshot_game calls). ' +
+    'Use digest for a one-shot entity snapshot (replaces most godot_editor_read screenshot_game calls). ' +
     'Use watch_start → watch_collect for state-over-time without context blowup.',
   schema: RuntimeStateSchema,
 

@@ -18,7 +18,12 @@ export interface ActionVariant {
 // discriminatedUnion serializes to a top-level `oneOf` of per-action branches —
 // each carrying its own `required` list and the action literal's `.describe()`.
 export function rawJsonSchema(tool: AnyToolDefinition): Record<string, unknown> {
-  const { $schema, ...rest } = z.toJSONSchema(tool.schema, { target: 'draft-07' }) as Record<string, unknown>;
+  // io: 'input' to match toInputSchema — fields with .default() document as
+  // optional (the caller may omit them), same as the published schema.
+  const { $schema, ...rest } = z.toJSONSchema(tool.schema, {
+    target: 'draft-07',
+    io: 'input',
+  }) as Record<string, unknown>;
   return rest;
 }
 

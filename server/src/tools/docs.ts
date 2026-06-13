@@ -12,13 +12,15 @@ const SectionEnum = z
   .enum(['full', 'description', 'properties', 'methods', 'signals'])
   .optional()
   .default('full')
-  .describe('Which section to return (default: full). Use specific sections to reduce token usage.');
+  .describe('Which class-reference section to return (default: full). Use specific sections to reduce token usage.');
 
 const VersionEnum = z
   .enum(SUPPORTED_VERSIONS)
   .optional()
   .describe('Godot docs version. If omitted, auto-detects from connected Godot editor or defaults to "stable"');
 
+// section applies only to fetch_class: its values name class-reference
+// headings (Properties, Methods, Signals) that tutorial pages do not have.
 const DocsSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('fetch_class').describe('Get a class reference by name'),
@@ -30,7 +32,6 @@ const DocsSchema = z.discriminatedUnion('action', [
     action: z.literal('fetch_page').describe('Get any docs page by path'),
     path: z.string().describe('Documentation path, e.g. "/tutorials/2d/2d_movement.html"'),
     version: VersionEnum,
-    section: SectionEnum,
   }),
 ]);
 
@@ -178,7 +179,8 @@ export const docs = defineTool({
     const html = await fetchHtml(url);
     const mainContent = extractMainContent(html);
     const markdown = htmlToMarkdown(mainContent);
-    const result = extractSection(markdown, args.section || 'full');
+    const section = args.action === 'fetch_class' ? args.section : 'full';
+    const result = extractSection(markdown, section);
 
     const charCount = result.length;
     const approxTokens = Math.round(charCount / 4);

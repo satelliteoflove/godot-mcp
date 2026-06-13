@@ -73,10 +73,10 @@ Then paste these stdio JSON-RPC frames, one per line:
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"cli-test","version":"0"}}}
 ```
 
-You should get a response naming the server and its version:
+You should get a response naming the server and its version (the real response also carries `title`, `description`, `websiteUrl`, and an `instructions` string, trimmed here):
 
 ```json
-{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"godot-mcp","version":"<your installed version>"}},"jsonrpc":"2.0","id":1}
+{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"godot-mcp","version":"<your installed version>","...":"..."}},"jsonrpc":"2.0","id":1}
 ```
 
 **2) Call a tool** (requires the Godot editor open with the addon enabled):

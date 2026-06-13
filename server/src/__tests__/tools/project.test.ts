@@ -20,7 +20,7 @@ describe('project tool', () => {
     it('surfaces the divergence report and a restart advisory when stale', async () => {
       const report = {
         stale: true,
-        summary: 'project.godot was edited on disk after the editor loaded it: 1 autoload(s) added on disk (FX); 1 input action(s) added on disk (dash). Run `godot_editor restart` to reload.',
+        summary: 'project.godot was edited on disk after the editor loaded it: 1 autoload(s) added on disk (FX); 1 input action(s) added on disk (dash). Run `godot_editor_edit restart` to reload.',
         autoload: { added: ['FX'], removed: [], changed: [] },
         input: { added: ['dash'] },
       };
@@ -33,7 +33,7 @@ describe('project tool', () => {
       expect(structured.autoload.added).toEqual(['FX']);
       expect(structured.input.added).toEqual(['dash']);
       expect(structured.advisory).toContain('STALE PROJECT SETTINGS:');
-      expect(structured.advisory).toContain('godot_editor restart');
+      expect(structured.advisory).toContain('godot_editor_edit restart');
     });
 
     it('returns the report without an advisory when the project is in sync', async () => {

@@ -33,8 +33,9 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) f
 
 ```
 feat: add new feature        -> minor version bump (2.1.0 -> 2.2.0)
+feat!: breaking change       -> major version bump (2.1.0 -> 3.0.0)
 fix: fix a bug               -> patch version bump (2.1.0 -> 2.1.1)
-refactor: change internals   -> patch version bump
+refactor: change internals   -> no release on its own
 docs: update documentation   -> no version bump
 chore: maintenance tasks     -> no version bump
 ```

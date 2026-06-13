@@ -32,10 +32,11 @@ describe('flattened schemas preserve per-action information', () => {
     const action = props().action;
     expect(action.enum).toEqual(['alpha', 'beta', 'gamma']);
     const description = action.description as string;
-    expect(description).toContain('alpha: First action summary');
-    expect(description).toContain('beta: Second action summary');
-    // gamma has no describe() — the bare label still appears
-    expect(description.split('\n')).toHaveLength(3);
+    const lines = description.split('\n');
+    expect(lines[0]).toBe('alpha: First action summary');
+    expect(lines[1]).toBe('beta: Second action summary');
+    // gamma has no describe() — the bare label still appears as its own line
+    expect(lines[2]).toBe('gamma');
   });
 
   it('branch-required fields carry a (required for: ...) marker', () => {

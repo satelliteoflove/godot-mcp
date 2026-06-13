@@ -106,7 +106,7 @@ describe('input tool', () => {
         source: 'editor',
         staleness: {
           stale: true,
-          summary: 'project.godot was edited on disk: 1 input action(s) added on disk (dash). Run `godot_editor restart` to reload.',
+          summary: 'project.godot was edited on disk: 1 input action(s) added on disk (dash). Run `godot_editor_edit restart` to reload.',
           input: { added: ['dash'] },
         },
       });
@@ -115,7 +115,7 @@ describe('input tool', () => {
       const result = await input.execute({ action: 'get_map' }, ctx);
       expect(result).toContain('jump: Space');
       expect(result).toContain('STALE PROJECT SETTINGS:');
-      expect(result).toContain('godot_editor restart');
+      expect(result).toContain('godot_editor_edit restart');
     });
 
     it('appends the advisory even when the stale editor map is empty', async () => {

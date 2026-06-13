@@ -30,7 +30,7 @@
       },
       "section": {
         "default": "full",
-        "description": "Which section to return (default: full). Use specific sections to reduce token usage.",
+        "description": "Which class-reference section to return (default: full). Use specific sections to reduce token usage. (for: fetch_class)",
         "type": "string",
         "enum": [
           "full",
@@ -46,8 +46,7 @@
       }
     },
     "required": [
-      "action",
-      "section"
+      "action"
     ]
   },
   "annotations": {

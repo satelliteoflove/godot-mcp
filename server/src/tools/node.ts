@@ -3,11 +3,6 @@ import { defineTool } from '../core/define-tool.js';
 import { structured } from '../core/structured.js';
 import type { AnyToolDefinition } from '../core/types.js';
 
-const propertiesField = z
-  .record(z.string(), z.unknown())
-  .optional()
-  .describe('Properties to set on the node');
-
 const NodeReadSchema = z
   .discriminatedUnion('action', [
     z.object({
@@ -22,7 +17,11 @@ const NodeReadSchema = z
         ),
     }),
     z.object({
-      action: z.literal('find').describe('Find nodes by name and/or type'),
+      action: z
+        .literal('find')
+        .describe(
+          'Find nodes by name and/or type. Searches the RUNNING game\'s live tree when a game is playing (spawned entities included); otherwise searches the scene open in the editor.'
+        ),
       name_pattern: z
         .string()
         .optional()
@@ -49,7 +48,9 @@ const NodeEditSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('update').describe('Update a node\'s properties'),
     node_path: z.string().describe('Path to the node'),
-    properties: propertiesField,
+    // Required: the addon rejects an empty update, so publishing this as
+    // optional would invite a guaranteed-failure call shape.
+    properties: z.record(z.string(), z.unknown()).describe('Properties to set on the node'),
   }),
   z.object({
     action: z.literal('reparent').describe('Move a node to a new parent'),
@@ -121,7 +122,7 @@ export const nodeEdit = defineTool({
       case 'update': {
         await godot.sendCommand('update_node', {
           node_path: args.node_path,
-          properties: args.properties ?? {},
+          properties: args.properties,
         });
         return `Updated node: ${args.node_path}`;
       }

@@ -124,10 +124,14 @@ const EditorEditSchema = z
         .describe('Save the project before restarting (default: true). Set false to discard unsaved editor changes.'),
     }),
     z.object({
-      action: z.literal('set_viewport_2d').describe('Center and zoom the 2D editor viewport'),
-      center_x: z.number().optional().describe('X coordinate to center the 2D viewport on'),
-      center_y: z.number().optional().describe('Y coordinate to center the 2D viewport on'),
-      zoom: z.number().positive().optional().describe('Zoom level, e.g. 1.0 = 100%, 2.0 = 200%'),
+      action: z
+        .literal('set_viewport_2d')
+        .describe(
+          'Center and zoom the 2D editor viewport. Pass at least one parameter — and note omitted parameters RESET to defaults (center 0,0 / zoom 1.0) rather than keeping the current view, so pass all three to change just one dimension predictably.'
+        ),
+      center_x: z.number().optional().describe('X coordinate to center the 2D viewport on (omitted = resets to 0)'),
+      center_y: z.number().optional().describe('Y coordinate to center the 2D viewport on (omitted = resets to 0)'),
+      zoom: z.number().positive().optional().describe('Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = resets to 1.0)'),
     }),
   ])
   // Constraint a discriminated union can't express on its own, so it lives here:

@@ -13,7 +13,7 @@
           "restart",
           "set_viewport_2d"
         ],
-        "description": "select: Select a node in the editor\nrun: Run the project\nstop: Stop the running project\nrestart: Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.\nset_viewport_2d: Center and zoom the 2D editor viewport"
+        "description": "select: Select a node in the editor\nrun: Run the project\nstop: Stop the running project\nrestart: Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.\nset_viewport_2d: Center and zoom the 2D editor viewport. Pass at least one parameter — and note omitted parameters RESET to defaults (center 0,0 / zoom 1.0) rather than keeping the current view, so pass all three to change just one dimension predictably."
       },
       "node_path": {
         "type": "string",
@@ -32,15 +32,15 @@
         "type": "boolean"
       },
       "center_x": {
-        "description": "X coordinate to center the 2D viewport on (for: set_viewport_2d)",
+        "description": "X coordinate to center the 2D viewport on (omitted = resets to 0) (for: set_viewport_2d)",
         "type": "number"
       },
       "center_y": {
-        "description": "Y coordinate to center the 2D viewport on (for: set_viewport_2d)",
+        "description": "Y coordinate to center the 2D viewport on (omitted = resets to 0) (for: set_viewport_2d)",
         "type": "number"
       },
       "zoom": {
-        "description": "Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (for: set_viewport_2d)",
+        "description": "Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = resets to 1.0) (for: set_viewport_2d)",
         "type": "number",
         "exclusiveMinimum": 0
       }

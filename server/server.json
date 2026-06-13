@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.satelliteoflove/godot-mcp",
-  "description": "Eyes and hands in the Godot editor and the running game: scene and node editing, input injection, deterministic game-time control, and live runtime state for agent-driven playtesting.",
+  "description": "Agent-driven Godot playtesting: editor control, input injection, game-time stepping, live state.",
   "version": "3.23.1",
   "repository": {
     "url": "https://github.com/satelliteoflove/godot-mcp",

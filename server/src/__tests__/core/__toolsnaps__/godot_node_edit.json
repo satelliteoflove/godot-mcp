@@ -17,12 +17,12 @@
         "description": "Path to the node"
       },
       "properties": {
-        "description": "Properties to set on the node (for: update)",
         "type": "object",
         "propertyNames": {
           "type": "string"
         },
-        "additionalProperties": {}
+        "additionalProperties": {},
+        "description": "Properties to set on the node (required for: update)"
       },
       "new_parent_path": {
         "type": "string",

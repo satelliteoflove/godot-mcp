@@ -13,16 +13,16 @@
           "thaw",
           "status"
         ],
-        "description": "freeze: Pause the game under agent control. All observation tools (screenshots, runtime state, find_nodes) keep working while frozen — take as long as you need.\nstep: Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call.\nstep_until: Advance game time until a GDScript predicate becomes true (or a safety cap is hit), then re-freeze. Freezes first if the game is running, so it is a safe first call. Use this instead of step when you do not know how long to advance to reach the state worth observing.\nthaw: Resume real-time play, restoring the game's own pause state (an open pause menu stays open).\nstatus: Report the freeze state: `frozen` is authoritative for the current state; `frozen_wall_ms` is real wall-clock held (not game time); `launched_frozen` is a historical flag (this run booted frozen) and stays true after thaw. Also reports the game's own pause intent, time scale, and whether game code is contesting the freeze."
+        "description": "freeze: Pause the game under agent control. All observation tools (screenshots, runtime state, godot_node_read find) keep working while frozen — take as long as you need.\nstep: Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call. Pass exactly one of duration_ms or frames.\nstep_until: Advance game time until a GDScript predicate becomes true (or a safety cap is hit), then re-freeze. Freezes first if the game is running, so it is a safe first call. Use this instead of step when you do not know how long to advance to reach the state worth observing.\nthaw: Resume real-time play, restoring the game's own pause state (an open pause menu stays open).\nstatus: Report the freeze state: `frozen` is authoritative for the current state; `frozen_wall_ms` is real wall-clock held (not game time); `launched_frozen` is a historical flag (this run booted frozen) and stays true after thaw. Also reports the game's own pause intent, time scale, and whether game code is contesting the freeze."
       },
       "duration_ms": {
-        "description": "Game time to advance in milliseconds (max 50000; loop steps for longer). Scaled by Engine.time_scale like normal play. (for: step)",
+        "description": "Game time to advance in milliseconds (max 50000; loop steps for longer). Scaled by Engine.time_scale like normal play. Mutually exclusive with frames. (for: step)",
         "type": "integer",
         "minimum": 1,
         "maximum": 50000
       },
       "frames": {
-        "description": "Frames to advance instead of a duration (max 1200). frames: 1 is a single-frame advance. (for: step)",
+        "description": "Frames to advance instead of a duration (max 1200). frames: 1 is a single-frame advance. Mutually exclusive with duration_ms. (for: step)",
         "type": "integer",
         "minimum": 1,
         "maximum": 1200
@@ -49,21 +49,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "action_name",
-                "start_ms",
-                "duration_ms"
+                "action_name"
               ],
               "additionalProperties": false
             },
@@ -110,29 +106,23 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "joy_button",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "joy_button"
               ],
               "additionalProperties": false
             },
@@ -161,30 +151,24 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
                 "axis",
-                "value",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "value"
               ],
               "additionalProperties": false
             },
@@ -215,31 +199,25 @@
                   "default": 0,
                   "description": "Joypad device id (default 0). InputMap bindings use device -1 (all devices) by default, which any id matches.",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "start_ms": {
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
                 "stick",
                 "x",
-                "y",
-                "device",
-                "start_ms",
-                "duration_ms"
+                "y"
               ],
               "additionalProperties": false
             },
@@ -253,9 +231,7 @@
                       "minLength": 1
                     },
                     {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "type": "integer"
                     }
                   ],
                   "description": "Raw keyboard key by name with optional modifier prefixes (\"a\", \"escape\", \"ctrl+s\", \"shift+alt+f1\"), or a raw Godot Key enum int. Modifiers: ctrl, shift, alt, meta (aka cmd/super). Drives InputMap key bindings, raw _input/_unhandled_input handlers, and polled Input.is_key_pressed; each modifier is pressed as a real key so Input.is_key_pressed(KEY_CTRL) also holds (so injecting \"ctrl+s\" also fires any action bound to bare Ctrl, like a real keyboard). For typing into focused text fields use type_text instead."
@@ -268,21 +244,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "key",
-                "start_ms",
-                "duration_ms"
+                "key"
               ],
               "additionalProperties": false
             },
@@ -302,21 +274,17 @@
                   "default": 0,
                   "description": "When to start the input (milliseconds from sequence start)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 },
                 "duration_ms": {
                   "default": 0,
                   "description": "How long to hold the input (0 = instant tap; axes return to 0 at the end)",
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "minimum": 0
                 }
               },
               "required": [
-                "look",
-                "start_ms",
-                "duration_ms"
+                "look"
               ],
               "additionalProperties": false
             }

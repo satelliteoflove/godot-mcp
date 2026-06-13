@@ -30,8 +30,8 @@ const ExecSchema = z.discriminatedUnion('action', [
         'value back (there is no implicit return): primitives (bool/int/float/String) come back ' +
         'intact; any other type (Array/Dictionary/Object/Vector2) comes back as a str() preview ' +
         'TRUNCATED to 200 chars — return JSON.stringify(...) yourself when you need structure. ' +
-        'print() output is not returned — use return values, or minimal-godot-mcp ' +
-        'get_console_output. Function bodies cannot declare top-level func/class — use lambdas ' +
+        'print() output is not returned — use return values (or, when the minimal-godot-mcp ' +
+        'companion server is installed, its get_console_output). Function bodies cannot declare top-level func/class — use lambdas ' +
         'for callbacks, or build a sub-script with GDScript.new() and set_script() it onto a ' +
         'holder child for _process-driven behavior. No `await` (synchronous-only; compose with ' +
         'godot_game_time to wait). A runtime error or failed assert() breaks the game into the ' +

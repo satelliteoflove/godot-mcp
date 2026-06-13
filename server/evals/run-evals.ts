@@ -79,8 +79,10 @@ function runClaudeTask(task: EvalTask, mcpConfigPath: string): Promise<Transcrip
     '--mcp-config',
     mcpConfigPath,
     '--strict-mcp-config',
+    // File tools included: the file-edit-then-verify task (and the v4 division
+    // of labor generally) expects the agent to write .tscn files directly.
     '--allowedTools',
-    'mcp__godot-mcp__*',
+    'mcp__godot-mcp__*,Read,Write,Edit,Glob,Grep',
     '--output-format',
     'stream-json',
     '--verbose',
@@ -99,6 +101,7 @@ function runClaudeTask(task: EvalTask, mcpConfigPath: string): Promise<Transcrip
     });
 
     const calls: ToolCall[] = [];
+    const callsByUseId = new Map<string, ToolCall>();
     let usage: TranscriptResult['usage'] = null;
     let costUsd: number | null = null;
     let numTurns: number | null = null;
@@ -127,19 +130,28 @@ function runClaudeTask(task: EvalTask, mcpConfigPath: string): Promise<Transcrip
         for (const block of message?.content ?? []) {
           if (block.type === 'tool_use') {
             const input = (block.input ?? {}) as Record<string, unknown>;
-            calls.push({
+            const call: ToolCall = {
               tool: normalizeToolName(String(block.name)),
               action: typeof input.action === 'string' ? input.action : undefined,
               isError: false,
-            });
+            };
+            calls.push(call);
+            if (typeof block.id === 'string') {
+              callsByUseId.set(block.id, call);
+            }
           }
         }
       }
       if (event.type === 'user') {
         const message = event.message as { content?: Array<Record<string, unknown>> };
         for (const block of message?.content ?? []) {
-          if (block.type === 'tool_result' && block.is_error === true && calls.length > 0) {
-            calls[calls.length - 1].isError = true;
+          // Errors attribute by tool_use_id — parallel tool calls make
+          // "the last call" the wrong target.
+          if (block.type === 'tool_result' && block.is_error === true) {
+            const call = typeof block.tool_use_id === 'string'
+              ? callsByUseId.get(block.tool_use_id)
+              : undefined;
+            if (call) call.isError = true;
           }
         }
       }

@@ -22,55 +22,41 @@
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
         ],
-        "additionalProperties": false,
         "description": "Cell coordinates (required for: set_cell, erase_cell)"
       },
       "source_id": {
         "description": "TileSet source ID, default 0 (for: set_cell)",
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+        "type": "integer"
       },
       "atlas_coords": {
         "description": "Atlas coordinates, default 0,0 (for: set_cell)",
         "type": "object",
         "properties": {
           "x": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           },
           "y": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "type": "integer"
           }
         },
         "required": [
           "x",
           "y"
-        ],
-        "additionalProperties": false
+        ]
       },
       "alternative_tile": {
         "description": "Alternative tile ID, default 0 (for: set_cell)",
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+        "type": "integer"
       },
       "cells": {
         "minItems": 1,
@@ -82,57 +68,42 @@
               "type": "object",
               "properties": {
                 "x": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 },
                 "y": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 }
               },
               "required": [
                 "x",
                 "y"
-              ],
-              "additionalProperties": false
+              ]
             },
             "source_id": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
+              "type": "integer"
             },
             "atlas_coords": {
               "type": "object",
               "properties": {
                 "x": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 },
                 "y": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "type": "integer"
                 }
               },
               "required": [
                 "x",
                 "y"
-              ],
-              "additionalProperties": false
+              ]
             },
             "alternative_tile": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
+              "type": "integer"
             }
           },
           "required": [
             "coords"
-          ],
-          "additionalProperties": false
+          ]
         },
         "description": "Array of cells to set (required for: set_cells_batch)"
       }

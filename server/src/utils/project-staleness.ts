@@ -16,7 +16,7 @@ export interface ProjectStaleness {
 
 const FALLBACK =
   'project.godot was edited on disk after the editor loaded it; the editor may be showing ' +
-  'stale autoloads / input map. Run godot_editor restart to reload.';
+  'stale autoloads / input map. Run godot_editor_edit restart to reload.';
 
 // A one-line advisory to surface alongside a tool result, or null when not stale.
 export function staleAdvisory(staleness?: ProjectStaleness): string | null {

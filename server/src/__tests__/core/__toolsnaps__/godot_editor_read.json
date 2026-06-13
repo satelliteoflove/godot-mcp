@@ -23,8 +23,7 @@
       "limit": {
         "description": "Maximum number of messages to return (default: 50) (for: get_log_messages)",
         "type": "integer",
-        "exclusiveMinimum": 0,
-        "maximum": 9007199254740991
+        "exclusiveMinimum": 0
       },
       "severity": {
         "description": "Filter by severity: \"error\" drops warnings (the \"did anything actually break?\" check), \"warning\" returns only warnings, \"all\" (default) returns both. (for: get_log_messages)",
@@ -38,14 +37,11 @@
       "since": {
         "description": "Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning). (for: get_log_messages)",
         "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
+        "minimum": 0
       },
       "max_width": {
         "description": "Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. (for: screenshot_game, screenshot_editor)",
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+        "type": "integer"
       },
       "viewport": {
         "description": "Which editor viewport to capture (for: screenshot_editor)",

@@ -14,7 +14,10 @@ type JsonObj = Record<string, unknown>;
 // branch, and every merged property description gets a "(required for: ...)"
 // or "(for: ...)" marker naming the actions it belongs to.
 function flattenUnionToObject(schema: JsonObj): JsonObj {
-  const branches = (schema.oneOf ?? schema.anyOf ?? schema.allOf) as JsonObj[] | undefined;
+  // oneOf/anyOf only: allOf is an intersection, where this merge's
+  // required-in-every-branch logic would be inverted (union, not intersection,
+  // of requireds). No tool uses intersections; reject loudly if one appears.
+  const branches = (schema.oneOf ?? schema.anyOf) as JsonObj[] | undefined;
   if (!branches || branches.length === 0) {
     return { type: 'object' };
   }
@@ -117,13 +120,36 @@ function flattenUnionToObject(schema: JsonObj): JsonObj {
   };
 }
 
+// Zod's .int() compiles to ±Number.MAX_SAFE_INTEGER bounds — meaningless to a
+// model and noise in every published schema. Strip exactly those sentinels,
+// recursively; real bounds (min_width: 1, etc.) stay.
+function stripSafeIntSentinels(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(stripSafeIntSentinels);
+    return;
+  }
+  if (node === null || typeof node !== 'object') return;
+  const obj = node as JsonObj;
+  if (obj.minimum === -Number.MAX_SAFE_INTEGER) delete obj.minimum;
+  if (obj.maximum === Number.MAX_SAFE_INTEGER) delete obj.maximum;
+  Object.values(obj).forEach(stripSafeIntSentinels);
+}
+
 export function toInputSchema(schema: ZodType): object {
-  const jsonSchema = z.toJSONSchema(schema, { target: 'draft-07' });
+  // io: 'input' so fields with .default() publish as optional (the caller may
+  // omit them) instead of required-with-a-default, which contradicts itself.
+  const jsonSchema = z.toJSONSchema(schema, { target: 'draft-07', io: 'input' });
   const { $schema, ...rest } = jsonSchema as JsonObj;
+  stripSafeIntSentinels(rest);
 
   if (rest.type === 'object') return rest;
-  if (rest.oneOf || rest.anyOf || rest.allOf) return flattenUnionToObject(rest);
-  return { type: 'object', ...rest };
+  if (rest.oneOf || rest.anyOf) return flattenUnionToObject(rest);
+  if (rest.allOf) {
+    throw new Error('intersection (allOf) schemas are not supported for tool inputs');
+  }
+  // The Anthropic API requires an object root; a non-object schema here is a
+  // tool-authoring bug — fail at registration, not silently at the API.
+  throw new Error(`tool input schema must have an object root, got: ${JSON.stringify(rest.type)}`);
 }
 
 // Names the actions a discriminated-union tool accepts, for error messages.
@@ -141,7 +167,7 @@ function branchRequirements(
   schema: ZodType,
   action: string
 ): { required: string[]; optional: string[] } | null {
-  const raw = z.toJSONSchema(schema, { target: 'draft-07' }) as JsonObj;
+  const raw = z.toJSONSchema(schema, { target: 'draft-07', io: 'input' }) as JsonObj;
   const branches = (raw.oneOf ?? raw.anyOf) as JsonObj[] | undefined;
   if (!branches) return null;
 
@@ -173,6 +199,10 @@ export function describeValidationError(
     return `${toolName}: unknown action "${action}". Valid actions: ${actions.join(', ')}`;
   }
   if (actions && action === undefined) {
+    // A wrong-typed action (a number, an object) is "unknown", not "missing".
+    if ('action' in args) {
+      return `${toolName}: unknown action ${JSON.stringify(args.action)}. Valid actions: ${actions.join(', ')}`;
+    }
     return `${toolName}: missing required "action". Valid actions: ${actions.join(', ')}`;
   }
 

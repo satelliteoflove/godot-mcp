@@ -103,11 +103,17 @@ describe('node edit tool', () => {
   });
 
   describe('schema validation', () => {
-    it('requires node_path for update', () => {
+    it('requires node_path and properties for update', () => {
       expect(nodeEdit.schema.safeParse({ action: 'update' }).success).toBe(false);
+      // properties is required: the addon rejects an empty update outright
       expect(nodeEdit.schema.safeParse({
         action: 'update',
         node_path: '/root/Test',
+      }).success).toBe(false);
+      expect(nodeEdit.schema.safeParse({
+        action: 'update',
+        node_path: '/root/Test',
+        properties: { visible: false },
       }).success).toBe(true);
     });
 

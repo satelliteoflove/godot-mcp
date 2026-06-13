@@ -3,16 +3,27 @@ import { parseArgs } from 'node:util';
 import { installAddon } from './installer/install.js';
 import { getServerVersion } from './version.js';
 
-const { values, positionals } = parseArgs({
-  options: {
-    'install-addon': { type: 'boolean', short: 'i' },
-    force: { type: 'boolean', short: 'f' },
-    'read-only': { type: 'boolean' },
-    version: { type: 'boolean', short: 'v' },
-    help: { type: 'boolean', short: 'h' },
-  },
-  allowPositionals: true,
-});
+function parseCliArgs() {
+  try {
+    return parseArgs({
+      options: {
+        'install-addon': { type: 'boolean', short: 'i' },
+        force: { type: 'boolean', short: 'f' },
+        'read-only': { type: 'boolean' },
+        version: { type: 'boolean', short: 'v' },
+        help: { type: 'boolean', short: 'h' },
+      },
+      allowPositionals: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
+    console.error('Run godot-mcp --help for usage.');
+    process.exit(1);
+  }
+}
+
+const { values, positionals } = parseCliArgs();
 
 if (values.help) {
   console.log(`godot-mcp - MCP server for Godot Engine

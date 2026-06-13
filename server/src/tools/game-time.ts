@@ -34,26 +34,26 @@ const GameTimeSchema = z
     z.object({
       action: z
         .literal('freeze')
-        .describe('Pause the game under agent control. All observation tools (screenshots, runtime state, find_nodes) keep working while frozen — take as long as you need.'),
+        .describe('Pause the game under agent control. All observation tools (screenshots, runtime state, godot_node_read find) keep working while frozen — take as long as you need.'),
     }),
     z.object({
       action: z
         .literal('step')
-        .describe('Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call.'),
+        .describe('Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call. Pass exactly one of duration_ms or frames.'),
       duration_ms: z
         .number()
         .int()
         .min(1)
         .max(STEP_MAX_MS)
         .optional()
-        .describe(`Game time to advance in milliseconds (max ${STEP_MAX_MS}; loop steps for longer). Scaled by Engine.time_scale like normal play.`),
+        .describe(`Game time to advance in milliseconds (max ${STEP_MAX_MS}; loop steps for longer). Scaled by Engine.time_scale like normal play. Mutually exclusive with frames.`),
       frames: z
         .number()
         .int()
         .min(1)
         .max(STEP_MAX_FRAMES)
         .optional()
-        .describe(`Frames to advance instead of a duration (max ${STEP_MAX_FRAMES}). frames: 1 is a single-frame advance.`),
+        .describe(`Frames to advance instead of a duration (max ${STEP_MAX_FRAMES}). frames: 1 is a single-frame advance. Mutually exclusive with duration_ms.`),
       inputs: z
         .array(InputEntrySchema)
         .optional()

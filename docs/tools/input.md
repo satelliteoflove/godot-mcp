@@ -38,8 +38,8 @@ Type text into the focused UI element
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `text` | string | Yes | Text to type |
-| `delay_ms` | integer | Yes | Delay between keystrokes in milliseconds (default 50) |
-| `submit` | boolean | Yes | Press Enter after typing to submit (for LineEdit text_submitted) |
+| `delay_ms` | integer | No | Delay between keystrokes in milliseconds (default 50) |
+| `submit` | boolean | No | Press Enter after typing to submit (for LineEdit text_submitted) |
 
 ### Examples
 
@@ -56,9 +56,7 @@ Type text into the focused UI element
   "action": "sequence",
   "inputs": [
     {
-      "action_name": "example",
-      "start_ms": 0,
-      "duration_ms": 0
+      "action_name": "example"
     }
   ]
 }
@@ -68,9 +66,7 @@ Type text into the focused UI element
 // type_text
 {
   "action": "type_text",
-  "text": "example",
-  "delay_ms": 0,
-  "submit": false
+  "text": "example"
 }
 ```
 

@@ -16,18 +16,18 @@ Make game time answer to your clock instead of racing ahead between tool calls: 
 
 #### `freeze`
 
-Pause the game under agent control. All observation tools (screenshots, runtime state, find_nodes) keep working while frozen — take as long as you need.
+Pause the game under agent control. All observation tools (screenshots, runtime state, godot_node_read find) keep working while frozen — take as long as you need.
 
 *No parameters.*
 
 #### `step`
 
-Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call.
+Advance a bounded slice of game time, then re-freeze. Freezes first if the game is running, so step is always a safe first call. Pass exactly one of duration_ms or frames.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `duration_ms` | integer | No | Game time to advance in milliseconds (max 50000; loop steps for longer). Scaled by Engine.time_scale like normal play. |
-| `frames` | integer | No | Frames to advance instead of a duration (max 1200). frames: 1 is a single-frame advance. |
+| `duration_ms` | integer | No | Game time to advance in milliseconds (max 50000; loop steps for longer). Scaled by Engine.time_scale like normal play. Mutually exclusive with frames. |
+| `frames` | integer | No | Frames to advance instead of a duration (max 1200). frames: 1 is a single-frame advance. Mutually exclusive with duration_ms. |
 | `inputs` | array | No | Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, raw keys (with modifier combos), and relative mouse-look (look: [dx, dy], delivered as InputEventMouseMotion.relative inside the frozen step — the FPS-camera testing path). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end. |
 
 #### `step_until`

@@ -127,13 +127,13 @@ Restart the editor, reloading project.godot (autoloads, input map), addon code, 
 
 #### `set_viewport_2d`
 
-Center and zoom the 2D editor viewport
+Center and zoom the 2D editor viewport. Pass at least one parameter — and note omitted parameters RESET to defaults (center 0,0 / zoom 1.0) rather than keeping the current view, so pass all three to change just one dimension predictably.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `center_x` | number | No | X coordinate to center the 2D viewport on |
-| `center_y` | number | No | Y coordinate to center the 2D viewport on |
-| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% |
+| `center_x` | number | No | X coordinate to center the 2D viewport on (omitted = resets to 0) |
+| `center_y` | number | No | Y coordinate to center the 2D viewport on (omitted = resets to 0) |
+| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = resets to 1.0) |
 
 ### Examples
 

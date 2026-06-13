@@ -45,14 +45,19 @@ export async function main() {
       // that produce no error anywhere and get misread without warning.
       // Keep under 2KB — Claude Code truncates beyond that.
       instructions:
-        'godot-mcp controls a live Godot editor and the game it runs: open/save scenes, ' +
-        'inspect and edit nodes, animations, tilemaps, and gridmaps, read project settings ' +
-        'and engine-computed 3D data, run the game and drive it like a player (input ' +
-        'injection, frozen game-time stepping, in-game GDScript for scenario setup), and ' +
-        'observe it cheaply (runtime-state digests instead of screenshots, profiler, editor ' +
-        'logs). Reach for godot_* tools whenever a task touches a Godot project; all ' +
-        'godot_*_read tools are safe to auto-allow. Requires the editor to be open with the ' +
-        'godot-mcp addon enabled. ' +
+        (readOnly
+          ? 'godot-mcp is running in READ-ONLY mode: only observation tools are registered ' +
+            '(no scene/node/animation edits, no running or stopping the game, no input ' +
+            'injection, no in-game GDScript). godot-mcp observes a live Godot editor and ' +
+            'the game it runs: '
+          : 'godot-mcp controls a live Godot editor and the game it runs: open/save scenes, ' +
+            'inspect and edit nodes, animations, tilemaps, and gridmaps, run the game and ' +
+            'drive it like a player (input injection, frozen game-time stepping, in-game ' +
+            'GDScript for scenario setup), and observe it cheaply: ') +
+        'read project settings, engine-computed 3D data, runtime-state digests instead of ' +
+        'screenshots, profiler data, and editor logs. Reach for godot_* tools whenever a ' +
+        'task touches a Godot project; all godot_*_read tools are safe to auto-allow. ' +
+        'Requires the editor to be open with the godot-mcp addon enabled. ' +
         'Godot pitfalls that produce no errors: ' +
         '(1) If 3D rendering looks wrong with nothing in any log (black/too-dark surfaces, ' +
         'invisible or one-sided walls/floors, lighting that ignores light changes), run ' +
@@ -61,10 +66,14 @@ export async function main() {
         '(2) SDFGI replaces constant ambient light: to lift shadow sides, add a dim ' +
         'shadowless DirectionalLight (light_specular=0) opposing the key light instead of ' +
         'raising ambient_light_energy, which will appear to do nothing. ' +
-        '(3) After editing .gd files on disk, run godot_editor_edit restart — the editor ' +
-        'does not reliably rescan externally modified scripts. ' +
-        '(4) After editing project.godot on disk, run godot_project check_stale — the ' +
-        'editor never re-reads it on its own.',
+        (readOnly
+          ? '(3) After externally edited .gd files or project.godot, the editor may be ' +
+            'stale (godot_project check_stale detects it); restarting the editor is up to ' +
+            'the user in read-only mode.'
+          : '(3) After editing .gd files on disk, run godot_editor_edit restart — the ' +
+            'editor does not reliably rescan externally modified scripts. ' +
+            '(4) After editing project.godot on disk, run godot_project check_stale — the ' +
+            'editor never re-reads it on its own.'),
     }
   );
 
