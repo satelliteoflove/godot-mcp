@@ -1,5 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -18,7 +19,17 @@ function isReadOnlyMode(): boolean {
   return envValue === '1' || envValue?.toLowerCase() === 'true';
 }
 
-export async function main() {
+// Seams for tests. Production uses the real stdio transport and the real Godot
+// WebSocket setup; a test can inject a fake transport and a connect step that
+// never resolves to prove startup does not block on Godot (see #319).
+export interface MainDeps {
+  createTransport?: () => Transport;
+  connectGodot?: () => Promise<void>;
+}
+
+export async function main(deps: MainDeps = {}) {
+  const createTransport = deps.createTransport ?? (() => new StdioServerTransport());
+  const connectGodot = deps.connectGodot ?? initializeConnection;
   const readOnly = isReadOnlyMode();
   registerAllTools({ readOnly });
   if (readOnly) {
@@ -124,10 +135,16 @@ export async function main() {
     }
   });
 
-  await initializeConnection();
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  // Connect the MCP transport FIRST, before touching Godot. The tool list is
+  // already registered above and does not depend on Godot being reachable, so
+  // the client's initialize + tools/list exchange must complete immediately.
+  // Awaiting the Godot connection here instead (the old order) coupled the MCP
+  // handshake to the WebSocket connect: when Godot is unreachable in a way that
+  // does not fail fast — e.g. a WSL2 client hitting a Windows host whose
+  // firewall drops the SYN, so the TCP connect hangs to its full timeout — the
+  // handshake stalled past the client's MCP startup deadline, the client cached
+  // an empty tool list, and the only recovery was a manual reconnect (#319).
+  await server.connect(createTransport());
 
   let isShuttingDown = false;
   const gracefulShutdown = () => {
@@ -148,4 +165,13 @@ export async function main() {
   server.onclose = gracefulShutdown;
 
   logger.info('Server started');
+
+  // Now reach for Godot, in the background. initializeConnection swallows its
+  // own connect failures and schedules reconnects, so this never rejects and
+  // never blocks the already-live transport. A tool called before Godot is up
+  // returns the connection diagnostic (see GodotConnection.getDiagnosticMessage).
+  void connectGodot().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Background Godot connection setup failed', { error: message });
+  });
 }

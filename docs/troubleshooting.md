@@ -40,6 +40,12 @@ Running the MCP server inside WSL2 while Godot runs on Windows works, but localh
 
 Full details in the [Installation Guide](../INSTALL.md#wsl-support).
 
+### Tools are present but every call reports it can't reach Godot
+
+This is the bind-mode boundary above, caught at call time rather than startup. The tools are registered regardless of whether Godot is reachable (so they always show up in your client), and calling one while disconnected returns a diagnostic — in WSL it names the fix directly: set **Bind mode: WSL** in the Godot MCP panel, or set `GODOT_HOST`. The server reconnects on its own once the bind mode is right; you don't need to restart it, and a tool call that failed a moment ago will succeed once the bridge is up.
+
+If your client started the server while Godot was still in **Localhost** bind mode, that's fine now — the tools are there either way. (Older versions could end up with an empty tool list in this situation; if you're on one, the recovery is your client's MCP reconnect, e.g. `/mcp` in Claude Code, which re-fetches the tool list.)
+
 ## Server and addon versions disagree
 
 The MCP panel shows both the addon version and (when connected) the server version, and warns when they differ. The two are released together and expected to match. To update the addon in your project:
