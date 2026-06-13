@@ -85,13 +85,33 @@ const EditorReadSchema = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
   z.object({
-    action: z.literal('screenshot_game').describe('Capture a lossless PNG screenshot of the running game'),
-    max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context.'),
+    action: z
+      .literal('screenshot_game')
+      .describe(
+        'Capture a lossless PNG of the running game. Each frame persists in context every later turn and never decays, so reserve it for genuine APPEARANCE judgments (spacing, color, art, "does it look right"). For STRUCTURE or state — which control is focused, a label\'s text, whether a panel is visible, a node\'s anchors/size — read cheap text instead: godot_node_read (scene tree, node properties) or godot_runtime_state digest (live values), both ~free versus the hundreds of visual tokens a frame costs. Do not re-shoot a view that has not changed.'
+      ),
+    max_width: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        'Maximum width in pixels (default: 900). Cost scales with resolution (~1 visual token per 28x28px patch; a 900px 16:9 frame ≈ 600 tokens, a native 1080p frame ≈ 2700 on Opus). 640 is the legibility floor for chip-dense UI — still crisp; 512 is the edge and 384 breaks fine print — so drop toward 640 to roughly halve per-frame cost when you do not need the finest text, and raise above 900 only when detail is genuinely unreadable.'
+      ),
   }),
   z.object({
-    action: z.literal('screenshot_editor').describe('Capture a lossless PNG screenshot of an editor viewport'),
+    action: z
+      .literal('screenshot_editor')
+      .describe(
+        'Capture a lossless PNG of an editor viewport. Same context cost as screenshot_game — the frame persists every later turn — so capture for appearance, not for structure/state you could read as cheap text via godot_node_read (scene tree, node properties) or godot_runtime_state.'
+      ),
     viewport: z.enum(['2d', '3d']).optional().describe('Which editor viewport to capture'),
-    max_width: z.number().int().optional().describe('Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context.'),
+    max_width: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        'Maximum width in pixels (default: 900). Cost scales with resolution (~1 visual token per 28x28px patch; a 900px 16:9 frame ≈ 600 tokens). 640 is the legibility floor for chip-dense UI (512 is the edge, 384 breaks fine print), so drop toward 640 to roughly halve per-frame cost when you do not need the finest text; raise above 900 only when detail is unreadable.'
+      ),
   }),
 ]);
 
@@ -116,7 +136,7 @@ const EditorEditSchema = z
       action: z
         .literal('restart')
         .describe(
-          'Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.'
+          'Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use it for EDITOR-side staleness only: edited @tool/addon/plugin code, changed autoloads or input map, or a .gdshader the editor still renders from a cached compile. NOT needed to test edited gameplay scripts — a launched game loads .gd/.tscn fresh from disk, so godot_editor_edit stop then run already runs the new code. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.'
         ),
       save: z
         .boolean()
@@ -127,11 +147,11 @@ const EditorEditSchema = z
       action: z
         .literal('set_viewport_2d')
         .describe(
-          'Center and zoom the 2D editor viewport. Pass at least one parameter — and note omitted parameters RESET to defaults (center 0,0 / zoom 1.0) rather than keeping the current view, so pass all three to change just one dimension predictably.'
+          'Center and/or zoom the 2D editor viewport. Pass at least one parameter; omitted parameters PRESERVE the current view (e.g. pass only zoom to zoom in on the current center). The addon reads the live viewport transform to fill in whatever you leave out.'
         ),
-      center_x: z.number().optional().describe('X coordinate to center the 2D viewport on (omitted = resets to 0)'),
-      center_y: z.number().optional().describe('Y coordinate to center the 2D viewport on (omitted = resets to 0)'),
-      zoom: z.number().positive().optional().describe('Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = resets to 1.0)'),
+      center_x: z.number().optional().describe('X coordinate to center the 2D viewport on (omitted = keep current X)'),
+      center_y: z.number().optional().describe('Y coordinate to center the 2D viewport on (omitted = keep current Y)'),
+      zoom: z.number().positive().optional().describe('Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = keep current zoom)'),
     }),
   ])
   // Constraint a discriminated union can't express on its own, so it lives here:
@@ -260,7 +280,7 @@ export const editorEdit = defineTool({
   name: 'godot_editor_edit',
   annotations: { title: 'Editor Control (edit)', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it), and use restart to recover when externally edited .gd files or a stale project.godot have left the running editor out of sync with disk. For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.',
+    'Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.',
   schema: EditorEditSchema,
   async execute(args: EditorEditArgs, { godot }) {
     switch (args.action) {
@@ -301,14 +321,17 @@ export const editorEdit = defineTool({
       }
 
       case 'set_viewport_2d': {
+        // Forward only the parameters the caller actually set; the addon
+        // preserves the current view for any axis we omit (so a zoom-only call
+        // keeps the current center instead of recentering on 0,0).
+        const params: Record<string, number> = {};
+        if (args.center_x !== undefined) params.center_x = args.center_x;
+        if (args.center_y !== undefined) params.center_y = args.center_y;
+        if (args.zoom !== undefined) params.zoom = args.zoom;
         const result = await godot.sendCommand<{
           center: { x: number; y: number };
           zoom: number;
-        }>('set_2d_viewport', {
-          center_x: args.center_x ?? 0,
-          center_y: args.center_y ?? 0,
-          zoom: args.zoom ?? 1.0,
-        });
+        }>('set_2d_viewport', params);
         return `2D viewport set to center (${result.center.x.toFixed(1)}, ${result.center.y.toFixed(1)}) at ${result.zoom.toFixed(2)}x zoom`;
       }
     }

@@ -90,14 +90,27 @@ func set_2d_viewport(params: Dictionary) -> Dictionary:
 	if not viewport:
 		return _error("NO_VIEWPORT", "Could not access 2D editor viewport")
 
-	var center_x: float = params.get("center_x", 0.0)
-	var center_y: float = params.get("center_y", 0.0)
-	var zoom: float = params.get("zoom", 1.0)
+	var size := viewport.size
+
+	# Read the current view first so any omitted parameter preserves it instead of
+	# snapping to a default (a zoom-only call keeps the current center, not 0,0).
+	# This inverts the same transform math applied below — see
+	# _get_editor_2d_viewport_info().
+	var current := viewport.global_canvas_transform
+	var current_zoom: float = current.x.x
+	var current_offset: Vector2 = -current.origin / current_zoom
+	var current_center := Vector2(
+		current_offset.x + size.x / current_zoom / 2,
+		current_offset.y + size.y / current_zoom / 2
+	)
+
+	var center_x: float = params.get("center_x", current_center.x)
+	var center_y: float = params.get("center_y", current_center.y)
+	var zoom: float = params.get("zoom", current_zoom)
 
 	if zoom <= 0:
 		return _error("INVALID_PARAMS", "zoom must be positive")
 
-	var size := viewport.size
 	var offset := Vector2(center_x - size.x / zoom / 2, center_y - size.y / zoom / 2)
 	var origin := -offset * zoom
 

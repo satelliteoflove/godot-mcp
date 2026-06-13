@@ -13,8 +13,20 @@ const NodeReadSchema = z
       action: z
         .literal('get_scene_tree')
         .describe(
-          'Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those)'
+          'Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those). Deep or wide scenes can be large — cap the result with max_depth and/or max_children; any node whose children are cut off carries "truncated_children": <count of omitted direct children> instead of (or alongside) "children".'
         ),
+      max_depth: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Cap recursion depth (root = depth 1). Omit for the full tree.'),
+      max_children: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Cap how many children are listed per node. Omit to list every child.'),
     }),
     z.object({
       action: z
@@ -82,7 +94,10 @@ export const nodeRead = defineTool({
       }
 
       case 'get_scene_tree': {
-        const result = await godot.sendCommand<{ tree: unknown }>('get_scene_tree');
+        const result = await godot.sendCommand<{ tree: unknown }>('get_scene_tree', {
+          max_depth: args.max_depth,
+          max_children: args.max_children,
+        });
         return structured(result.tree as Record<string, unknown>);
       }
 

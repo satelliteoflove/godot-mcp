@@ -46,20 +46,20 @@ Get the most recent error stack trace
 
 #### `screenshot_game`
 
-Capture a lossless PNG screenshot of the running game
+Capture a lossless PNG of the running game. Each frame persists in context every later turn and never decays, so reserve it for genuine APPEARANCE judgments (spacing, color, art, "does it look right"). For STRUCTURE or state — which control is focused, a label's text, whether a panel is visible, a node's anchors/size — read cheap text instead: godot_node_read (scene tree, node properties) or godot_runtime_state digest (live values), both ~free versus the hundreds of visual tokens a frame costs. Do not re-shoot a view that has not changed.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `max_width` | integer | No | Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. |
+| `max_width` | integer | No | Maximum width in pixels (default: 900). Cost scales with resolution (~1 visual token per 28x28px patch; a 900px 16:9 frame ≈ 600 tokens, a native 1080p frame ≈ 2700 on Opus). 640 is the legibility floor for chip-dense UI — still crisp; 512 is the edge and 384 breaks fine print — so drop toward 640 to roughly halve per-frame cost when you do not need the finest text, and raise above 900 only when detail is genuinely unreadable. |
 
 #### `screenshot_editor`
 
-Capture a lossless PNG screenshot of an editor viewport
+Capture a lossless PNG of an editor viewport. Same context cost as screenshot_game — the frame persists every later turn — so capture for appearance, not for structure/state you could read as cheap text via godot_node_read (scene tree, node properties) or godot_runtime_state.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `viewport` | `2d`, `3d` | No | Which editor viewport to capture |
-| `max_width` | integer | No | Maximum width in pixels (default: 900). Resolution is the vision-token cost lever (~width*height/750); lower it to spend less context. |
+| `max_width` | integer | No | Maximum width in pixels (default: 900). Cost scales with resolution (~1 visual token per 28x28px patch; a 900px 16:9 frame ≈ 600 tokens). 640 is the legibility floor for chip-dense UI (512 is the edge, 384 breaks fine print), so drop toward 640 to roughly halve per-frame cost when you do not need the finest text; raise above 900 only when detail is unreadable. |
 
 ### Examples
 
@@ -90,7 +90,7 @@ Capture a lossless PNG screenshot of an editor viewport
 
 ## godot_editor_edit
 
-Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it), and use restart to recover when externally edited .gd files or a stale project.godot have left the running editor out of sync with disk. For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.
+Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.
 
 ### Actions
 
@@ -119,7 +119,7 @@ Stop the running project
 
 #### `restart`
 
-Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use after external edits the running editor would otherwise keep stale. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.
+Restart the editor, reloading project.godot (autoloads, input map), addon code, and plugins from disk. Use it for EDITOR-side staleness only: edited @tool/addon/plugin code, changed autoloads or input map, or a .gdshader the editor still renders from a cached compile. NOT needed to test edited gameplay scripts — a launched game loads .gd/.tscn fresh from disk, so godot_editor_edit stop then run already runs the new code. Fire-and-forget: the bridge drops and auto-reconnects within a few seconds. Does not start a cold editor - the editor must already be running.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -127,13 +127,13 @@ Restart the editor, reloading project.godot (autoloads, input map), addon code, 
 
 #### `set_viewport_2d`
 
-Center and zoom the 2D editor viewport. Pass at least one parameter — and note omitted parameters RESET to defaults (center 0,0 / zoom 1.0) rather than keeping the current view, so pass all three to change just one dimension predictably.
+Center and/or zoom the 2D editor viewport. Pass at least one parameter; omitted parameters PRESERVE the current view (e.g. pass only zoom to zoom in on the current center). The addon reads the live viewport transform to fill in whatever you leave out.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `center_x` | number | No | X coordinate to center the 2D viewport on (omitted = resets to 0) |
-| `center_y` | number | No | Y coordinate to center the 2D viewport on (omitted = resets to 0) |
-| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = resets to 1.0) |
+| `center_x` | number | No | X coordinate to center the 2D viewport on (omitted = keep current X) |
+| `center_y` | number | No | Y coordinate to center the 2D viewport on (omitted = keep current Y) |
+| `zoom` | number | No | Zoom level, e.g. 1.0 = 100%, 2.0 = 200% (omitted = keep current zoom) |
 
 ### Examples
 

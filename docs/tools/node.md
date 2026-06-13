@@ -25,9 +25,12 @@ Get a node's properties
 
 #### `get_scene_tree`
 
-Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those)
+Full hierarchy of the open scene as the editor sees it, including children inside instanced sub-scenes (a .tscn file read cannot show those). Deep or wide scenes can be large — cap the result with max_depth and/or max_children; any node whose children are cut off carries "truncated_children": <count of omitted direct children> instead of (or alongside) "children".
 
-*No parameters.*
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `max_depth` | integer | No | Cap recursion depth (root = depth 1). Omit for the full tree. |
+| `max_children` | integer | No | Cap how many children are listed per node. Omit to list every child. |
 
 #### `find`
 

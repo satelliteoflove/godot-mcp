@@ -364,5 +364,19 @@ describe('editorEdit tool', () => {
       expect(result).toContain('200.5');
       expect(result).toContain('2.50');
     });
+
+    it('forwards only the params the caller set, so the addon preserves omitted axes', async () => {
+      // A zoom-only call must NOT send center_x/center_y; otherwise the addon
+      // can't tell "keep current center" from "recenter on 0,0" (#316).
+      mock.mockResponse({ center: { x: 42, y: 99 }, zoom: 3 });
+      const ctx = createToolContext(mock);
+
+      await editorEdit.execute({ action: 'set_viewport_2d', zoom: 3 }, ctx);
+
+      expect(mock.calls[0].command).toBe('set_2d_viewport');
+      expect(mock.calls[0].params).toEqual({ zoom: 3 });
+      expect('center_x' in mock.calls[0].params).toBe(false);
+      expect('center_y' in mock.calls[0].params).toBe(false);
+    });
   });
 });

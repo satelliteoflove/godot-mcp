@@ -52,10 +52,13 @@ parallel-array keyframe format is genuinely error-prone by hand), and all
 tilemap/gridmap cell operations (cell data is base64-encoded inside the
 `.tscn` — there is no file-editing alternative).
 
-After editing files the editor has open, watch for staleness: the editor
-does not reliably rescan externally modified `.gd` files (run
-`godot_editor_edit` restart) and never re-reads `project.godot`
-(run `godot_project` check_stale).
+After editing files, mind *where* the staleness is. A launched *game* loads
+`.gd`/`.tscn` fresh from disk, so to test edited gameplay scripts just
+`godot_editor_edit` stop then run — no restart needed. The running *editor* is
+what holds stale state: `@tool`/addon code, `project.godot` (run
+`godot_project` check_stale to detect drift, `godot_editor_edit` restart to
+apply changed autoloads/input map), and an edited `.gdshader` it still renders
+from a cached compile.
 
 ## Removed MCP resources
 

@@ -11,15 +11,19 @@ func get_commands() -> Dictionary:
 	}
 
 
-func get_scene_tree(_params: Dictionary) -> Dictionary:
+func get_scene_tree(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	if not root:
 		return _error("NO_SCENE", "No scene is currently open")
 
-	return _success({"tree": _build_tree(root)})
+	# 0 = unlimited for both caps (the default when the param is omitted), so the
+	# full tree is unchanged unless a caller opts into trimming it.
+	var max_depth: int = int(params.get("max_depth", 0))
+	var max_children: int = int(params.get("max_children", 0))
+	return _success({"tree": _build_tree(root, 1, max_depth, max_children)})
 
 
-func _build_tree(node: Node) -> Dictionary:
+func _build_tree(node: Node, depth: int, max_depth: int, max_children: int) -> Dictionary:
 	var result := {
 		"name": node.name,
 		"type": node.get_class(),
@@ -32,12 +36,29 @@ func _build_tree(node: Node) -> Dictionary:
 		var pos: Vector3 = node.position
 		result["position"] = {"x": pos.x, "y": pos.y, "z": pos.z}
 
-	var children: Array[Dictionary] = []
-	for child in node.get_children():
-		children.append(_build_tree(child))
+	var child_nodes := node.get_children()
+	var child_count := child_nodes.size()
+	if child_count == 0:
+		return result
 
-	if not children.is_empty():
-		result["children"] = children
+	# Depth cap: at the limit, stop recursing and just report how many direct
+	# children were cut off.
+	if max_depth > 0 and depth >= max_depth:
+		result["truncated_children"] = child_count
+		return result
+
+	# Breadth cap: list the first max_children and report the remainder.
+	var limit := child_count
+	if max_children > 0 and child_count > max_children:
+		limit = max_children
+
+	var children: Array[Dictionary] = []
+	for i in range(limit):
+		children.append(_build_tree(child_nodes[i], depth + 1, max_depth, max_children))
+
+	result["children"] = children
+	if limit < child_count:
+		result["truncated_children"] = child_count - limit
 
 	return result
 

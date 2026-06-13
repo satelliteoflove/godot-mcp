@@ -286,7 +286,7 @@
         }
       },
       "screenshot_at_ms": {
-        "description": "Optional: millisecond offsets (from sequence start) at which to capture a lossless PNG frame DURING the real-time run. The bridge owns the sequence clock, so it grabs each frame at the right moment and returns them with the result — letting you catch transient visuals (muzzle flashes, explosions, kill banners) that fade long before a separate screenshot call could land. Up to 8 frames, each returned as an image labeled with its actual offset; an offset (like the whole sequence) must fall within the 40000ms single-call window. COST: each frame costs vision tokens by RESOLUTION (~width*height/750), independent of format, and persists in context on every following turn — so prefer a few frames at a modest screenshot_max_width over many large ones. For frozen/precise inspection prefer godot_game_time step + screenshot_game instead. (for: sequence)",
+        "description": "Optional: millisecond offsets (from sequence start) at which to capture a lossless PNG frame DURING the real-time run. The bridge owns the sequence clock, so it grabs each frame at the right moment and returns them with the result — letting you catch transient visuals (muzzle flashes, explosions, kill banners) that fade long before a separate screenshot call could land. Up to 8 frames, each returned as an image labeled with its actual offset; an offset (like the whole sequence) must fall within the 40000ms single-call window. COST: each frame is a SEPARATE image that persists in context every following turn and never decays; cost scales with resolution (~1 visual token per 28x28px patch), independent of format. Use multi-frame ONLY for transient/animated visuals — a static layout needs exactly ONE frame. Prefer a few frames at a modest screenshot_max_width over many large ones; for frozen/precise inspection use godot_game_time step + screenshot_game instead. (for: sequence)",
         "maxItems": 8,
         "type": "array",
         "items": {
@@ -295,7 +295,7 @@
         }
       },
       "screenshot_max_width": {
-        "description": "Max width in px for captured frames (default 640). Resolution is the real vision-token lever (cost ~width*height/750 per frame); lower it to spend less context, raise it only when fine detail matters. (for: sequence)",
+        "description": "Max width in px for captured frames (default 640). Resolution is the real cost lever (~1 visual token per 28x28px patch; a 640px frame ≈ 300 tokens). 640 catches transient visuals cheaply; raise it when you need to READ text/detail in the frame, lower it only for pure motion where legibility does not matter. (for: sequence)",
         "type": "integer",
         "minimum": 16,
         "maximum": 1920

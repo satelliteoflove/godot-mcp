@@ -77,14 +77,20 @@ export async function main(deps: MainDeps = {}) {
         '(2) SDFGI replaces constant ambient light: to lift shadow sides, add a dim ' +
         'shadowless DirectionalLight (light_specular=0) opposing the key light instead of ' +
         'raising ambient_light_energy, which will appear to do nothing. ' +
+        'Screenshots never decay — each frame persists in context every later turn — so capture ' +
+        'the fewest at a modest width and only to judge APPEARANCE; prefer godot_runtime_state ' +
+        'digests (text, ~free) for value checks. ' +
         (readOnly
-          ? '(3) After externally edited .gd files or project.godot, the editor may be ' +
-            'stale (godot_project check_stale detects it); restarting the editor is up to ' +
-            'the user in read-only mode.'
-          : '(3) After editing .gd files on disk, run godot_editor_edit restart — the ' +
-            'editor does not reliably rescan externally modified scripts. ' +
-            '(4) After editing project.godot on disk, run godot_project check_stale — the ' +
-            'editor never re-reads it on its own.'),
+          ? '(3) The running editor can hold stale @tool/addon code or an out-of-date ' +
+            'project.godot after external edits (godot_project check_stale detects the ' +
+            'latter); clearing it needs an editor restart, which is the user\'s call in ' +
+            'read-only mode.'
+          : '(3) To TEST edited .gd code, just godot_editor_edit stop then run — the ' +
+            'launched game loads scripts fresh from disk, so no restart is needed. Use ' +
+            'restart only for EDITOR-side staleness: edited @tool/addon/plugin code, or a ' +
+            '.gdshader the editor still renders from a cached compile. ' +
+            '(4) After editing project.godot on disk, run godot_project check_stale (the ' +
+            'editor never re-reads it); restart to apply changed autoloads/input map.'),
     }
   );
 

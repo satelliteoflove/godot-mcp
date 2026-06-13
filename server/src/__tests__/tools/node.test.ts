@@ -18,8 +18,13 @@ describe('node read tool', () => {
       }).success).toBe(true);
     });
 
-    it('get_scene_tree takes no parameters', () => {
+    it('get_scene_tree accepts optional max_depth / max_children caps', () => {
       expect(nodeRead.schema.safeParse({ action: 'get_scene_tree' }).success).toBe(true);
+      expect(nodeRead.schema.safeParse({ action: 'get_scene_tree', max_depth: 3 }).success).toBe(true);
+      expect(nodeRead.schema.safeParse({ action: 'get_scene_tree', max_children: 10 }).success).toBe(true);
+      // Caps must be positive integers, not zero or fractional.
+      expect(nodeRead.schema.safeParse({ action: 'get_scene_tree', max_depth: 0 }).success).toBe(false);
+      expect(nodeRead.schema.safeParse({ action: 'get_scene_tree', max_depth: 1.5 }).success).toBe(false);
     });
 
     it('find requires name_pattern and/or type', () => {
@@ -91,6 +96,17 @@ describe('node read tool', () => {
       const result = await nodeRead.execute({ action: 'get_scene_tree' }, ctx);
       expect(structuredOf(result)).toEqual(tree);
       expect(mock.calls[0].command).toBe('get_scene_tree');
+    });
+
+    it('forwards max_depth / max_children caps to the addon', async () => {
+      mock.mockResponse({ tree: { name: 'Main', type: 'Node2D', truncated_children: 5 } });
+      const ctx = createToolContext(mock);
+
+      await nodeRead.execute({ action: 'get_scene_tree', max_depth: 2, max_children: 10 }, ctx);
+
+      expect(mock.calls[0].command).toBe('get_scene_tree');
+      expect(mock.calls[0].params.max_depth).toBe(2);
+      expect(mock.calls[0].params.max_children).toBe(10);
     });
   });
 });

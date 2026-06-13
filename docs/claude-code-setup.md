@@ -30,13 +30,14 @@ This project uses godot-mcp for AI-assisted development.
 - Inspecting resources like SpriteFrames, TileSets, and Materials
 
 **After external edits:**
-- After editing .gd files on disk, run `godot_editor_edit` `restart` - the editor does not reliably rescan externally modified scripts
-- After editing project.godot, run `godot_project` `check_stale` - the editor never re-reads it on its own
+- To test an edited `.gd`, just `godot_editor_edit` `stop` then `run` - the launched game loads scripts fresh from disk, so no editor restart is needed. Reserve `restart` for *editor-side* staleness: `@tool`/plugin/addon code the editor has loaded, or an edited `.gdshader` it still renders from a cached compile
+- After editing project.godot, run `godot_project` `check_stale` - the editor never re-reads it on its own (`godot_editor_edit` `restart` to apply changed autoloads/input map)
 
 ### Testing the Running Game
 
 - **Make game time answer to your clock.** For anything timing-sensitive, prefer `godot_game_time` (freeze, observe, then `step` / `step_until`) over blind fixed-duration input. While frozen, screenshots and state digests still work; an `inputs` timeline rides inside the stepped window, and `step_until`'s `report` reads the state you care about in the same call.
 - **Verify effects from state, not screenshots.** Read outcomes with `godot_runtime_state` `digest` - include autoload paths (`/root/...`) for global score/wave/cash. Use screenshots for layout and visual quality, not for "did it work?".
+- **Screenshots don't decay - keep the tail short.** Every captured frame (including each `godot_input` `screenshot_at_ms` frame) stays in context for the rest of the session, so a long visual session is soon dominated by old frames you'll never look at again. Capture the fewest frames that answer "does it *look* right" at a modest width, use multi-frame only for transient/animated visuals (a static layout needs one), and don't re-shoot a view that hasn't changed. For "is the *value* right", read `godot_runtime_state` / `godot_exec` text instead - it's near-free.
 - **Keep full-speed input self-contained.** If you drive the game in real time with `godot_input` `sequence`, put the run-starting menu press and the gameplay inputs in ONE sequence - input split across two tool calls has seconds of game time between the halves.
 - **Check the editor log after every change.** `godot_editor_read` `get_log_messages` with `severity: "error"` answers "did my edit break the editor?"; pass a prior `cursor` back as `since` to read only what is new. It is editor-side only - for errors from the running game, use the companion server's game console.
 - **Respect pause hygiene.** Gameplay state must not advance while paused (a correct pause menu already requires this - gameplay `get_tree().create_timer()` should pass `false` for its `process_always` argument). Cosmetic, audio, and juice systems under `PROCESS_MODE_ALWAYS` are meant to run during pause - do not "fix" them.
