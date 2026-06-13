@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.23.1...godot-mcp-v4.0.0) (2026-06-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* the godot_scene create action, the godot_node create/delete/attach_script/detach_script/connect_signal actions, and all MCP resources are removed. Create scenes and nodes by editing scene files directly, then verify with godot_node get_scene_tree (new action replacing the godot://scene/tree resource).
+
+### Features
+
+* v4 — align with current MCP best practice, shrink the surface ([#314](https://github.com/satelliteoflove/godot-mcp/issues/314)) ([75589bb](https://github.com/satelliteoflove/godot-mcp/commit/75589bbfa60127a008c5539410e956fe42c76683))
+
 ## [3.23.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.23.0...godot-mcp-v3.23.1) (2026-06-12)
 
 
