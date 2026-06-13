@@ -10,7 +10,8 @@
   "files": [
     "dist",
     "README.md",
-    "addon"
+    "addon",
+    "server.json"
   ],
   "repository": {
     "type": "git",
@@ -30,7 +31,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "generate-docs": "tsx scripts/generate-docs.ts",
-    "eval": "tsx evals/run-evals.ts"
+    "eval": "tsx evals/run-evals.ts",
+    "test:coverage": "vitest run --coverage",
+    "test:protocol": "tsx scripts/protocol-smoke.ts"
   },
   "keywords": [
     "godot",
@@ -55,6 +58,7 @@
   "devDependencies": {
     "@types/node": "^25.2.0",
     "@types/ws": "^8.5.0",
+    "@vitest/coverage-v8": "^4.1.8",
     "nodemon": "^3.1.11",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
@@ -62,5 +66,6 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "mcpName": "io.github.satelliteoflove/godot-mcp"
 }

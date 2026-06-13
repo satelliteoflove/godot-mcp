@@ -11,6 +11,16 @@
           "type": "json",
           "path": "server/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "server/server.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "server/server.json",
+          "jsonpath": "$.packages[0].version"
         }
       ],
       "bump-minor-pre-major": true,

@@ -20,5 +20,9 @@ jobs:
         working-directory: server
       - run: npm run build
         working-directory: server
-      - run: npm test
+      - run: npm run test:coverage
+        working-directory: server
+      # Wire-level contract of the built artifact over real stdio JSON-RPC:
+      # initialize metadata, flat schemas, humanized errors, read-only mode.
+      - run: npm run test:protocol
         working-directory: server
