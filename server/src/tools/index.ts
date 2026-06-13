@@ -15,22 +15,34 @@ import { gameTimeTools } from './game-time.js';
 import { execTools } from './exec.js';
 import { validateMeshesTools } from './validate-meshes.js';
 
-export function registerAllTools(): void {
-  registry.registerTools(sceneTools);
-  registry.registerTools(nodeTools);
-  registry.registerTools(editorTools);
-  registry.registerTools(projectTools);
-  registry.registerTools(animationTools);
-  registry.registerTools(tilemapTools);
-  registry.registerTools(resourceTools);
-  registry.registerTools(scene3dTools);
-  registry.registerTools(docsTools);
-  registry.registerTools(inputTools);
-  registry.registerTools(profilerTools);
-  registry.registerTools(runtimeStateTools);
-  registry.registerTools(gameTimeTools);
-  registry.registerTools(execTools);
-  registry.registerTools(validateMeshesTools);
+export interface RegisterOptions {
+  // Register only tools whose annotations declare readOnlyHint: true — a real
+  // observation-only boundary for agents that should not modify the project.
+  readOnly?: boolean;
+}
+
+export function registerAllTools(options: RegisterOptions = {}): void {
+  const all = [
+    ...sceneTools,
+    ...nodeTools,
+    ...editorTools,
+    ...projectTools,
+    ...animationTools,
+    ...tilemapTools,
+    ...resourceTools,
+    ...scene3dTools,
+    ...docsTools,
+    ...inputTools,
+    ...profilerTools,
+    ...runtimeStateTools,
+    ...gameTimeTools,
+    ...execTools,
+    ...validateMeshesTools,
+  ];
+  const tools = options.readOnly
+    ? all.filter((tool) => tool.annotations?.readOnlyHint === true)
+    : all;
+  registry.registerTools(tools);
 }
 
 export { sceneTools } from './scene.js';

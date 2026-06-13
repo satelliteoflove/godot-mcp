@@ -13,9 +13,17 @@ import { GodotCommandError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 import { getServerVersion } from './version.js';
 
-registerAllTools();
+function isReadOnlyMode(): boolean {
+  const envValue = process.env.GODOT_MCP_READ_ONLY;
+  return envValue === '1' || envValue?.toLowerCase() === 'true';
+}
 
 export async function main() {
+  const readOnly = isReadOnlyMode();
+  registerAllTools({ readOnly });
+  if (readOnly) {
+    logger.warning('Read-only mode: write tools are not registered');
+  }
   const server = new Server(
     {
       name: 'godot-mcp',
