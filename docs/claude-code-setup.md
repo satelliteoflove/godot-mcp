@@ -15,24 +15,30 @@ This project uses godot-mcp for AI-assisted development.
 
 ### When to Use MCP Tools vs File Editing
 
+**Use direct file editing for:**
+- Creating scenes, nodes, scripts, and signal connections - write the .tscn/.gd file directly, then open the scene with `godot_scene` `open` and verify with `godot_node_read` `get_scene_tree`
+- GDScript (.gd) and shader (.gdshader) files - plain text, safe to edit directly
+- Project settings (project.godot) when you know the key names
+
 **Use MCP tools for:**
-- Runtime interaction: running/stopping the game, screenshots, debug output, input injection
-- Inspecting or modifying nodes, scenes, animations, tilemaps, and GridMaps (complex formats that are easy to break by hand)
+- Editor-state operations: opening and saving scenes, updating node properties, reparenting
+- Verifying file edits landed: `godot_node_read` `get_scene_tree` and `get_properties`
+- Data files cannot express: tilemap and GridMap cell data is base64-encoded in .tscn, so use `godot_tilemap_edit` / `godot_gridmap_edit`
+- Everything involving the running game: run/stop, screenshots, input injection, game-time control, runtime state
 - Querying editor state, selection, project settings, 3D spatial data
 - Fetching Godot documentation
 - Inspecting resources like SpriteFrames, TileSets, and Materials
 
-**Use direct file editing for:**
-- GDScript (.gd) and shader (.gdshader) files - plain text, safe to edit directly
-- Simple scene modifications when you know the exact structure
-- Project settings (project.godot) when you know the key names
+**After external edits:**
+- After editing .gd files on disk, run `godot_editor_edit` `restart` - the editor does not reliably rescan externally modified scripts
+- After editing project.godot, run `godot_project` `check_stale` - the editor never re-reads it on its own
 
 ### Testing the Running Game
 
 - **Make game time answer to your clock.** For anything timing-sensitive, prefer `godot_game_time` (freeze, observe, then `step` / `step_until`) over blind fixed-duration input. While frozen, screenshots and state digests still work; an `inputs` timeline rides inside the stepped window, and `step_until`'s `report` reads the state you care about in the same call.
 - **Verify effects from state, not screenshots.** Read outcomes with `godot_runtime_state` `digest` - include autoload paths (`/root/...`) for global score/wave/cash. Use screenshots for layout and visual quality, not for "did it work?".
 - **Keep full-speed input self-contained.** If you drive the game in real time with `godot_input` `sequence`, put the run-starting menu press and the gameplay inputs in ONE sequence - input split across two tool calls has seconds of game time between the halves.
-- **Check the editor log after every change.** `godot_editor` `get_log_messages` with `severity: "error"` answers "did my edit break the editor?"; pass a prior `cursor` back as `since` to read only what is new. It is editor-side only - for errors from the running game, use the companion server's game console.
+- **Check the editor log after every change.** `godot_editor_read` `get_log_messages` with `severity: "error"` answers "did my edit break the editor?"; pass a prior `cursor` back as `since` to read only what is new. It is editor-side only - for errors from the running game, use the companion server's game console.
 - **Respect pause hygiene.** Gameplay state must not advance while paused (a correct pause menu already requires this - gameplay `get_tree().create_timer()` should pass `false` for its `process_always` argument). Cosmetic, audio, and juice systems under `PROCESS_MODE_ALWAYS` are meant to run during pause - do not "fix" them.
 
 ### Companion Server
@@ -71,7 +77,7 @@ the thing you actually wanted to read.
 
 ### Two error channels, not one
 
-`godot_editor` `get_log_messages` reports the *editor* process - @tool script errors, import
+`godot_editor_read` `get_log_messages` reports the *editor* process - @tool script errors, import
 and addon failures, and anything an editor-side mutation broke. Errors from the *running game*
 never appear there. Run it (filtered to `severity: "error"`) after every edit to confirm you
 did not break the editor; read game-side runtime errors through the companion server's game

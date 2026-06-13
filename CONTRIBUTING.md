@@ -46,23 +46,24 @@ Examples:
 
 ## Adding New Functionality
 
-This project keeps the tool count intentionally low. Think of single-action tools like single-purpose kitchen gadgets - they take up space and rarely get used. Before proposing a new tool, consider whether the functionality belongs as an action within an existing tool.
+Three rules shape the tool surface. They replaced the old "always consolidate" convention in v4, after cross-client permission models made the read/write boundary load-bearing.
 
-**Prefer extending over adding:**
-- New scene operations? Add an action to the existing scene tool.
-- New node manipulation? Extend the node tool.
-- Genuinely new domain with multiple related operations? Maybe a new tool makes sense.
+**1. Don't build what a file edit already does.** Agents read and write `.tscn`/`.gd`/`.tres` text natively. A tool earns its place only when it covers what files can't: editor state (open/save/selection), verification of what the editor actually loaded, data that's binary-encoded inside the text format (TileMap/GridMap cells), operations where the editor's bookkeeping prevents real mistakes (reparenting), or anything involving the running game. "It would be convenient" is not enough — `scene create`, `node create/delete`, and `connect_signal` were all removed for this reason.
 
-If you're unsure, open an issue first. We can figure out the right home for the functionality together.
+**2. Never mix reads and writes in one tool.** Clients grant permissions per tool name, so a read-only action sharing a tool with a destructive one can never be safely auto-allowed. Read operations go in a `godot_<domain>_read` tool (`readOnlyHint: true`), mutations in `godot_<domain>_edit`. Single-class tools keep plain names. Within a class, consolidate related operations as actions — single-action tools are still single-purpose kitchen gadgets.
+
+**3. Annotations must be truthful.** `readOnlyHint: true` only on tools that change nothing; `destructiveHint: true` only where data is actually destroyed (deletes, clears), not on reversible writes; `idempotentHint: true` where repeating a call converges. The annotations test enforces the conventions wholesale.
 
 **When adding an action to an existing tool:**
-1. Add the action handler in `server/src/tools/<category>.ts`
+1. Add the action branch in `server/src/tools/<category>.ts` — give the action literal a `.describe()` (it becomes the model-visible summary line) and every parameter a `.describe()`
 2. Add the corresponding GDScript handler in `godot/addons/godot_mcp/commands/`
 3. Update the command routing in `command_router.gd` if needed
 4. Add tests in `server/src/__tests__/tools/`
-5. Run `npm run generate-docs` to update API docs
+5. Run `npx vitest run -u` — the published-schema snapshot (`src/__tests__/core/__toolsnaps__/`) will change; review that diff as carefully as the code, it is exactly what models see
+6. Run `npm run generate-docs` to update API docs
+7. For changes that affect how agents choose or sequence tools, consider an eval task in `server/evals/tasks.json` — see [server/evals/README.md](server/evals/README.md)
 
-**Note:** Once telemetry is in place, tools and actions that see little use will be candidates for removal. Every piece of this codebase needs to earn its keep.
+**Note:** Usage telemetry is on by default (`~/.godot-mcp/usage.log`). Tools and actions that see little use are candidates for removal. Every piece of this codebase needs to earn its keep.
 
 ## Updating Documentation
 
@@ -90,8 +91,9 @@ The MCP server and Godot addon share version numbers and are released together.
 ```
 
 - `server/src/tools/` - MCP tool definitions
-- `server/src/resources/` - MCP resource handlers
+- `server/src/core/` - registry, schema flattening, validation-error formatting
 - `server/src/connection/` - WebSocket client to Godot
+- `server/evals/` - agentic eval harness (manual; never starts Godot)
 - `godot/addons/godot_mcp/commands/` - GDScript command handlers
 - `godot/addons/godot_mcp/core/` - Addon utilities (logger, debugger plugin)
 

@@ -18,7 +18,7 @@ flowchart LR
 
 Three processes, three links:
 
-1. **MCP client ↔ server.** Standard MCP over stdio. The server (`server/src/`) defines the 15 tools, validates arguments with Zod schemas, and translates tool calls into bridge commands.
+1. **MCP client ↔ server.** Standard MCP over stdio. The server (`server/src/`) defines the 21 tools (and no MCP resources — everything is a tool, including the scene tree via `godot_node_read get_scene_tree`), validates arguments with Zod schemas, and translates tool calls into bridge commands.
 2. **Server ↔ editor addon.** A WebSocket on `127.0.0.1:6550` by default. The *addon* is the listener; the *server* is the client that connects to it. The addon (`godot/addons/godot_mcp/`) routes each command through `command_router.gd` to a handler module per domain (scene, node, animation, input, ...).
 3. **Editor addon ↔ running game.** No second socket. The addon registers `MCPGameBridge` as an autoload in your project and talks to it over Godot's own debugger protocol — the editor side sends `godot_mcp:`-prefixed debugger messages via an `EditorDebuggerPlugin` (`core/mcp_debugger_plugin.gd`), and the game-side bridge (`game_bridge/mcp_game_bridge.gd`) picks them up with `EngineDebugger.register_message_capture()`. Because it rides the debug wire, the running game needs no extra ports, no network permissions, and no per-project setup.
 
@@ -41,7 +41,7 @@ This logic lives in `godot/addons/godot_mcp/websocket_server.gd`.
 
 ## Deterministic game time
 
-`godot_editor run frozen=true` boots the game with the clock frozen from frame 0, and `godot_game_time` owns the clock from there:
+`godot_editor_edit run frozen=true` boots the game with the clock frozen from frame 0, and `godot_game_time` owns the clock from there:
 
 - **freeze / thaw** pause and resume under agent control, layered correctly over the game's *own* pause state — freezing over an open pause menu and thawing back to it preserves the game's intent.
 - **step** advances a bounded slice of game time (or an exact frame count), then re-freezes.
@@ -75,7 +75,6 @@ The server and addon are released together and share one version number:
 
 ```text
 server/src/tools/         MCP tool definitions (one file per domain)
-server/src/resources/     MCP resource handlers
 server/src/connection/    WebSocket client to the editor addon
 server/src/installer/     --install-addon implementation
 godot/addons/godot_mcp/
@@ -88,4 +87,4 @@ godot/addons/godot_mcp/
   ui/                     The MCP bottom panel
 ```
 
-Docs under `docs/tools/`, `docs/resources.md`, and `docs/README.md` are generated from the tool definitions by `npm run generate-docs` — edit the tool schemas, not those files.
+Docs under `docs/tools/` and `docs/README.md` are generated from the tool definitions by `npm run generate-docs` — edit the tool schemas, not those files.

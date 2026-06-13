@@ -54,7 +54,7 @@ Add `--force` if you intentionally need to downgrade. Restart the Godot editor a
 
 Two different processes produce errors, and they surface in two different places:
 
-- **Editor-side errors** — `@tool` script failures, import errors, addon errors, failures from scene/resource edits — come from `godot_editor` with the `get_log_messages` action. This is the "did my change break the editor?" channel.
+- **Editor-side errors** — `@tool` script failures, import errors, addon errors, failures from scene/resource edits — come from `godot_editor_read` with the `get_log_messages` action. This is the "did my change break the editor?" channel.
 - **Running game console output** (including `print()` and stderr) is intentionally not duplicated here — [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) provides it over DAP. Runtime *state* (positions, velocities, custom data) is `godot_runtime_state` territory.
 
 ## CLI smoke test (paste-ready JSON-RPC)
@@ -76,13 +76,13 @@ Then paste these stdio JSON-RPC frames, one per line:
 You should get a response naming the server and its version:
 
 ```json
-{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"logging":{}},"serverInfo":{"name":"godot-mcp","version":"<your installed version>"}},"jsonrpc":"2.0","id":1}
+{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"godot-mcp","version":"<your installed version>"}},"jsonrpc":"2.0","id":1}
 ```
 
 **2) Call a tool** (requires the Godot editor open with the addon enabled):
 
 ```json
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"godot_editor","arguments":{"action":"get_state"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"godot_editor_read","arguments":{"action":"get_state"}}}
 ```
 
 A healthy response carries the editor state:

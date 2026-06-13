@@ -20,6 +20,7 @@ import {
   runtimeStateTools,
   gameTimeTools,
   execTools,
+  validateMeshesTools,
 } from '../../tools/index.js';
 import type { AnyToolDefinition } from '../../core/types.js';
 
@@ -38,6 +39,7 @@ const ALL_TOOLS: AnyToolDefinition[] = [
   ...runtimeStateTools,
   ...gameTimeTools,
   ...execTools,
+  ...validateMeshesTools,
 ];
 
 // Tool + each of its action variants, as the doc generator sees them.
