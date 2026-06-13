@@ -13,7 +13,7 @@ import { docs } from '../../tools/docs.js';
 //     so they must be opted into:
 //         RUN_LIVE_DOCS=1 npx vitest run src/__tests__/tools/docs.test.ts
 //         (PowerShell: $env:RUN_LIVE_DOCS='1'; npx vitest run src/__tests__/tools/docs.test.ts)
-//     CI runs them on a schedule via .github/workflows/docs-live.yml.
+//     or on demand in CI via the "Docs live integration" workflow (Actions tab).
 const RUN_LIVE_DOCS = !!process.env.RUN_LIVE_DOCS;
 
 // Only the live suites make real fetches (each aborted at docs.ts's 15s

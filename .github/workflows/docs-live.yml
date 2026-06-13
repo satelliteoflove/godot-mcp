@@ -1,12 +1,15 @@
 name: Docs live integration
 
 # The godot_docs live suite hits docs.godotengine.org. It is gated OFF in normal
-# CI (it flakes on rate-limiting / slow network), so it runs here instead — as a
-# daily canary that catches the real signal: the docs site changing its HTML or
-# URL scheme. Also runnable on demand from the Actions tab.
+# CI (it flakes on rate-limiting / slow network), so it lives here as an
+# ON-DEMAND check: run it from the Actions tab when cutting a release or
+# investigating a godot_docs bug, to catch the one thing the mocked tests can't —
+# the docs site changing its HTML or URL scheme.
+#
+# No schedule on purpose: that contract changes rarely (a Sphinx/ReadTheDocs
+# site), so a recurring run would mostly surface transient 429s and train us to
+# ignore the canary. Press the button when the answer actually matters.
 on:
-  schedule:
-    - cron: '0 9 * * *' # 09:00 UTC daily
   workflow_dispatch:
 
 jobs:
@@ -21,8 +24,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
         working-directory: server
-      # RUN_LIVE_DOCS opts the gated suites in; --retry absorbs a transient 429
-      # so a single rate-limit blip is not reported as a docs-site regression.
+      # RUN_LIVE_DOCS opts the gated suites in; --retry absorbs a transient 429.
       - run: npx vitest run --retry=2 src/__tests__/tools/docs.test.ts
         working-directory: server
         env:
