@@ -92,6 +92,7 @@
   "annotations": {
     "title": "3D Scene Info",
     "readOnlyHint": true,
+    "destructiveHint": false,
     "openWorldHint": false
   }
 }

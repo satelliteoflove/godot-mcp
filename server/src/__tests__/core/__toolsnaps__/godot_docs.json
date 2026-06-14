@@ -52,6 +52,7 @@
   "annotations": {
     "title": "Godot Docs",
     "readOnlyHint": true,
+    "destructiveHint": false,
     "openWorldHint": true
   }
 }

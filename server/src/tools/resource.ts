@@ -31,7 +31,7 @@ type ResourceArgs = z.infer<typeof ResourceSchema>;
 
 export const resource = defineTool({
   name: 'godot_resource',
-  annotations: { title: 'Resource Inspector', readOnlyHint: true, openWorldHint: false },
+  annotations: { title: 'Resource Inspector', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
     'Inspect a Resource file by path with type-aware structured output (SpriteFrames animations, TileSet, Material, Texture2D, etc.). Use it for imported or binary resources (.res, .scn, compressed textures) that a plain file read cannot parse, or when you want sub-resources resolved into the engine\'s view rather than raw .tres text. For nodes inside a scene, use godot_node_read instead.',
   schema: ResourceSchema,

@@ -148,7 +148,7 @@ function extractSection(markdown: string, section: string): string {
 
 export const docs = defineTool({
   name: 'godot_docs',
-  annotations: { title: 'Godot Docs', readOnlyHint: true, openWorldHint: true },
+  annotations: { title: 'Godot Docs', readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   description:
     'Fetch Godot Engine documentation. Use fetch_class for class references (e.g. CharacterBody2D), fetch_page for tutorials/guides. Auto-detects Godot version from editor connection. Returns clean markdown.',
   schema: DocsSchema,

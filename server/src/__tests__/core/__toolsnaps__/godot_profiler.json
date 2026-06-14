@@ -28,6 +28,7 @@
   "annotations": {
     "title": "Profiler",
     "readOnlyHint": true,
+    "destructiveHint": false,
     "openWorldHint": false
   }
 }

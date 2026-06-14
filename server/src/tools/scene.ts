@@ -20,7 +20,7 @@ type SceneArgs = z.infer<typeof SceneSchema>;
 
 export const scene = defineTool({
   name: 'godot_scene',
-  annotations: { title: 'Scene', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  annotations: { title: 'Scene', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   description:
     'Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly — header [gd_scene format=3] without a uid (the editor assigns one when it imports the file), then one [node name="X" type="Node2D"] block per node — and open it with this tool.',
   schema: SceneSchema,

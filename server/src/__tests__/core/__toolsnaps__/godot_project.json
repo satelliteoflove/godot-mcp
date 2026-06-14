@@ -30,6 +30,7 @@
   "annotations": {
     "title": "Project Info",
     "readOnlyHint": true,
+    "destructiveHint": false,
     "openWorldHint": false
   }
 }

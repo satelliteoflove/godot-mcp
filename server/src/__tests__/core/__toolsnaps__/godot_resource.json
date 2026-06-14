@@ -32,6 +32,7 @@
   "annotations": {
     "title": "Resource Inspector",
     "readOnlyHint": true,
+    "destructiveHint": false,
     "openWorldHint": false
   }
 }

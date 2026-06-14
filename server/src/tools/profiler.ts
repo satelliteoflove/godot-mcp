@@ -181,7 +181,7 @@ type ProfilerArgs = z.infer<typeof ProfilerSchema>;
 
 export const profiler = defineTool({
   name: 'godot_profiler',
-  annotations: { title: 'Profiler', readOnlyHint: true, openWorldHint: false },
+  annotations: { title: 'Profiler', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
     'Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks (useful for finding per-frame cost sources); get_signal_connections maps signal wiring. For observing game state rather than performance, use godot_runtime_state.',
   schema: ProfilerSchema,
