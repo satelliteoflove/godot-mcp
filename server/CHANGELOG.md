@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.0.0...godot-mcp-v4.0.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* align tool annotation hints across the surface ([#325](https://github.com/satelliteoflove/godot-mcp/issues/325)) ([4892b01](https://github.com/satelliteoflove/godot-mcp/commit/4892b0152655af2fad9716c55257e22d1f3f2861))
+
 ## [4.0.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v3.23.1...godot-mcp-v4.0.0) (2026-06-13)
 
 
