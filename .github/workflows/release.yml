@@ -118,3 +118,36 @@ jobs:
           gh release upload ${{ needs.release-please.outputs.tag_name }} \
             godot-mcp-addon-${{ needs.release-please.outputs.version }}.zip \
             --clobber
+
+  # Publish server.json to the official MCP Registry. Runs only on a real release
+  # and only after `npm publish` succeeds, because the registry validates the
+  # mcpName against the published npm tarball. Auth is GitHub OIDC — no secrets:
+  # the io.github.satelliteoflove/* namespace is owned by this repo's owner, and
+  # the id-token permission lets the runner prove that identity to the registry.
+  publish-registry:
+    needs: [release-please, publish]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install mcp-publisher
+        run: curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - name: Log in to the MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish to the MCP Registry
+        run: |
+          # npm can take a moment to propagate after the publish job, and the
+          # registry rejects until it can validate the mcpName against the new
+          # version on npm — so retry before giving up.
+          for attempt in 1 2 3 4 5; do
+            if ./mcp-publisher publish server/server.json; then
+              exit 0
+            fi
+            echo "::warning::MCP Registry publish attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          echo "::error::MCP Registry publish failed after 5 attempts"
+          exit 1
