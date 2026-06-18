@@ -24,23 +24,22 @@ This project uses godot-mcp for AI-assisted development.
 - Editor-state operations: opening and saving scenes, updating node properties, reparenting
 - Verifying file edits landed: `godot_node_read` `get_scene_tree` and `get_properties`
 - Data files cannot express: tilemap and GridMap cell data is base64-encoded in .tscn, so use `godot_tilemap_edit` / `godot_gridmap_edit`
-- Everything involving the running game: run/stop, screenshots, input injection, game-time control, runtime state
+- Everything involving the running game: run/stop, screenshots, input injection, game-time control, runtime state, profiling, and scenario setup with `godot_exec`
 - Querying editor state, selection, project settings, 3D spatial data
 - Fetching Godot documentation
 - Inspecting resources like SpriteFrames, TileSets, and Materials
 
-**After external edits:**
-- To test an edited `.gd`, just `godot_editor_edit` `stop` then `run` - the launched game loads scripts fresh from disk, so no editor restart is needed. Reserve `restart` for *editor-side* staleness: `@tool`/plugin/addon code the editor has loaded, or an edited `.gdshader` it still renders from a cached compile
-- After editing project.godot, run `godot_project` `check_stale` - the editor never re-reads it on its own (`godot_editor_edit` `restart` to apply changed autoloads/input map)
+(After editing files outside MCP, the `godot_editor_edit` run/restart and `godot_project` `check_stale` descriptions cover when the editor needs a reload - in short: a launched game reads `.gd`/`.tscn` fresh, so reserve `restart` for editor-side staleness.)
 
 ### Testing the Running Game
 
-- **Make game time answer to your clock.** For anything timing-sensitive, prefer `godot_game_time` (freeze, observe, then `step` / `step_until`) over blind fixed-duration input. While frozen, screenshots and state digests still work; an `inputs` timeline rides inside the stepped window, and `step_until`'s `report` reads the state you care about in the same call.
-- **Verify effects from state, not screenshots.** Read outcomes with `godot_runtime_state` `digest` - include autoload paths (`/root/...`) for global score/wave/cash. Use screenshots for layout and visual quality, not for "did it work?".
-- **Screenshots don't decay - keep the tail short.** Every captured frame (including each `godot_input` `screenshot_at_ms` frame) stays in context for the rest of the session, so a long visual session is soon dominated by old frames you'll never look at again. Capture the fewest frames that answer "does it *look* right" at a modest width, use multi-frame only for transient/animated visuals (a static layout needs one), and don't re-shoot a view that hasn't changed. For "is the *value* right", read `godot_runtime_state` / `godot_exec` text instead - it's near-free.
+- **Make game time answer to your clock.** For anything timing-sensitive, freeze and `step` / `step_until` with `godot_game_time` rather than blind fixed-duration waits. (Its description carries the mechanics: observing while frozen, inputs riding the window, `report`, and the non-short-circuit predicate gotcha.)
+- **Set up the moment, don't grind to it.** When a test needs the game in a specific state - wave 3, low HP, a particular inventory - put it there with `godot_exec` rather than playing through to reach it. (The tool's own description covers the GDScript scope and the freeze-then-step pairing.)
+- **Verify effects from state, not screenshots.** For "did it work?", read `godot_runtime_state` `digest` (and signal timelines for event outcomes like a hit landing); reserve screenshots for "does it look right?".
+- **Report readings and guesses as different things.** The tools exist so that "the boss stayed in state 2 for the whole step" is something you read, not something you assume. When you explain a cause or a regression, keep the line visible between what the `digest`, profiler, or log actually showed and what you are inferring from it - for performance work especially, the profiler's spike data is evidence and everything else is a hypothesis to test.
+- **Screenshots accumulate across the whole session.** They never decay, so old frames pile up until they crowd everything else toward a lossy compaction. Capture the fewest that answer a genuine *appearance* question and read text for the rest. (Per-frame cost, the 640px floor, and the one-frame-for-static-layout rule live in the screenshot tool descriptions.)
 - **Isolate screenshot-heavy checks in a sub-agent.** For a multi-frame or genuinely visual check, dispatch a sub-agent (Claude Code's Task tool) that drives the game, *looks* at the frames, and reports back a short text verdict - the frames die with the sub-agent's context instead of piling up in yours.
-- **Keep full-speed input self-contained.** If you drive the game in real time with `godot_input` `sequence`, put the run-starting menu press and the gameplay inputs in ONE sequence - input split across two tool calls has seconds of game time between the halves.
-- **Check the editor log after every change.** `godot_editor_read` `get_log_messages` with `severity: "error"` answers "did my edit break the editor?"; pass a prior `cursor` back as `since` to read only what is new. It is editor-side only - for errors from the running game, use the companion server's game console.
+- **Open a runtime investigation with one sweep.** When something misbehaves at runtime, pull the whole signal set before theorizing: both error channels (editor `get_log_messages` and the companion server's game console), a `godot_runtime_state` `digest` of the entities involved, the scene tree, and a `godot_profiler` capture if it is frame- or timing-related. One channel rarely tells the whole story, and a theory built on the first thing you read is how you end up debugging the wrong problem.
 - **Respect pause hygiene.** Gameplay state must not advance while paused (a correct pause menu already requires this - gameplay `get_tree().create_timer()` should pass `false` for its `process_always` argument). Cosmetic, audio, and juice systems under `PROCESS_MODE_ALWAYS` are meant to run during pause - do not "fix" them.
 
 ### Companion Server
@@ -76,6 +75,15 @@ follow-up observation into the same call. One gotcha: predicate and report expre
 maybe-absent node with `arr.size() > 0 and arr[0].state == 4`. Sequence two calls instead:
 `step_until` the node exists (`tree.get_nodes_in_group("boss").size() >= 1`), then `step_until`
 the thing you actually wanted to read.
+
+### Set the scene before you test it
+
+The slow way to test a wave-3 boss is to play through waves one and two. The fast way is
+`godot_exec`: run a line of GDScript inside the live game to put it exactly where you want it -
+`GameState.wave = 3`, grant the weapon, spawn the bot, drop the player to 1 HP - then freeze and
+step. This is also how you reach states normal play can barely produce on demand (a specific RNG
+roll, a half-built save, an edge-case inventory) without baking debug hooks into your game code.
+Setup, freeze, step, observe: a scenario you defined beats whatever the game happened to roll.
 
 ### Two error channels, not one
 
