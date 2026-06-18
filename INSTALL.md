@@ -107,7 +107,7 @@ Or add to your Copilot CLI settings file (`~/.config/github-copilot/mcp.json`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GODOT_HOST` | `localhost` | WebSocket host for the Godot addon. Auto-detected in WSL. |
+| `GODOT_HOST` | `127.0.0.1` | WebSocket host for the Godot addon. Auto-detected in WSL. |
 | `GODOT_PORT` | `6550` | WebSocket port for the Godot addon. |
 | `GODOT_MCP_USAGE_LOG` | on | Local usage telemetry: each tool call appends a JSON line (tool, action, success, duration) to `~/.godot-mcp/usage.log`. **Enabled by default** — set to `0` or `false` to disable. The log never leaves your machine. |
 | `GODOT_MCP_USAGE_LOG_MAX_SIZE` | `10485760` (10MB) | Size in bytes at which `usage.log` is rotated. |
