@@ -144,4 +144,18 @@ describe('generated doc examples (#287)', () => {
       expect(val).toEqual({ path: '/root/Main/Player' });
     });
   });
+
+  it('applies tool-scoped example overrides (docs path is a URL, node_edit properties is non-empty)', () => {
+    const docsCase = variantOf('godot_docs', 'fetch_page');
+    const docsExample = buildVariantExample(docsCase.variant, docsCase.tool.schema, docsCase.tool.name);
+    expect(docsExample.path).toBe('/tutorials/2d/2d_movement.html');
+
+    const updateCase = variantOf('godot_node_edit', 'update');
+    const updateExample = buildVariantExample(
+      updateCase.variant, updateCase.tool.schema, updateCase.tool.name
+    ) as Record<string, unknown>;
+    // The addon rejects an empty update, so the published example must be non-empty + schema-valid.
+    expect(updateExample.properties).toEqual({ position: { x: 100, y: 50 } });
+    expect(updateCase.tool.schema.safeParse(updateExample).success).toBe(true);
+  });
 });

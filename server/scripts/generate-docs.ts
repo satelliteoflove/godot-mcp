@@ -383,11 +383,11 @@ function generateUnionActionDocs(variants: ActionVariant[]): string {
   return md;
 }
 
-function generateUnionExamples(variants: ActionVariant[], toolSchema: z.ZodType): string {
+function generateUnionExamples(variants: ActionVariant[], toolSchema: z.ZodType, toolName: string): string {
   let md = '### Examples\n\n';
 
   for (const variant of variants.slice(0, 3)) {
-    const example = buildVariantExample(variant, toolSchema);
+    const example = buildVariantExample(variant, toolSchema, toolName);
     md += `\`\`\`json\n// ${variant.action}\n${JSON.stringify(example, null, 2)}\n\`\`\`\n\n`;
   }
 
@@ -407,7 +407,7 @@ function generateToolMarkdown(tool: AnyToolDefinition): string {
   const variants = getActionVariants(rawJsonSchema(tool));
   if (variants) {
     md += generateUnionActionDocs(variants);
-    md += generateUnionExamples(variants, tool.schema);
+    md += generateUnionExamples(variants, tool.schema, tool.name);
     return md;
   }
 

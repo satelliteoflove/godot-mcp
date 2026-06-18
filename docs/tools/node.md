@@ -100,7 +100,12 @@ Move a node to a new parent
 {
   "action": "update",
   "node_path": "/root/Main/Player",
-  "properties": {}
+  "properties": {
+    "position": {
+      "x": 100,
+      "y": 50
+    }
+  }
 }
 ```
 
