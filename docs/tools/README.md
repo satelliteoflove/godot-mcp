@@ -6,7 +6,7 @@ This documentation is auto-generated from the tool definitions.
 
 Scene management tools
 
-- `godot_scene` - Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly — header [gd_scene format=3] without a uid (the editor assigns one when it imports the file), then one [node name="X" type="Node2D"] block per node — and open it with this tool.
+- `godot_scene` - Manage scenes in the editor: open a scene, save the open scene, or reload an open scene from disk after you edit its .tscn directly (so the editor picks up the change without a full restart). To create a new scene, write the .tscn file directly — header [gd_scene format=3] without a uid (the editor assigns one when it imports the file), then one [node name="X" type="Node2D"] block per node — and open it with this tool.
 
 ## [Node](node.md)
 

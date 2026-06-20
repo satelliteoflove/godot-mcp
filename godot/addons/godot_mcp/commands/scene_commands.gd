@@ -7,7 +7,8 @@ func get_commands() -> Dictionary:
 	return {
 		"get_scene_tree": get_scene_tree,
 		"open_scene": open_scene,
-		"save_scene": save_scene
+		"save_scene": save_scene,
+		"reload_scene": reload_scene
 	}
 
 
@@ -97,4 +98,28 @@ func save_scene(params: Dictionary) -> Dictionary:
 		return _error("SAVE_FAILED", "Failed to save scene: %s" % error_string(err))
 
 	return _success({"path": path})
+
+
+# Reload an already-open scene from disk, picking up a direct .tscn edit without
+# the heavyweight `restart`. Disk wins: any unsaved in-memory edits to this scene
+# (e.g. an unsaved godot_node_edit) are discarded. Only open scenes can be
+# reloaded in place; an unopened path is rejected so the caller uses open_scene.
+func reload_scene(params: Dictionary) -> Dictionary:
+	var scene_path: String = params.get("scene_path", "")
+	if scene_path.is_empty():
+		var root := EditorInterface.get_edited_scene_root()
+		if not root:
+			return _error("NO_SCENE", "No scene is currently open and no scene_path was provided")
+		scene_path = root.scene_file_path
+		if scene_path.is_empty():
+			return _error("NO_PATH", "The current scene has not been saved to a file; nothing to reload")
+
+	if not FileAccess.file_exists(scene_path):
+		return _error("FILE_NOT_FOUND", "Scene file not found: %s" % scene_path)
+
+	if not scene_path in EditorInterface.get_open_scenes():
+		return _error("NOT_OPEN", "Scene is not open in the editor; use open_scene to open it: %s" % scene_path)
+
+	EditorInterface.reload_scene_from_path(scene_path)
+	return _success({"path": scene_path})
 
