@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.0.1...godot-mcp-v4.1.0) (2026-06-20)
+
+
+### Features
+
+* add godot_scene reload action to refresh an open scene from disk ([#334](https://github.com/satelliteoflove/godot-mcp/issues/334)) ([f592800](https://github.com/satelliteoflove/godot-mcp/commit/f592800704b17fae8842a9dd57f3ea3f0b649b6d))
+
 ## [4.0.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.0.0...godot-mcp-v4.0.1) (2026-06-14)
 
 
