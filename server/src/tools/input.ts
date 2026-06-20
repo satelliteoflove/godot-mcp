@@ -215,7 +215,7 @@ const InputSchema = z.discriminatedUnion('action', [
     action: z.literal('get_map').describe('List available input actions from the project Input Map'),
   }),
   z.object({
-    action: z.literal('sequence').describe('Execute an input timeline'),
+    action: z.literal('sequence').describe('Execute an input timeline. While the game runs at real speed, keep tightly-timed inputs in ONE call — e.g. the run-starting menu press AND the gameplay that follows — because seconds of uncontrolled game time pass between two separate tool calls. For a window longer than one call can hold, drive input through godot_game_time step instead.'),
     inputs: z
       .array(InputEntrySchema)
       .min(1)

@@ -65,19 +65,34 @@ const NAMED_EXAMPLES: Record<string, unknown> = {
   signal: 'body_entered',
 };
 
+// Per-tool overrides for parameter names whose generic example would be wrong in
+// a specific tool's context. Consulted before NAMED_EXAMPLES.
+const TOOL_NAMED_EXAMPLES: Record<string, Record<string, unknown>> = {
+  // `path` is a node path everywhere else, but a docs URL path here.
+  godot_docs: { path: '/tutorials/2d/2d_movement.html' },
+  // `properties` is a z.record (no JSON-Schema `properties`), so the generic
+  // object builder yields {}, which the addon rejects as an empty update.
+  godot_node_edit: { properties: { position: { x: 100, y: 50 } } },
+};
+
 // Build a representative, schema-VALID value for one JSON-Schema property.
 // Recurses through arrays/objects/unions and produces NON-EMPTY arrays +
 // populated required object fields, so min-length / nested-required constraints hold.
-export function exampleForProp(name: string, prop: Record<string, unknown>): unknown {
+export function exampleForProp(name: string, prop: Record<string, unknown>, toolName?: string): unknown {
   if (prop.const !== undefined) return prop.const;
   if (Array.isArray(prop.enum)) return (prop.enum as unknown[])[0];
+  // Tool-scoped overrides win over the generic name map: the same parameter name
+  // can mean different things in different tools (godot_docs `path` is a docs URL,
+  // godot_node_edit `properties` is a z.record that would otherwise render as {}).
+  const toolOverrides = toolName ? TOOL_NAMED_EXAMPLES[toolName] : undefined;
+  if (toolOverrides && name in toolOverrides) return toolOverrides[name];
   if (name in NAMED_EXAMPLES) return NAMED_EXAMPLES[name];
 
   // A prop that is itself a union (z.union / z.discriminatedUnion serialize to
   // anyOf / oneOf — e.g. the input `sequence` entry shapes): build the first branch.
   const branches = (prop.oneOf ?? prop.anyOf ?? prop.allOf) as Record<string, unknown>[] | undefined;
   if (Array.isArray(branches) && branches.length > 0) {
-    return exampleForProp(name, branches[0]);
+    return exampleForProp(name, branches[0], toolName);
   }
 
   switch (prop.type) {
@@ -93,14 +108,14 @@ export function exampleForProp(name: string, prop: Record<string, unknown>): unk
       const items = prop.items as Record<string, unknown> | undefined;
       // One representative element: keeps arrays non-empty so a length-based
       // refine (e.g. watch_start's specs/signals) is satisfied.
-      return items ? [exampleForProp(name, items)] : [];
+      return items ? [exampleForProp(name, items, toolName)] : [];
     }
     case 'object': {
       const props = (prop.properties as Record<string, Record<string, unknown>>) || {};
       const req = (prop.required as string[]) || [];
       const obj: Record<string, unknown> = {};
       for (const key of Object.keys(props)) {
-        if (req.includes(key)) obj[key] = exampleForProp(key, props[key]);
+        if (req.includes(key)) obj[key] = exampleForProp(key, props[key], toolName);
       }
       return obj;
     }
@@ -116,18 +131,19 @@ export function exampleForProp(name: string, prop: Record<string, unknown>): unk
 // validates — keeping the minimal field that unblocks it (#287).
 export function buildVariantExample(
   variant: ActionVariant,
-  toolSchema: z.ZodType
+  toolSchema: z.ZodType,
+  toolName?: string
 ): Record<string, unknown> {
   const example: Record<string, unknown> = { action: variant.action };
   for (const name of variant.required) {
     if (name === 'action') continue;
-    example[name] = exampleForProp(name, variant.properties[name]);
+    example[name] = exampleForProp(name, variant.properties[name], toolName);
   }
 
   if (!toolSchema.safeParse(example).success) {
     for (const [name, prop] of Object.entries(variant.properties)) {
       if (name === 'action' || name in example) continue;
-      example[name] = exampleForProp(name, prop);
+      example[name] = exampleForProp(name, prop, toolName);
       if (toolSchema.safeParse(example).success) break;
       delete example[name]; // this field didn't unblock it — don't over-specify
     }

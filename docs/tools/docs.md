@@ -47,7 +47,7 @@ Get any docs page by path
 // fetch_page
 {
   "action": "fetch_page",
-  "path": "/root/Main/Player"
+  "path": "/tutorials/2d/2d_movement.html"
 }
 ```
 

@@ -22,7 +22,7 @@ List available input actions from the project Input Map
 
 #### `sequence`
 
-Execute an input timeline
+Execute an input timeline. While the game runs at real speed, keep tightly-timed inputs in ONE call — e.g. the run-starting menu press AND the gameplay that follows — because seconds of uncontrolled game time pass between two separate tool calls. For a window longer than one call can hold, drive input through godot_game_time step instead.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
