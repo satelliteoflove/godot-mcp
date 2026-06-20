@@ -77,16 +77,14 @@ func open_scene(params: Dictionary) -> Dictionary:
 
 
 func save_scene(params: Dictionary) -> Dictionary:
+	var resolved: Variant = _resolve_scene_path(params.get("path", ""))
+	if resolved is Dictionary:
+		return resolved
+	var path: String = resolved
+
 	var root := EditorInterface.get_edited_scene_root()
 	if not root:
 		return _error("NO_SCENE", "No scene is currently open")
-
-	var path: String = params.get("path", "")
-	if path.is_empty():
-		path = root.scene_file_path
-
-	if path.is_empty():
-		return _error("NO_PATH", "Scene has no path and none was provided")
 
 	var packed_scene := PackedScene.new()
 	var err := packed_scene.pack(root)
@@ -105,14 +103,10 @@ func save_scene(params: Dictionary) -> Dictionary:
 # (e.g. an unsaved godot_node_edit) are discarded. Only open scenes can be
 # reloaded in place; an unopened path is rejected so the caller uses open_scene.
 func reload_scene(params: Dictionary) -> Dictionary:
-	var scene_path: String = params.get("scene_path", "")
-	if scene_path.is_empty():
-		var root := EditorInterface.get_edited_scene_root()
-		if not root:
-			return _error("NO_SCENE", "No scene is currently open and no scene_path was provided")
-		scene_path = root.scene_file_path
-		if scene_path.is_empty():
-			return _error("NO_PATH", "The current scene has not been saved to a file; nothing to reload")
+	var resolved: Variant = _resolve_scene_path(params.get("scene_path", ""))
+	if resolved is Dictionary:
+		return resolved
+	var scene_path := _localize_scene_path(resolved)
 
 	if not FileAccess.file_exists(scene_path):
 		return _error("FILE_NOT_FOUND", "Scene file not found: %s" % scene_path)
@@ -122,4 +116,33 @@ func reload_scene(params: Dictionary) -> Dictionary:
 
 	EditorInterface.reload_scene_from_path(scene_path)
 	return _success({"path": scene_path})
+
+
+# Resolve the scene-file path to act on: the caller-supplied path, or the current
+# edited scene's file when none was given. Returns the path String, or an error
+# Dictionary (NO_SCENE / NO_PATH) the caller returns unchanged. Shared by
+# save_scene and reload_scene so the NO_SCENE/NO_PATH handling lives in one place.
+func _resolve_scene_path(provided_path: String) -> Variant:
+	if not provided_path.is_empty():
+		return provided_path
+	var err := _require_scene_open()
+	if err:
+		return err
+	var path := EditorInterface.get_edited_scene_root().scene_file_path
+	if path.is_empty():
+		return _error("NO_PATH", "The current scene has not been saved to a file and no scene path was provided")
+	return path
+
+
+# Normalize a scene path to the canonical res:// form that get_open_scenes() and
+# FileAccess use. A uid:// reference (the editor writes these into .tscn since
+# 4.4) is resolved to its res:// path; an absolute path is localized. An
+# unresolvable uid is returned unchanged so the existence check reports it.
+func _localize_scene_path(path: String) -> String:
+	if path.begins_with("uid://"):
+		var id := ResourceUID.text_to_id(path)
+		if ResourceUID.has_id(id):
+			return ResourceUID.get_id_path(id)
+		return path
+	return ProjectSettings.localize_path(path)
 
