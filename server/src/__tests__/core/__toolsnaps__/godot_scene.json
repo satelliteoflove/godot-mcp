@@ -1,6 +1,6 @@
 {
   "name": "godot_scene",
-  "description": "Manage scenes in the editor: open a scene, or save the open scene. To create a new scene, write the .tscn file directly — header [gd_scene format=3] without a uid (the editor assigns one when it imports the file), then one [node name=\"X\" type=\"Node2D\"] block per node — and open it with this tool.",
+  "description": "Manage scenes in the editor: open a scene, save the open scene, or reload an open scene from disk after you edit its .tscn directly (so the editor picks up the change without a full restart). To create a new scene, write the .tscn file directly — header [gd_scene format=3] without a uid (the editor assigns one when it imports the file), then one [node name=\"X\" type=\"Node2D\"] block per node — and open it with this tool.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -8,12 +8,13 @@
         "type": "string",
         "enum": [
           "open",
-          "save"
+          "save",
+          "reload"
         ],
-        "description": "open: Open a scene file\nsave: Save the current scene"
+        "description": "open: Open a scene file\nsave: Save the current scene\nreload: Reload an open scene from disk, discarding the editor's unsaved in-memory copy. Use after editing a .tscn file directly to refresh the editor without a full restart; the scene must already be open."
       },
       "scene_path": {
-        "description": "for open: Path to scene file to open; for save: Path to save to (defaults to the current scene path) (required for: open; optional for: save)",
+        "description": "for open: Path to scene file to open; for save: Path to save to (defaults to the current scene path); for reload: Path of the open scene to reload (defaults to the current scene) (required for: open; optional for: save, reload)",
         "type": "string"
       }
     },
@@ -24,7 +25,7 @@
   "annotations": {
     "title": "Scene",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
     "openWorldHint": false
   }

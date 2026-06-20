@@ -62,6 +62,7 @@ describe('tool annotations', () => {
       'godot_animation_edit',
       'godot_exec',
       'godot_gridmap_edit',
+      'godot_scene',
       'godot_tilemap_edit',
     ]);
   });

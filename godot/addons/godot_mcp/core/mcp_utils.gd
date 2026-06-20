@@ -66,7 +66,11 @@ static func serialize_value(value: Variant) -> Variant:
 
 
 static func deserialize_value(value: Variant) -> Variant:
-	if value is String and value.begins_with("res://"):
+	# uid:// references (written into .tscn by the editor since 4.4) resolve the
+	# same way res:// does — load() accepts both. Without the uid:// arm, a uid
+	# string handed to a resource-typed property silently fails to load and the
+	# property keeps its old value.
+	if value is String and (value.begins_with("res://") or value.begins_with("uid://")):
 		var resource := load(value)
 		if resource:
 			return resource
