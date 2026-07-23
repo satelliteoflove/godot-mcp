@@ -43,7 +43,7 @@ jobs:
         run: |
           PR_BRANCH=$(gh pr list --repo ${{ github.repository }} --head "release-please--branches--main--components--godot-mcp" --json headRefName --jq '.[0].headRefName // empty')
           echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: ${{ steps.check-pr.outputs.branch }}
         with:
           ref: ${{ steps.check-pr.outputs.branch }}
@@ -83,7 +83,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -106,7 +106,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Create addon zip
         run: |
           cd godot/addons
@@ -132,7 +132,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install mcp-publisher
         run: curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
       - name: Log in to the MCP Registry (GitHub OIDC)
