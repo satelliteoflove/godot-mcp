@@ -258,26 +258,33 @@ func get_debugger_plugin() -> MCPDebuggerPlugin:
 	return _debugger_plugin
 
 
-func _on_command_received(id: String, command: String, params: Dictionary) -> void:
+func _on_command_received(conn_id: int, id: String, command: String, params: Dictionary) -> void:
+	# conn_id has to come from the signal rather than any "current connection" state:
+	# commands from different clients interleave across this await.
 	var response = await _command_router.handle_command(command, params)
 	response["id"] = id
-	_websocket_server.send_response(response)
+	_websocket_server.send_response(conn_id, response)
 
 
-func _on_client_connected() -> void:
+func _on_client_connected(conn_id: int) -> void:
+	var info := _websocket_server.get_connection_info(conn_id)
 	var host_info := ""
-	if _websocket_server.get_connected_host():
-		host_info = " from %s:%d" % [_websocket_server.get_connected_host(), _websocket_server.get_connected_port()]
+	if info.has("host"):
+		host_info = " from %s:%d" % [info["host"], info["port"]]
 	var bind_info := "(%s: %s:%d)" % [MCPEnums.get_mode_name(_current_bind_mode), _current_bind_address, _get_listen_port()]
-	_update_status("Connected%s %s" % [host_info, bind_info])
+	_update_status("Connected: %d client(s)%s %s" % [_websocket_server.get_connection_count(), host_info, bind_info])
 	MCPLog.info("Client connected%s %s" % [host_info, bind_info])
 
 
-func _on_client_disconnected() -> void:
-	_update_status("Disconnected")
-	if _status_panel and _status_panel.has_method("clear_server_version"):
-		_status_panel.clear_server_version()
-	MCPLog.info("Client disconnected")
+func _on_client_disconnected(conn_id: int) -> void:
+	var remaining := _websocket_server.get_connection_count()
+	if remaining == 0:
+		_update_status("Disconnected")
+		if _status_panel and _status_panel.has_method("clear_server_version"):
+			_status_panel.clear_server_version()
+	else:
+		_update_status("Connected: %d client(s)" % remaining)
+	MCPLog.info("Client disconnected (conn %d), %d remaining" % [conn_id, remaining])
 
 
 func _update_status(status: String) -> void:

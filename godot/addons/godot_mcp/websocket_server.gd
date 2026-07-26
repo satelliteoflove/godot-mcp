@@ -2,9 +2,9 @@
 extends Node
 class_name MCPWebSocketServer
 
-signal command_received(id: String, command: String, params: Dictionary)
-signal client_connected()
-signal client_disconnected()
+signal command_received(conn_id: int, id: String, command: String, params: Dictionary)
+signal client_connected(conn_id: int)
+signal client_disconnected(conn_id: int)
 
 const DEFAULT_PORT := 6550
 const STALE_CONNECTION_TIMEOUT_MSEC := 45000
@@ -14,18 +14,23 @@ const STALE_CONNECTION_TIMEOUT_MSEC := 45000
 const REJECT_TIMEOUT_MSEC := 5000
 const CLOSE_CODE_STALE := 4002
 const CLOSE_REASON_STALE := "Connection timed out (no activity)"
-const CLOSE_CODE_ALREADY_CONNECTED := 4001
-const CLOSE_REASON_ALREADY_CONNECTED := "Another client is already connected"
+const CLOSE_CODE_TOO_MANY := 4001
+const CLOSE_REASON_TOO_MANY := "Too many connections (limit reached)"
+const CLOSE_CODE_NORMAL := 1000
+# Real usage is a handful of concurrent agent sessions; the cap only exists to stop a
+# runaway client (a retry loop with no backoff) from spawning unbounded connections.
+const MAX_CONNECTIONS := 8
+# Without this, a peer that completes TCP but never upgrades sits in STATE_CONNECTING
+# forever, holding a MAX_CONNECTIONS slot.
+const HANDSHAKE_TIMEOUT_MSEC := 10000
 
 var _server: TCPServer
-var _peer: StreamPeerTCP
-var _ws_peer: WebSocketPeer
-var _is_connected := false
-var _connected_host: String = ""
-var _connected_port: int = 0
-var _last_activity_msec: int = 0
+var _next_conn_id: int = 1
+# Each entry: { "conn_id": int, "ws": WebSocketPeer, "tcp": StreamPeerTCP, "host": String,
+# "port": int, "last_activity_msec": int, "is_open": bool }.
+var _connections: Array[Dictionary] = []
 var _stale_reason: String = ""
-# Newcomers that arrived while a live client already held the bridge. Each entry
+# Newcomers that arrived while the server was already at MAX_CONNECTIONS. Each entry
 # is { "ws": WebSocketPeer, "tcp": StreamPeerTCP, "since_msec": int, "close_sent": bool }.
 # They are handshaked just far enough to receive a clean 4001 close, then dropped.
 var _rejecting_peers: Array = []
@@ -35,12 +40,15 @@ func _process(_delta: float) -> void:
 	if not _server:
 		return
 
-	if _server.is_connection_available():
-		_accept_connection()
+	# is_connection_available() alone is not a safe loop condition: take_connection()
+	# can still return null if the peer dropped mid-accept, spinning this loop forever.
+	while _server.is_connection_available():
+		if not _accept_connection():
+			break
 
-	if _ws_peer:
-		_ws_peer.poll()
-		_process_websocket()
+	for entry in _connections:
+		_poll_connection(entry)
+	_prune_closed_connections()
 
 	if not _rejecting_peers.is_empty():
 		_process_rejecting_peers()
@@ -58,13 +66,9 @@ func start_server(port: int = DEFAULT_PORT, bind_address: String = "127.0.0.1") 
 
 
 func stop_server() -> void:
-	if _ws_peer:
-		_ws_peer.close()
-		_ws_peer = null
-
-	if _peer:
-		_peer.disconnect_from_host()
-		_peer = null
+	for entry in _connections:
+		_close_connection(entry, CLOSE_CODE_NORMAL, "")
+	_connections.clear()
 
 	for entry in _rejecting_peers:
 		var rej_ws: WebSocketPeer = entry.get("ws")
@@ -79,71 +83,73 @@ func stop_server() -> void:
 		_server.stop()
 		_server = null
 
-	_is_connected = false
-	_connected_host = ""
-	_connected_port = 0
-	_last_activity_msec = 0
+
+func get_connection_count() -> int:
+	# client_disconnected fires a frame before the dead entry is pruned, and handlers
+	# read this count, so size() would be one too high for the duration of that signal.
+	var count := 0
+	for entry in _connections:
+		if entry["ws"] != null:
+			count += 1
+	return count
 
 
-func get_connected_host() -> String:
-	return _connected_host
+func get_connection_info(conn_id: int) -> Dictionary:
+	var entry := _find_connection(conn_id)
+	if entry.is_empty():
+		return {}
+	return {"host": entry["host"], "port": entry["port"]}
 
 
-func get_connected_port() -> int:
-	return _connected_port
-
-
-func send_response(response: Dictionary) -> void:
-	if not _ws_peer or _ws_peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
-		MCPLog.warn("Cannot send response: not connected")
+func send_response(conn_id: int, response: Dictionary) -> void:
+	var entry := _find_connection(conn_id)
+	var ws: WebSocketPeer = entry.get("ws")
+	if entry.is_empty() or not ws or ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
+		MCPLog.warn("Cannot send response to conn %d: not connected" % conn_id)
 		return
 
 	var json := JSON.stringify(response)
-	_ws_peer.send_text(json)
+	ws.send_text(json)
 
 
-func _accept_connection() -> void:
+func _accept_connection() -> bool:
 	var incoming := _server.take_connection()
 	if not incoming:
-		return
+		return false
 
-	if _ws_peer != null:
-		if _is_stale_connection():
-			# The incumbent looks dead (TCP dropped, or no activity past the
-			# timeout). Hand the bridge to the newcomer so a crashed client can
-			# never permanently block reconnection.
-			MCPLog.warn("Replacing stale connection with new client (%s)" % _stale_reason)
-			_force_close_connection()
-		else:
-			# A live client already holds the bridge. Protect the incumbent and
-			# reject the newcomer with a clean close code instead of displacing
-			# it. This keeps a transient second client (e.g. a subagent that
-			# inherited the same MCP config) from bricking the active session.
-			MCPLog.warn("Rejecting new connection from %s:%d: another client is already connected" % [incoming.get_connected_host(), incoming.get_connected_port()])
-			_begin_reject(incoming)
-			return
+	if get_connection_count() >= MAX_CONNECTIONS:
+		MCPLog.warn("Rejecting new connection from %s:%d: connection cap (%d) reached" % [incoming.get_connected_host(), incoming.get_connected_port(), MAX_CONNECTIONS])
+		_begin_reject(incoming)
+		return true
 
-	_peer = incoming
-	_ws_peer = WebSocketPeer.new()
-	_ws_peer.outbound_buffer_size = 16 * 1024 * 1024  # 16MB for screenshot data
-	var err := _ws_peer.accept_stream(_peer)
+	var ws := WebSocketPeer.new()
+	ws.outbound_buffer_size = 16 * 1024 * 1024  # 16MB for screenshot data
+	var err := ws.accept_stream(incoming)
 	if err != OK:
 		MCPLog.error("Failed to accept WebSocket stream: %s" % error_string(err))
-		_ws_peer = null
-		_peer = null
-		return
+		return true
 
-	_connected_host = _peer.get_connected_host()
-	_connected_port = _peer.get_connected_port()
-	_last_activity_msec = Time.get_ticks_msec()
+	var conn_id := _next_conn_id
+	_next_conn_id += 1
+	var entry: Dictionary = {
+		"conn_id": conn_id,
+		"ws": ws,
+		"tcp": incoming,
+		"host": incoming.get_connected_host(),
+		"port": incoming.get_connected_port(),
+		"last_activity_msec": Time.get_ticks_msec(),
+		"is_open": false,
+	}
+	_connections.append(entry)
 
-	MCPLog.info("TCP connection received from %s:%d, awaiting WebSocket handshake..." % [_connected_host, _connected_port])
+	MCPLog.info("TCP connection received from %s:%d (conn %d), awaiting WebSocket handshake..." % [entry["host"], entry["port"], conn_id])
+	return true
 
 
 func _begin_reject(incoming: StreamPeerTCP) -> void:
 	# Complete just enough of the WebSocket handshake on a throwaway peer to send
 	# a proper coded close frame (4001), so the rejected client gets a clear
-	# diagnostic rather than an opaque TCP reset. The incumbent's peer is never
+	# diagnostic rather than an opaque TCP reset. Live connections are never
 	# touched. Driven to completion in _process_rejecting_peers().
 	var ws := WebSocketPeer.new()
 	var err := ws.accept_stream(incoming)
@@ -177,7 +183,7 @@ func _process_rejecting_peers() -> void:
 		match state:
 			WebSocketPeer.STATE_OPEN:
 				if not entry["close_sent"]:
-					ws.close(CLOSE_CODE_ALREADY_CONNECTED, CLOSE_REASON_ALREADY_CONNECTED)
+					ws.close(CLOSE_CODE_TOO_MANY, CLOSE_REASON_TOO_MANY)
 					entry["close_sent"] = true
 				# Keep polling so the close frame is actually flushed.
 				keep.append(entry)
@@ -198,101 +204,127 @@ func _drop_rejecting_peer(entry: Dictionary) -> void:
 	entry["tcp"] = null
 
 
-func _process_websocket() -> void:
-	if not _ws_peer:
-		return
-
-	var state := _ws_peer.get_ready_state()
+func _poll_connection(entry: Dictionary) -> void:
+	var ws: WebSocketPeer = entry["ws"]
+	ws.poll()
+	var state := ws.get_ready_state()
+	var conn_id: int = entry["conn_id"]
 
 	match state:
 		WebSocketPeer.STATE_CONNECTING:
-			pass
+			var tcp: StreamPeerTCP = entry["tcp"]
+			var timed_out: bool = Time.get_ticks_msec() - int(entry["last_activity_msec"]) > HANDSHAKE_TIMEOUT_MSEC
+			var tcp_dead: bool = tcp and tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED
+			if timed_out or tcp_dead:
+				MCPLog.warn("Dropping conn %d: handshake never completed (%s)" % [conn_id, "timed out" if timed_out else "TCP peer disconnected"])
+				_close_connection(entry, CLOSE_CODE_STALE, CLOSE_REASON_STALE)
 
 		WebSocketPeer.STATE_OPEN:
-			if not _is_connected:
-				_is_connected = true
-				_last_activity_msec = Time.get_ticks_msec()
-				client_connected.emit()
-				MCPLog.info("WebSocket handshake complete")
+			if not entry["is_open"]:
+				entry["is_open"] = true
+				entry["last_activity_msec"] = Time.get_ticks_msec()
+				client_connected.emit(conn_id)
+				MCPLog.info("WebSocket handshake complete (conn %d)" % conn_id)
 
-			if _is_stale_connection():
-				MCPLog.warn("Closing stale connection (%s)" % _stale_reason)
-				_ws_peer.close(CLOSE_CODE_STALE, CLOSE_REASON_STALE)
+			if _is_stale_connection(entry):
+				MCPLog.warn("Closing stale connection (conn %d, %s)" % [conn_id, _stale_reason])
+				_close_connection(entry, CLOSE_CODE_STALE, CLOSE_REASON_STALE)
 				return
 
-			while _ws_peer.get_available_packet_count() > 0:
-				_last_activity_msec = Time.get_ticks_msec()
-				var packet := _ws_peer.get_packet()
-				_handle_packet(packet)
+			while ws.get_available_packet_count() > 0:
+				entry["last_activity_msec"] = Time.get_ticks_msec()
+				var packet := ws.get_packet()
+				_handle_packet(conn_id, packet)
 
 		WebSocketPeer.STATE_CLOSING:
 			pass
 
 		WebSocketPeer.STATE_CLOSED:
-			if _is_connected:
-				_is_connected = false
-				client_disconnected.emit()
-			_ws_peer = null
-			_peer = null
+			_mark_closed(entry)
 
 
-func _force_close_connection(close_code: int = CLOSE_CODE_STALE, close_reason: String = CLOSE_REASON_STALE) -> void:
-	if _ws_peer:
-		_ws_peer.close(close_code, close_reason)
-		_ws_peer = null
-	if _peer:
-		_peer.disconnect_from_host()
-		_peer = null
-	if _is_connected:
-		_is_connected = false
-		client_disconnected.emit()
-	_last_activity_msec = 0
-	_connected_host = ""
-	_connected_port = 0
+func _prune_closed_connections() -> void:
+	var keep: Array[Dictionary] = []
+	for entry in _connections:
+		if entry["ws"] == null:
+			continue
+		keep.append(entry)
+	_connections = keep
 
 
-func _is_stale_connection() -> bool:
-	if _last_activity_msec == 0:
+func _mark_closed(entry: Dictionary) -> void:
+	# Null out before emitting: get_connection_count() and _find_connection() key off
+	# ws == null, so a handler must not see this connection as still live.
+	var was_open: bool = entry["is_open"]
+	var conn_id: int = entry["conn_id"]
+	entry["is_open"] = false
+	entry["ws"] = null
+	entry["tcp"] = null
+	if was_open:
+		client_disconnected.emit(conn_id)
+
+
+func _close_connection(entry: Dictionary, close_code: int, close_reason: String) -> void:
+	var ws: WebSocketPeer = entry.get("ws")
+	if ws:
+		ws.close(close_code, close_reason)
+	var tcp: StreamPeerTCP = entry.get("tcp")
+	if tcp:
+		tcp.disconnect_from_host()
+	_mark_closed(entry)
+
+
+func _is_stale_connection(entry: Dictionary) -> bool:
+	var last_activity: int = entry["last_activity_msec"]
+	if last_activity == 0:
 		return false
-	if _peer and _peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+	var tcp: StreamPeerTCP = entry["tcp"]
+	if tcp and tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
 		_stale_reason = "TCP peer disconnected"
 		return true
-	if Time.get_ticks_msec() - _last_activity_msec > STALE_CONNECTION_TIMEOUT_MSEC:
+	if Time.get_ticks_msec() - last_activity > STALE_CONNECTION_TIMEOUT_MSEC:
 		_stale_reason = "no activity for %ds" % (STALE_CONNECTION_TIMEOUT_MSEC / 1000)
 		return true
 	return false
 
 
-func _handle_packet(packet: PackedByteArray) -> void:
+func _find_connection(conn_id: int) -> Dictionary:
+	for entry in _connections:
+		if entry["conn_id"] == conn_id and entry["ws"] != null:
+			return entry
+	return {}
+
+
+func _handle_packet(conn_id: int, packet: PackedByteArray) -> void:
 	var text := packet.get_string_from_utf8()
 
 	var json := JSON.new()
 	var err := json.parse(text)
 	if err != OK:
 		MCPLog.error("Failed to parse command: %s" % json.get_error_message())
-		_send_error_response("", "PARSE_ERROR", "Invalid JSON: %s" % json.get_error_message())
+		_send_error_response(conn_id, "", "PARSE_ERROR", "Invalid JSON: %s" % json.get_error_message())
 		return
 
 	if not json.data is Dictionary:
 		MCPLog.error("Invalid command format: expected JSON object")
-		_send_error_response("", "INVALID_FORMAT", "Expected JSON object")
+		_send_error_response(conn_id, "", "INVALID_FORMAT", "Expected JSON object")
 		return
 
 	var data: Dictionary = json.data
 	if not data.has("id") or not data.has("command"):
 		MCPLog.error("Invalid command format")
-		_send_error_response(data.get("id", ""), "INVALID_FORMAT", "Missing 'id' or 'command' field")
+		_send_error_response(conn_id, data.get("id", ""), "INVALID_FORMAT", "Missing 'id' or 'command' field")
 		return
 
 	var id: String = str(data.get("id"))
 	var command: String = data.get("command")
 	var params: Dictionary = data.get("params", {})
 
-	command_received.emit(id, command, params)
+	command_received.emit(conn_id, id, command, params)
 
 
-func _send_error_response(id: String, code: String, message: String) -> void:
-	send_response({
+func _send_error_response(conn_id: int, id: String, code: String, message: String) -> void:
+	send_response(conn_id, {
 		"id": id,
 		"status": "error",
 		"error": {
