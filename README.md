@@ -112,7 +112,7 @@ For richer runtime observation, add key nodes to the `mcp_watch` group or give t
 
 The server talks to an editor addon over a local WebSocket; the addon reaches into the running game over Godot's own debugger protocol, so the game process needs no extra ports or setup. The addon binds to `127.0.0.1` by default. WSL2 is fully supported (auto-detection, host IP discovery, configurable bind modes) — see the [Installation Guide](INSTALL.md#wsl-support).
 
-Curious about connection lifecycles, the single-client policy, or how frozen-time stepping works under the hood? The [Architecture Guide](docs/architecture.md) goes deep.
+Curious about connection lifecycles, how the bridge handles concurrent clients, or how frozen-time stepping works under the hood? The [Architecture Guide](docs/architecture.md) goes deep.
 
 ## Works well with minimal-godot-mcp
 

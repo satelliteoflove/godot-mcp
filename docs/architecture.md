@@ -29,13 +29,13 @@ The server connects eagerly and assumes the editor may not be there yet:
 - **Reconnection** uses exponential backoff: 1s, 2s, 4s, 8s, 16s, then every 30s. You can start the server and the editor in either order.
 - **Heartbeats** go out every 30 seconds so the addon can tell a quiet-but-alive client from a dead one.
 
-### One client at a time
+### Concurrent clients
 
-The editor bridge serves a single client. When a second client connects while one is active:
+The editor bridge serves multiple clients at once, each tracked independently:
 
-- The newcomer is rejected with WebSocket close code `4001` ("another client is already connected") instead of displacing the incumbent — a subagent that inherited your MCP config can't hijack your session mid-edit.
-- Rejected clients retry with backoff and connect automatically once the slot frees up.
-- If the incumbent goes silent for **45 seconds** (no messages, no heartbeats) or its TCP connection drops, it's considered stale and the next client takes over. A crashed session never permanently wedges the bridge.
+- Each connection gets its own `conn_id`, and command/response routing keys off that id, so one client's in-flight request can't be clobbered or misrouted by another connecting or disconnecting.
+- Concurrency is capped at `MAX_CONNECTIONS` (8 connections). A client arriving once the cap is full is rejected with WebSocket close code `4001` ("Too many connections (limit reached)"); it retries with backoff and connects once a slot frees.
+- A connection idle past 45 seconds (live clients heartbeat every 30 seconds) is closed with code `4002` ("Connection timed out (no activity)"), and one that completes TCP but never finishes the WebSocket handshake is dropped after 10 seconds so it can't hold a slot open.
 
 This logic lives in `godot/addons/godot_mcp/websocket_server.gd`.
 
@@ -79,7 +79,7 @@ server/src/connection/    WebSocket client to the editor addon
 server/src/installer/     --install-addon implementation
 godot/addons/godot_mcp/
   plugin.gd               EditorPlugin entry point; registers the autoload
-  websocket_server.gd     WebSocket listener + single-client policy
+  websocket_server.gd     WebSocket listener + concurrent connection cap
   command_router.gd       Routes commands to handlers
   commands/               GDScript command handlers (one file per domain)
   core/                   Debugger plugin, logger, shared utilities

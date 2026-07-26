@@ -8,19 +8,17 @@ Most "it doesn't work" reports come down to one of these:
 
 1. **Is the Godot editor open?** The server connects to an addon running *inside the editor*. No editor, no connection.
 2. **Is the addon enabled?** Check **Project > Project Settings > Plugins > Godot MCP**. Installing the addon doesn't enable it.
-3. **What does the MCP panel say?** The **MCP** tab in the editor's bottom panel shows connection status: green means a client is connected, orange means the addon is listening but no client has connected yet.
+3. **What does the MCP panel say?** The **MCP** tab in the editor's bottom panel shows connection status: green means at least one client is connected (the text reads `Connected: N client(s)`), orange means the addon is listening but no client has connected yet.
 4. **Did you restart your AI assistant after installing?** MCP clients typically launch servers at startup. A client started before the config change won't see the server.
 5. **Do the ports match?** The addon listens on `6550` by default. If you enabled **Port override** in the MCP panel, the server needs a matching `GODOT_PORT` (see [Environment Variables](../INSTALL.md#environment-variables)).
 
-## One client at a time
+## "Too many connections" (close code 4001)
 
-A Godot editor bridge serves a **single** godot-mcp connection. This matters once subagents or multiple terminals inherit the same MCP config.
+A Godot editor bridge accepts multiple simultaneous godot-mcp connections, so subagents, multiple terminals, and your main session can all stay connected at once; that's normal and expected.
 
-- If a second godot-mcp client connects while the first is active, it is **rejected** (WebSocket close code `4001`) rather than displacing the original — your session keeps working.
-- The rejected client retries automatically with backoff and connects as soon as the first client disconnects.
-- A client that crashes without closing its socket doesn't block anyone for long: the addon considers a connection stale after **45 seconds** of silence (live clients heartbeat every 30 seconds) and lets the next client take over.
-
-So if a tool call reports that another client holds the connection: close the other session, or just wait — the takeover is automatic.
+- A `4001` rejection means the connection cap is full, not that another client owns the bridge. If you're not deliberately running that many sessions, check for stray duplicate client processes.
+- The rejected client retries automatically with backoff and connects as soon as a slot frees up.
+- A client that crashes without closing its socket doesn't hold its slot for long: the addon considers a connection stale after **45 seconds** of silence (live clients heartbeat every 30 seconds) and frees the slot automatically.
 
 ## Port conflicts and overrides
 

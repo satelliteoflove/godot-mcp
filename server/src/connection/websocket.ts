@@ -18,13 +18,13 @@ const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 const PING_INTERVAL_MS = 30000;
 const PONG_TIMEOUT_MS = 10000;
 
-const CLOSE_CODE_ALREADY_CONNECTED = 4001;
+const CLOSE_CODE_CONNECTION_LIMIT = 4001;
 const CLOSE_CODE_STALE = 4002;
 const CLOSE_CODE_REPLACED = 4003;
 
 export type DisconnectReason =
   | 'never_connected'
-  | 'rejected_another_client'
+  | 'rejected_connection_limit'
   | 'replaced_by_new_client'
   | 'connection_refused'
   | 'connection_lost'
@@ -75,6 +75,9 @@ export class GodotConnection extends EventEmitter {
   private handshakeResult: HandshakeResult | null = null;
 
   private lastDisconnectReason: DisconnectReason = 'never_connected';
+  // Echoed verbatim in getDiagnosticMessage() rather than assuming a fixed policy string,
+  // since an older addon still sends 4001 for its old "one client only" meaning.
+  private lastCloseReason: string | null = null;
   private rejectionCount = 0;
   private lastErrorMessage: string | null = null;
   private currentState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
@@ -145,14 +148,17 @@ export class GodotConnection extends EventEmitter {
     const lines: string[] = [];
 
     switch (diag.lastDisconnectReason) {
-      case 'rejected_another_client':
-        lines.push('Status: Another client is already connected to Godot');
+      case 'rejected_connection_limit':
+        lines.push(
+          this.lastCloseReason
+            ? `Status: Godot refused the connection: ${this.lastCloseReason}`
+            : 'Status: Godot refused the connection'
+        );
         if (diag.rejectionCount > 1) {
           lines.push(`Details: ${diag.rejectionCount} connection attempts rejected`);
         }
-        lines.push('Suggestion: Only one client can drive the Godot bridge at a time.');
-        lines.push('  This client keeps retrying and will connect once the other disconnects.');
-        lines.push('  If you did not expect another client, check for duplicate godot-mcp processes:');
+        lines.push('Suggestion: This client keeps retrying and will connect once a slot frees up.');
+        lines.push('  If this persists, check for duplicate godot-mcp processes:');
         lines.push('    macOS/Linux: ps aux | grep godot-mcp');
         lines.push('    Windows: Get-Process -Name node | ? CommandLine -Like "*godot-mcp*"');
         break;
@@ -244,17 +250,18 @@ export class GodotConnection extends EventEmitter {
         const wasConnected = this.currentState === 'connected';
         this.currentState = 'disconnected';
 
-        if (code === CLOSE_CODE_ALREADY_CONNECTED) {
-          this.lastDisconnectReason = 'rejected_another_client';
+        if (code === CLOSE_CODE_CONNECTION_LIMIT) {
+          this.lastDisconnectReason = 'rejected_connection_limit';
           this.rejectionCount++;
           // Back off in proportion to how many times we've been rejected so a
           // lingering second client doesn't busy-loop reconnecting every second
           // (each brief 'open' resets reconnectAttempt before this close fires).
           this.reconnectAttempt = Math.min(this.rejectionCount - 1, RECONNECT_DELAYS.length - 1);
-          const reasonStr = reason?.toString() || 'Another client is already connected';
+          const reasonStr = reason?.toString() || 'Too many connections (limit reached)';
+          this.lastCloseReason = reasonStr;
           logger.warningRateLimited(
-            'rejected-another-client',
-            'Another client holds the Godot bridge; will keep retrying',
+            'rejected-connection-limit',
+            'Godot connection cap reached; will keep retrying',
             {
               reason: reasonStr,
               rejectionCount: this.rejectionCount,

@@ -28,7 +28,7 @@ vi.mock('../../utils/logger.js', () => ({
 }));
 
 // Application close codes the Godot addon uses on the bridge.
-const CLOSE_CODE_ALREADY_CONNECTED = 4001;
+const CLOSE_CODE_CONNECTION_LIMIT = 4001;
 const CLOSE_CODE_REPLACED = 4003;
 
 /**
@@ -95,9 +95,9 @@ describe('GodotConnection contention handling (#237)', () => {
     expect(connection.getDiagnostics().lastDisconnectReason).toBe('replaced_by_new_client');
   });
 
-  it('keeps retrying when rejected because another client is connected (4001)', async () => {
+  it('keeps retrying when rejected because the connection cap is reached (4001)', async () => {
     const bridge = await startFakeBridge((socket) => {
-      socket.on('message', () => socket.close(CLOSE_CODE_ALREADY_CONNECTED, 'Another client is already connected'));
+      socket.on('message', () => socket.close(CLOSE_CODE_CONNECTION_LIMIT, 'Too many connections (limit reached)'));
     });
     wss = bridge.wss;
 
@@ -106,8 +106,24 @@ describe('GodotConnection contention handling (#237)', () => {
 
     await connection.connect().catch(() => {});
     await expect(reconnecting).resolves.toBeUndefined();
-    expect(connection.getDiagnostics().lastDisconnectReason).toBe('rejected_another_client');
+    expect(connection.getDiagnostics().lastDisconnectReason).toBe('rejected_connection_limit');
     expect(connection.getDiagnostics().rejectionCount).toBe(1);
+  });
+
+  it('echoes the addon-supplied reason in the diagnostic message for a 4001 rejection', async () => {
+    const bridge = await startFakeBridge((socket) => {
+      socket.on('message', () => socket.close(CLOSE_CODE_CONNECTION_LIMIT, 'Too many connections (limit reached)'));
+    });
+    wss = bridge.wss;
+
+    connection = new GodotConnection({ host: '127.0.0.1', port: bridge.port });
+    const reconnecting = waitForEvent(connection, 'reconnecting');
+    await connection.connect().catch(() => {});
+    await reconnecting;
+
+    const message = connection.getDiagnosticMessage();
+    expect(message).toContain('Too many connections (limit reached)');
+    expect(message).not.toContain('Only one client');
   });
 
   it('no longer tells a replaced client to restart; reports automatic recovery', async () => {

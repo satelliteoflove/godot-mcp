@@ -127,6 +127,9 @@ func _accept_connection() -> bool:
 	var err := ws.accept_stream(incoming)
 	if err != OK:
 		MCPLog.error("Failed to accept WebSocket stream: %s" % error_string(err))
+		# Nothing tracks this peer, so drop it here or the socket lingers until
+		# the last reference happens to be released.
+		incoming.disconnect_from_host()
 		return true
 
 	var conn_id := _next_conn_id
