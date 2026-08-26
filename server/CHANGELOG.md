@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.7](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.6...godot-mcp-v4.1.7) (2026-08-26)
+
+
+### Bug Fixes
+
+* detect a stale server build instead of trusting package.json ([#375](https://github.com/satelliteoflove/godot-mcp/issues/375)) ([e0621ad](https://github.com/satelliteoflove/godot-mcp/commit/e0621ad0a9b2660fcef5de8184a7dfaceeed8ce7))
+
 ## [4.1.6](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.5...godot-mcp-v4.1.6) (2026-08-26)
 
 
