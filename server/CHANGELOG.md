@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.6](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.5...godot-mcp-v4.1.6) (2026-08-26)
+
+
+### Bug Fixes
+
+* profiler sees the whole tree, says what its window covers, floors spikes ([#373](https://github.com/satelliteoflove/godot-mcp/issues/373)) ([bf133a6](https://github.com/satelliteoflove/godot-mcp/commit/bf133a6b620f6ad8f571b3af7879b86126ccf5a6))
+
 ## [4.1.5](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.4...godot-mcp-v4.1.5) (2026-08-26)
 
 
