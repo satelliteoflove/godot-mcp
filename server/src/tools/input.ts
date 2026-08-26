@@ -240,9 +240,11 @@ const InputSchema = z.discriminatedUnion('action', [
         'again after the last, to prove the inputs actually changed something (vs. falling into ' +
         'the void — player dead, UI focus elsewhere, wrong action). Reference autoloads by name ' +
         '(e.g. "G.shots", "G.wave") plus `tree`/`root` (e.g. ' +
-        '"tree.get_nodes_in_group(\'enemies\').size()"), same context as godot_game_time step_until. ' +
+        '"tree.get_nodes_in_group(\'enemies\').size()") and the engine singletons (Engine, Time, ' +
+        'Performance, AudioServer, Input, DisplayServer, OS), same context as godot_game_time step_until. ' +
         'Each expression returns {before, after, changed}; the result also carries any_changed. ' +
-        'Expressions do NOT short-circuit and a parse/eval error rejects the call. The after-reading ' +
+        'Expressions do NOT short-circuit; a parse error rejects the call, while an expression that ' +
+        'fails to evaluate reads as { error: message } on that side of the diff. The after-reading ' +
         'is sampled a couple frames past the final input, so only near-immediate effects register — ' +
         'for slower effects use godot_game_time or runtime_state watch.'
       ),

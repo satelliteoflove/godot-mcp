@@ -1495,6 +1495,18 @@ var _freeze_started_ticks := 0
 var _freeze_transition_count := 0
 
 var _step_active := false
+
+
+## Public: true while a godot_game_time step / step_until window is advancing
+## the tree, including the report evaluation at its end (#355). Game code that
+## corrects itself against a wall-clock source (audio position, network time)
+## should hold off while this is true, since wall time kept running through
+## the freeze that preceded the step. Read it as
+## `get_node("/root/MCPGameBridge").is_stepping()` (guard with
+## has_node so the game runs without the addon). Frozen-but-not-stepping is
+## just `get_tree().paused`.
+func is_stepping() -> bool:
+	return _step_active
 var _step_finish_pending := false
 var _step_needs_settle := false
 var _step_wall_exceeded := false
@@ -1956,6 +1968,14 @@ func _apply_key_modifiers(ke: InputEventKey, mask: int) -> void:
 	ke.meta_pressed = (mask & int(KEY_MASK_META)) != 0
 
 
+# Keep the server-side scope descriptions (game-time.ts, input.ts) in sync.
+var EXPRESSION_SINGLETONS: Array = [
+	["Engine", Engine], ["Time", Time], ["Performance", Performance],
+	["AudioServer", AudioServer], ["Input", Input], ["DisplayServer", DisplayServer],
+	["OS", OS],
+]
+
+
 func _build_predicate_context() -> Dictionary:
 	# Exposes the running game to a step_until predicate: every autoload by its
 	# own name (so `G.wave > 1` just works), plus `tree` (SceneTree) and `root`
@@ -1981,6 +2001,16 @@ func _build_predicate_context() -> Dictionary:
 	if not names.has("root"):
 		names.append("root")
 		inputs.append(tree.root)
+	# Engine singletons (#354): Expression cannot see globals, so
+	# `Engine.get_frames_per_second()` or `Time.get_ticks_msec()` only work
+	# when they ride in as named inputs like everything else. An autoload
+	# that shadows one of these names keeps its slot.
+	for entry in EXPRESSION_SINGLETONS:
+		var sname: String = entry[0]
+		if names.has(sname):
+			continue
+		names.append(sname)
+		inputs.append(entry[1])
 	return {"names": PackedStringArray(names), "inputs": inputs}
 
 
@@ -1996,8 +2026,12 @@ func _sanitize_value(v: Variant) -> Variant:
 
 
 func _compile_report(report: Array, names: PackedStringArray, inputs: Array) -> Dictionary:
-	# Compile + validate each report expression in the predicate context. Returns
-	# {"error": ...} if any fails up front, else {"report": [{src, expr}, ...]}.
+	# Parse each report expression in the predicate context. Returns
+	# {"error": ...} if any fails to parse, else {"report": [{src, expr}, ...]}.
+	# Deliberately NOT dry-run executed (#353): the state a report reads is
+	# often created by the step itself (a spawned node), so evaluating against
+	# the pre-step tree would reject exactly the expressions report is for.
+	# Evaluation failures surface per expression at stop time instead.
 	var compiled: Array = []
 	for item in report:
 		var s := str(item).strip_edges()
@@ -2006,21 +2040,20 @@ func _compile_report(report: Array, names: PackedStringArray, inputs: Array) -> 
 		var e := Expression.new()
 		if e.parse(s, names) != OK:
 			return {"error": "report expression parse error (%s): %s" % [s, e.get_error_text()]}
-		e.execute(inputs, self)
-		if e.has_execute_failed():
-			return {"error": "report expression failed to evaluate (%s): %s" % [s, e.get_error_text()]}
 		compiled.append({"src": s, "expr": e})
 	return {"report": compiled}
 
 
 func _evaluate_report(report_exprs: Array, inputs: Array) -> Dictionary:
 	# Evaluate the compiled report expressions at stop time into {src: value}.
+	# An expression that fails maps to {"error": message} rather than failing
+	# the call, so the readings that did work still come back.
 	var out: Dictionary = {}
 	for item in report_exprs:
 		var e: Expression = item["expr"]
 		var v: Variant = e.execute(inputs, self)
 		if e.has_execute_failed():
-			out[item["src"]] = "<error: %s>" % e.get_error_text()
+			out[item["src"]] = {"error": e.get_error_text()}
 		else:
 			out[item["src"]] = _sanitize_value(v)
 	return out
@@ -2200,6 +2233,14 @@ func _finish_step() -> void:
 
 	get_tree().paused = true  # the freeze layer re-engages
 	_step_last_tree_paused = true
+
+	# Read the report while is_stepping() is still true (#355): game code that
+	# gates wall-clock resyncs on it must see the same answer during the last
+	# processed frame and at report time.
+	var report_values: Dictionary = {}
+	if _step_predicate != null and not _step_report.is_empty():
+		report_values = _evaluate_report(_step_report, _step_predicate_inputs)
+
 	_step_active = false
 	_step_finish_pending = false
 	set_physics_process(false)
@@ -2231,7 +2272,7 @@ func _finish_step() -> void:
 		# non-met return means the cap or wall budget ran out first.
 		result["predicate_met"] = _step_predicate_met
 		if not _step_report.is_empty():
-			result["report"] = _evaluate_report(_step_report, _step_predicate_inputs)
+			result["report"] = report_values
 		if not _step_predicate_error.is_empty():
 			result["predicate_error"] = _step_predicate_error
 

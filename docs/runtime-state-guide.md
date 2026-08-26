@@ -315,6 +315,27 @@ per-field summaries:
 
 ---
 
+## Knowing when the game is being stepped
+
+`godot_game_time` freezes the tree with `get_tree().paused`, then advances it in
+bounded windows (`step`, `step_until`). Frozen is easy to detect from game code;
+a step window is not, because the tree is unpaused for its duration. Wall time
+keeps running through the freeze, so anything that corrects itself against a
+wall-clock source (audio position, network time, rubber-banding) will snap
+forward on the first stepped frame and every assertion after it is off.
+
+The bridge autoload exposes one read for this:
+
+```gdscript
+func _can_resync() -> bool:
+    var bridge := get_node_or_null("/root/MCPGameBridge")
+    return bridge == null or not bridge.is_stepping()
+```
+
+`is_stepping()` is true for every frame a step processes and for the `report`
+evaluation at the end of the window, and false otherwise (including while
+frozen). The `has_node` guard keeps the game running without the addon.
+
 ## Quick checklist
 
 - Tag the entities that matter into the `mcp_watch` group.
