@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.1...godot-mcp-v4.1.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* evaluate step reports at stop time, expose singletons and is_stepping() ([#356](https://github.com/satelliteoflove/godot-mcp/issues/356)) ([77ca6d4](https://github.com/satelliteoflove/godot-mcp/commit/77ca6d4617340c7a093e52c52c9ef4ab4f2e6879)), closes [#353](https://github.com/satelliteoflove/godot-mcp/issues/353) [#354](https://github.com/satelliteoflove/godot-mcp/issues/354) [#355](https://github.com/satelliteoflove/godot-mcp/issues/355)
+
 ## [4.1.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.0...godot-mcp-v4.1.1) (2026-08-26)
 
 
