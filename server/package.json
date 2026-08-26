@@ -1,6 +1,6 @@
 {
   "name": "@satelliteoflove/godot-mcp",
-  "version": "4.1.4",
+  "version": "4.1.5",
   "description": "MCP server that gives AI assistants eyes and hands in the Godot editor: scene editing, input injection, deterministic game-time control, and live runtime state for agent-driven playtesting",
   "type": "module",
   "main": "dist/index.js",

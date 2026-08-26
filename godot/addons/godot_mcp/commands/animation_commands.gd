@@ -57,6 +57,7 @@ func get_commands() -> Dictionary:
 		"add_animation_track": add_animation_track,
 		"remove_animation_track": remove_animation_track,
 		"add_keyframe": add_keyframe,
+		"create_reset_keys": create_reset_keys,
 		"remove_keyframe": remove_keyframe,
 		"update_keyframe": update_keyframe
 	}
@@ -592,6 +593,57 @@ func add_animation_track(params: Dictionary) -> Dictionary:
 		if reset.has("reason"):
 			result["reset_skipped"] = reset["reason"]
 	return _success(result)
+
+
+# Backfill RESET keys for tracks authored before add_track keyed them (or by
+# hand): every track on the named animation, or on all of the player's
+# animations, gets a RESET key holding the property's CURRENT value where the
+# RESET animation lacks one. Call it before previewing, while the nodes still
+# hold their rest pose.
+func create_reset_keys(params: Dictionary) -> Dictionary:
+	var node_path: String = params.get("node_path", "")
+	var anim_name: String = params.get("animation_name", "")
+
+	if node_path.is_empty():
+		return _error("INVALID_PARAMS", "node_path is required")
+
+	var player := _get_animation_player(node_path)
+	if not player:
+		var node := _get_node(node_path)
+		if not node:
+			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
+		return _error("NOT_ANIMATION_PLAYER", "Node is not an AnimationPlayer")
+
+	var names: Array = []
+	if anim_name.is_empty():
+		for n in player.get_animation_list():
+			if n != "RESET":
+				names.append(n)
+	else:
+		if not player.has_animation(anim_name):
+			return _error("ANIMATION_NOT_FOUND", "Animation not found: %s" % anim_name)
+		names.append(anim_name)
+
+	var added: Array = []
+	var skipped: Array = []
+	for n in names:
+		var anim := player.get_animation(n)
+		for t in anim.get_track_count():
+			var r := _ensure_reset_key(player, anim, t)
+			var entry := {"animation": n, "track_index": t, "track_path": str(anim.track_get_path(t))}
+			if r.get("added", false):
+				entry["value"] = r.get("value")
+				added.append(entry)
+			else:
+				entry["reason"] = r.get("reason", "track type has no rest value")
+				skipped.append(entry)
+
+	return _success({
+		"animations": names,
+		"added": added,
+		"skipped": skipped,
+		"has_reset": player.has_animation("RESET"),
+	})
 
 
 func remove_animation_track(params: Dictionary) -> Dictionary:

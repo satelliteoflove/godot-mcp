@@ -82,7 +82,7 @@ Get keyframes for a track
 
 ## godot_animation_edit
 
-Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.
+Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, backfill RESET keys for existing tracks (create_reset_keys), and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.
 
 ### Actions
 
@@ -165,6 +165,15 @@ Add a track to an animation
 | `insert_at` | number | No | Track index to insert at, -1 for end |
 | `create_reset` | boolean | No | Also key the property's current value into the player's RESET animation (created if missing), as the editor's track panel does, so previews are undone by RESET and save writes the rest pose. Default true. |
 
+#### `create_reset_keys`
+
+Backfill RESET keys for existing tracks: every track on one animation (or all of the player's animations) gets a RESET key holding the property's current value where RESET lacks one. Use it on tracks authored by hand or before add_track keyed RESET automatically, and call it BEFORE previewing, while the nodes still hold their rest pose.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `node_path` | string | Yes | Path to the AnimationPlayer |
+| `animation_name` | string | No | Animation to cover (default: all animations on the player except RESET) |
+
 #### `remove_track`
 
 Remove a track
@@ -243,7 +252,7 @@ Update a keyframe
 }
 ```
 
-*8 more actions available: `create`, `delete`, `update_props`, `add_track`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
+*9 more actions available: `create`, `delete`, `update_props`, `add_track`, `create_reset_keys`, `remove_track`, `add_keyframe`, `remove_keyframe`, `update_keyframe`*
 
 ---
 

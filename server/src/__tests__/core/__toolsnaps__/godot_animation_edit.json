@@ -1,6 +1,6 @@
 {
   "name": "godot_animation_edit",
-  "description": "Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.",
+  "description": "Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, backfill RESET keys for existing tracks (create_reset_keys), and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,12 +14,13 @@
           "delete",
           "update_props",
           "add_track",
+          "create_reset_keys",
           "remove_track",
           "add_keyframe",
           "remove_keyframe",
           "update_keyframe"
         ],
-        "description": "play: Play an animation\nstop: Stop playback. Godot leaves the first keyframe values on the nodes unless the player has a RESET animation; the reply warns when it does not.\nseek: Seek to a position in the current animation\ncreate: Create an animation\ndelete: Delete an animation\nupdate_props: Update animation properties\nadd_track: Add a track to an animation\nremove_track: Remove a track\nadd_keyframe: Add a keyframe to a track\nremove_keyframe: Remove a keyframe\nupdate_keyframe: Update a keyframe"
+        "description": "play: Play an animation\nstop: Stop playback. Godot leaves the first keyframe values on the nodes unless the player has a RESET animation; the reply warns when it does not.\nseek: Seek to a position in the current animation\ncreate: Create an animation\ndelete: Delete an animation\nupdate_props: Update animation properties\nadd_track: Add a track to an animation\ncreate_reset_keys: Backfill RESET keys for existing tracks: every track on one animation (or all of the player's animations) gets a RESET key holding the property's current value where RESET lacks one. Use it on tracks authored by hand or before add_track keyed RESET automatically, and call it BEFORE previewing, while the nodes still hold their rest pose.\nremove_track: Remove a track\nadd_keyframe: Add a keyframe to a track\nremove_keyframe: Remove a keyframe\nupdate_keyframe: Update a keyframe"
       },
       "node_path": {
         "type": "string",
@@ -27,7 +28,7 @@
       },
       "animation_name": {
         "type": "string",
-        "description": "Animation name (required for: play, create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe)"
+        "description": "for play: Animation name; for create: Animation name; for delete: Animation name; for update_props: Animation name; for add_track: Animation name; for create_reset_keys: Animation to cover (default: all animations on the player except RESET); for remove_track: Animation name; for add_keyframe: Animation name; for remove_keyframe: Animation name; for update_keyframe: Animation name (required for: play, create, delete, update_props, add_track, remove_track, add_keyframe, remove_keyframe, update_keyframe; optional for: create_reset_keys)"
       },
       "custom_blend": {
         "description": "Custom blend time, -1 for default (for: play)",
