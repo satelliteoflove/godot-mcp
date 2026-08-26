@@ -10,7 +10,7 @@ Project information tools
 
 ## godot_project
 
-Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops. For scene contents or node properties, use godot_node_read instead.
+Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops; it also reports whether the running server build is stale relative to its source checkout. For scene contents or node properties, use godot_node_read instead.
 
 ### Actions
 
@@ -31,7 +31,7 @@ Get project settings
 
 #### `addon_status`
 
-Check addon/server version compatibility
+Check addon/server version compatibility, and whether the running server build is stale (source edited after the last npm run build)
 
 *No parameters.*
 
