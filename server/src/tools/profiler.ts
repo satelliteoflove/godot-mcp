@@ -23,7 +23,7 @@ interface RunStats {
   budget_sec: number;
   over_budget: number;
   over_half_budget: number;
-  histogram_ms: Record<string, number>;
+  histogram_ms: Array<{ le_ms?: number; gt_ms?: number; count: number }>;
 }
 
 interface ProfilerDataResponse {
@@ -278,11 +278,16 @@ export const profiler = defineTool({
         const frameBudget = computeFrameBudget(frameTimeStats, targetFps, monitorTrends.fps?.avg);
 
         // The ring holds the last 300 frames; say how much of the run that is (#370).
-        const windowSec = frames.reduce((sum, f) => sum + f.ft, 0);
+        // Entries carry CPU frame time, not wall deltas, so wall span comes from
+        // the measured frame rate when the monitor sampled it.
+        const measured = monitorTrends.fps?.avg;
+        const span = measured && measured > 0
+          ? `~${(result.frame_count / measured).toFixed(2)} s at ${Math.round(measured)} fps`
+          : `${frames.reduce((sum, f) => sum + f.ft, 0).toFixed(2)} s of frame CPU time`;
         const windowNote =
           result.frame_count < result.total_frames_collected
-            ? `last ${result.frame_count} of ${result.total_frames_collected} frames (${windowSec.toFixed(2)} s) — per-frame detail below covers ONLY this window; see run for the whole profile`
-            : `all ${result.frame_count} frames collected (${windowSec.toFixed(2)} s)`;
+            ? `last ${result.frame_count} of ${result.total_frames_collected} frames (${span}) — per-frame detail below covers ONLY this window; see run for the whole profile`
+            : `all ${result.frame_count} frames collected (${span})`;
 
         const run = result.run
           ? {

@@ -92,10 +92,14 @@ func get_buffer_data() -> Dictionary:
 
 
 func get_run_stats() -> Dictionary:
-	var histogram: Dictionary = {}
+	# An ordered array, not a Dictionary: the wire JSON sorts keys, which put
+	# "<=100ms" between "<=1ms" and "<=16ms".
+	var histogram: Array = []
 	for i in _run_histogram.size():
-		var label := ("<=%sms" % HISTOGRAM_EDGES_MS[i]) if i < HISTOGRAM_EDGES_MS.size() else (">%sms" % HISTOGRAM_EDGES_MS[-1])
-		histogram[label] = _run_histogram[i]
+		if i < HISTOGRAM_EDGES_MS.size():
+			histogram.append({"le_ms": HISTOGRAM_EDGES_MS[i], "count": _run_histogram[i]})
+		else:
+			histogram.append({"gt_ms": HISTOGRAM_EDGES_MS[-1], "count": _run_histogram[i]})
 	return {
 		"frames": _frame_index,
 		"duration_s": (Time.get_ticks_usec() - _run_started_usec) / 1000000.0 if _run_started_usec > 0 else 0.0,

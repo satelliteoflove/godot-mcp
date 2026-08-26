@@ -83,7 +83,7 @@ describe('profiler tool', () => {
       expect(parsed.spikes).toBeDefined();
       expect(parsed.spikes.count).toBe(1);
       expect(parsed.monitor_trends).toBeDefined();
-      expect(parsed.window).toContain('all 3 frames collected');
+      expect(parsed.window).toContain('all 3 frames collected (~0.05 s at 60 fps)');
       expect(parsed.frame_budget.uncapped_fps).toBeGreaterThan(0);
       expect(parsed.frame_budget.measured_fps).toBe(60);
       expect(parsed.frame_budget.actual_fps).toBeUndefined();
@@ -96,7 +96,7 @@ describe('profiler tool', () => {
         run: {
           frames: 7614, duration_s: 31.7, sum_ft: 31.0, max_ft: 0.02044, max_frame_index: 600,
           budget_sec: 1 / 240, over_budget: 5, over_half_budget: 9,
-          histogram_ms: { '<=0.5ms': 7600, '<=1.0ms': 9, '>100ms': 0 },
+          histogram_ms: [{ le_ms: 0.5, count: 7600 }, { le_ms: 1.0, count: 9 }, { gt_ms: 100, count: 0 }],
         },
       });
       const ctx = createToolContext(mock);
@@ -107,7 +107,7 @@ describe('profiler tool', () => {
       expect(parsed.run.max_ms).toBe(20.44);
       expect(parsed.run.max_frame_index).toBe(600);
       expect(parsed.run.over_budget).toBe(5);
-      expect(parsed.run.histogram_ms['<=0.5ms']).toBe(7600);
+      expect(parsed.run.histogram_ms[0]).toEqual({ le_ms: 0.5, count: 7600 });
     });
 
     it('floors the spike threshold at budget/4 on an idle game (#371)', async () => {
