@@ -12,12 +12,27 @@ interface FrameEntry {
   m?: Record<string, number>;
 }
 
+// Whole-run aggregates kept by the addon beside its ring buffer (#370).
+// Absent from addons that predate it.
+interface RunStats {
+  frames: number;
+  duration_s: number;
+  sum_ft: number;
+  max_ft: number;
+  max_frame_index: number;
+  budget_sec: number;
+  over_budget: number;
+  over_half_budget: number;
+  histogram_ms: Record<string, number>;
+}
+
 interface ProfilerDataResponse {
   active: boolean;
   frame_count: number;
   total_frames_collected: number;
   max_fps: number;
   frames: FrameEntry[];
+  run?: RunStats;
 }
 
 interface ProcessEntry {
@@ -26,6 +41,9 @@ interface ProcessEntry {
   has_physics_process: boolean;
   instance_count: number;
   example_paths: string[];
+  // Where the instances live: scene | autoload | exec | root (#369). Absent
+  // from addons that predate it.
+  locations?: string[];
 }
 
 interface SignalConnection {
@@ -80,8 +98,19 @@ export interface SpikeInfo {
   monitors?: Record<string, number>;
 }
 
-export function detectSpikes(frames: FrameEntry[], medianFrameTime: number): SpikeInfo[] {
-  const threshold = medianFrameTime * 2;
+// A spike is a frame over 2x the median, but never under a quarter of the
+// frame budget (#371): on an idle game at 240 fps 2x median is ~0.5 ms and
+// flags normal jitter, so the spike list was never empty when it should be.
+export function spikeThreshold(medianFrameTime: number, budgetSec: number): { threshold: number; rule: string } {
+  const byMedian = medianFrameTime * 2;
+  const byBudget = budgetSec / 4;
+  return byMedian >= byBudget
+    ? { threshold: byMedian, rule: '2x median' }
+    : { threshold: byBudget, rule: 'budget/4 floor' };
+}
+
+export function detectSpikes(frames: FrameEntry[], medianFrameTime: number, budgetSec = 0): SpikeInfo[] {
+  const { threshold } = spikeThreshold(medianFrameTime, budgetSec);
   const spikes: SpikeInfo[] = [];
 
   for (const frame of frames) {
@@ -144,7 +173,11 @@ export function computeMonitorTrends(frames: FrameEntry[]): Record<string, Monit
 
 export interface FrameBudget {
   target_fps: number;
-  actual_fps: number;
+  // 1000 / avg frame time: the rate the CPU work alone would allow, i.e.
+  // headroom — NOT the measured frame rate, which max_fps caps (#371).
+  uncapped_fps: number;
+  // Average of the fps monitor over the window, when sampled.
+  measured_fps?: number;
   frame_budget_ms: number;
   budget_usage_percent: number;
 }
@@ -152,28 +185,41 @@ export interface FrameBudget {
 export function computeFrameBudget(
   frameTimeStats: PercentileStats,
   targetFps: number,
+  measuredFps?: number,
 ): FrameBudget {
   const budgetMs = 1000 / targetFps;
-  const actualFps = frameTimeStats.avg_ms > 0 ? Math.round(1000 / frameTimeStats.avg_ms) : 0;
+  const uncappedFps = frameTimeStats.avg_ms > 0 ? Math.round(1000 / frameTimeStats.avg_ms) : 0;
   const budgetUsage = Math.round((frameTimeStats.avg_ms / budgetMs) * 1000) / 10;
 
-  return {
+  const result: FrameBudget = {
     target_fps: targetFps,
-    actual_fps: actualFps,
+    uncapped_fps: uncappedFps,
     frame_budget_ms: Math.round(budgetMs * 10) / 10,
     budget_usage_percent: budgetUsage,
   };
+  if (measuredFps !== undefined) result.measured_fps = Math.round(measuredFps * 10) / 10;
+  return result;
 }
 
 const ProfilerSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('snapshot').describe('Full performance snapshot (all engine metrics)') }),
   z.object({ action: z.literal('start').describe('Start per-frame time-series profiling') }),
   z.object({ action: z.literal('stop').describe('Stop time-series profiling') }),
-  z.object({ action: z.literal('get_data').describe('Get collected time-series data with spike detection') }),
-  z.object({ action: z.literal('get_active_processes').describe('List active _process/_physics_process scripts') }),
+  z.object({
+    action: z
+      .literal('get_data')
+      .describe(
+        'Get collected time-series data with spike detection. Per-frame detail (percentiles, spikes, monitor trends) covers a ring buffer of the LAST 300 frames only — the `window` field says how much of the run that is; `run` carries whole-run aggregates (frames, duration, avg/max, frames over budget, a frame-time histogram) so a ten-second profile can still answer "did anything spike".'
+      ),
+  }),
+  z.object({
+    action: z
+      .literal('get_active_processes')
+      .describe('List scripts with live _process/_physics_process callbacks across the whole tree — scene, autoloads, and nodes attached by godot_exec — tagged by location.'),
+  }),
   z.object({
     action: z.literal('get_signal_connections').describe('Inspect signal connections'),
-    node_path: z.string().optional().describe('Node path (defaults to scene root)'),
+    node_path: z.string().optional().describe('Node to walk from (default: the whole tree — scene, autoloads and exec-attached nodes). An absolute /root/... path may name an autoload.'),
   }),
 ]);
 
@@ -183,7 +229,7 @@ export const profiler = defineTool({
   name: 'godot_profiler',
   annotations: { title: 'Profiler', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
-    'Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks (useful for finding per-frame cost sources); get_signal_connections maps signal wiring. For observing game state rather than performance, use godot_runtime_state.',
+    'Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks across the whole tree, tagged scene/autoload/exec (useful for finding per-frame cost sources); get_signal_connections maps signal wiring, including an autoload\'s outgoing connections. get_data\'s per-frame detail is a ring of the last 300 frames; its run block covers the whole profile. For observing game state rather than performance, use godot_runtime_state.',
   schema: ProfilerSchema,
   async execute(args: ProfilerArgs, { godot }) {
     switch (args.action) {
@@ -220,19 +266,43 @@ export const profiler = defineTool({
         const processTimeStats = computePercentiles(frames.map((f) => f.pt));
         const physicsTimeStats = computePercentiles(frames.map((f) => f.pht));
 
-        const spikes = detectSpikes(frames, frameTimeStats.p50_ms / 1000);
         const monitorTrends = computeMonitorTrends(frames);
 
         const physicsTickMs = frames.length > 0 ? toMs(frames[0].pft) : 16.67;
         const maxFps = result.max_fps || 0;
         const targetFps = maxFps > 0 ? maxFps : Math.round(1000 / physicsTickMs);
+        const budgetSec = 1 / targetFps;
 
-        const frameBudget = computeFrameBudget(frameTimeStats, targetFps);
+        const { threshold, rule } = spikeThreshold(frameTimeStats.p50_ms / 1000, budgetSec);
+        const spikes = detectSpikes(frames, frameTimeStats.p50_ms / 1000, budgetSec);
+        const frameBudget = computeFrameBudget(frameTimeStats, targetFps, monitorTrends.fps?.avg);
+
+        // The ring holds the last 300 frames; say how much of the run that is (#370).
+        const windowSec = frames.reduce((sum, f) => sum + f.ft, 0);
+        const windowNote =
+          result.frame_count < result.total_frames_collected
+            ? `last ${result.frame_count} of ${result.total_frames_collected} frames (${windowSec.toFixed(2)} s) — per-frame detail below covers ONLY this window; see run for the whole profile`
+            : `all ${result.frame_count} frames collected (${windowSec.toFixed(2)} s)`;
+
+        const run = result.run
+          ? {
+              frames: result.run.frames,
+              duration_s: Math.round(result.run.duration_s * 100) / 100,
+              avg_ms: result.run.frames > 0 ? toMs(result.run.sum_ft / result.run.frames) : 0,
+              max_ms: toMs(result.run.max_ft),
+              max_frame_index: result.run.max_frame_index,
+              over_budget: result.run.over_budget,
+              over_half_budget: result.run.over_half_budget,
+              histogram_ms: result.run.histogram_ms,
+            }
+          : undefined;
 
         return structured({
           active: result.active,
+          window: windowNote,
           frame_count: result.frame_count,
           total_frames_collected: result.total_frames_collected,
+          ...(run ? { run } : {}),
           frame_budget: frameBudget,
           statistics: {
             frame_time: frameTimeStats,
@@ -242,7 +312,7 @@ export const profiler = defineTool({
           physics_tick_ms: physicsTickMs,
           spikes: {
             count: spikes.length,
-            threshold: `>${Math.round(frameTimeStats.p50_ms * 2 * 10) / 10}ms (2x median)`,
+            threshold: `>${Math.round(threshold * 1000 * 100) / 100}ms (${rule}; 2x median = ${Math.round(frameTimeStats.p50_ms * 2 * 100) / 100}ms, budget/4 = ${Math.round((budgetSec / 4) * 1000 * 100) / 100}ms)`,
             frames: spikes.slice(0, 20),
           },
           monitor_trends: monitorTrends,
@@ -266,7 +336,8 @@ export const profiler = defineTool({
           if (entry.has_process) funcs.push('_process');
           if (entry.has_physics_process) funcs.push('_physics_process');
 
-          lines.push(`  ${entry.script_path}`);
+          const where = entry.locations?.length ? ` [${entry.locations.join(', ')}]` : '';
+          lines.push(`  ${entry.script_path}${where}`);
           lines.push(`    Functions: ${funcs.join(', ')}`);
           lines.push(`    Instances: ${entry.instance_count}`);
           if (entry.example_paths.length > 0) {

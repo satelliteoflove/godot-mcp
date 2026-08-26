@@ -4,9 +4,24 @@ class_name MCPFrameProfiler
 const MAX_FRAMES := 300
 const MONITOR_SAMPLE_INTERVAL := 10
 
+# Frame-time histogram edges in ms. Fixed and coarse on purpose: the run
+# aggregates must never grow with run length (#370).
+const HISTOGRAM_EDGES_MS: Array[float] = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 33.0, 66.0, 100.0]
+
 var _active := false
 var _buffer: Array[Dictionary] = []
 var _frame_index := 0
+
+# Whole-run aggregates, kept beside the ring so get_data can answer "did
+# anything spike in the last ten seconds" and not just the last 300 frames.
+var _run_sum_ft := 0.0
+var _run_max_ft := 0.0
+var _run_max_index := -1
+var _run_over_budget := 0
+var _run_over_half_budget := 0
+var _run_budget_sec := 0.0
+var _run_histogram: Array[int] = []
+var _run_started_usec := 0
 
 
 func _toggle(enable: bool, _options: Array) -> void:
@@ -14,6 +29,17 @@ func _toggle(enable: bool, _options: Array) -> void:
 	if enable:
 		_buffer.clear()
 		_frame_index = 0
+		_run_sum_ft = 0.0
+		_run_max_ft = 0.0
+		_run_max_index = -1
+		_run_over_budget = 0
+		_run_over_half_budget = 0
+		_run_histogram.clear()
+		_run_histogram.resize(HISTOGRAM_EDGES_MS.size() + 1)
+		_run_histogram.fill(0)
+		_run_started_usec = Time.get_ticks_usec()
+		var target_fps := Engine.max_fps if Engine.max_fps > 0 else Engine.physics_ticks_per_second
+		_run_budget_sec = 1.0 / float(target_fps) if target_fps > 0 else 1.0 / 60.0
 
 
 func _tick(frame_time: float, process_time: float, physics_time: float, physics_frame_time: float) -> void:
@@ -35,6 +61,22 @@ func _tick(frame_time: float, process_time: float, physics_time: float, physics_
 	if _buffer.size() > MAX_FRAMES:
 		_buffer.pop_front()
 
+	_run_sum_ft += frame_time
+	if frame_time > _run_max_ft:
+		_run_max_ft = frame_time
+		_run_max_index = _frame_index
+	if frame_time > _run_budget_sec:
+		_run_over_budget += 1
+	if frame_time > _run_budget_sec * 0.5:
+		_run_over_half_budget += 1
+	var ms := frame_time * 1000.0
+	var bucket := HISTOGRAM_EDGES_MS.size()
+	for i in HISTOGRAM_EDGES_MS.size():
+		if ms <= HISTOGRAM_EDGES_MS[i]:
+			bucket = i
+			break
+	_run_histogram[bucket] += 1
+
 	_frame_index += 1
 
 
@@ -45,6 +87,25 @@ func get_buffer_data() -> Dictionary:
 		"total_frames_collected": _frame_index,
 		"max_fps": Engine.max_fps,
 		"frames": _buffer.duplicate(),
+		"run": get_run_stats(),
+	}
+
+
+func get_run_stats() -> Dictionary:
+	var histogram: Dictionary = {}
+	for i in _run_histogram.size():
+		var label := ("<=%sms" % HISTOGRAM_EDGES_MS[i]) if i < HISTOGRAM_EDGES_MS.size() else (">%sms" % HISTOGRAM_EDGES_MS[-1])
+		histogram[label] = _run_histogram[i]
+	return {
+		"frames": _frame_index,
+		"duration_s": (Time.get_ticks_usec() - _run_started_usec) / 1000000.0 if _run_started_usec > 0 else 0.0,
+		"sum_ft": _run_sum_ft,
+		"max_ft": _run_max_ft,
+		"max_frame_index": _run_max_index,
+		"budget_sec": _run_budget_sec,
+		"over_budget": _run_over_budget,
+		"over_half_budget": _run_over_half_budget,
+		"histogram_ms": histogram,
 	}
 
 

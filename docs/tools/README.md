@@ -72,7 +72,7 @@ Input injection for testing running games: named actions, joypad buttons, analog
 
 Performance profiling: snapshots, per-frame time series with spike detection, active process inspection, signal connections
 
-- `godot_profiler` - Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks (useful for finding per-frame cost sources); get_signal_connections maps signal wiring. For observing game state rather than performance, use godot_runtime_state.
+- `godot_profiler` - Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks across the whole tree, tagged scene/autoload/exec (useful for finding per-frame cost sources); get_signal_connections maps signal wiring, including an autoload's outgoing connections. get_data's per-frame detail is a ring of the last 300 frames; its run block covers the whole profile. For observing game state rather than performance, use godot_runtime_state.
 
 ## [Runtime State](runtime-state.md)
 
