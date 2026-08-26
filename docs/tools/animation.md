@@ -100,12 +100,12 @@ Play an animation
 
 #### `stop`
 
-Stop playback
+Stop playback. Godot leaves the first keyframe values on the nodes unless the player has a RESET animation; the reply warns when it does not.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `node_path` | string | Yes | Path to the AnimationPlayer |
-| `keep_state` | boolean | No | Keep current animation state |
+| `keep_state` | boolean | No | Keep the current pose instead of seeking to the first keyframe (default false) |
 
 #### `seek`
 
@@ -163,6 +163,7 @@ Add a track to an animation
 | `track_type` | `value`, `position_3d`, `rotation_3d`, `scale_3d`, `blend_shape`, `method`, `bezier`, `audio`, `animation` | Yes | Type of track |
 | `track_path` | string | Yes | Node path and property, e.g. "Sprite2D:frame" |
 | `insert_at` | number | No | Track index to insert at, -1 for end |
+| `create_reset` | boolean | No | Also key the property's current value into the player's RESET animation (created if missing), as the editor's track panel does, so previews are undone by RESET and save writes the rest pose. Default true. |
 
 #### `remove_track`
 
@@ -184,7 +185,7 @@ Add a keyframe to a track
 | `animation_name` | string | Yes | Animation name |
 | `track_index` | number | Yes | Track index |
 | `time` | number | Yes | Keyframe time in seconds |
-| `value` | unknown | No | Keyframe value |
+| `value` | unknown | No | Keyframe value, typed to match the track's target property: numbers and strings as-is; Color as {r, g, b, a}; Vector2 as {x, y}; Vector3 as {x, y, z}; Quaternion/Vector4 as {x, y, z, w} (the same shape get_keyframes and get_properties emit). A bare numeric array of the right length is accepted for those types; any other mismatch is rejected with TYPE_MISMATCH rather than stored and coerced to black/zero at play time. |
 | `transition` | number | No | Transition curve, 1.0 = linear |
 | `method_name` | string | No | Method name for method tracks |
 | `args` | array | No | Method arguments |
@@ -211,7 +212,7 @@ Update a keyframe
 | `track_index` | number | Yes | Track index |
 | `keyframe_index` | number | Yes | Keyframe index |
 | `time` | number | No | Keyframe time in seconds |
-| `value` | unknown | No | Keyframe value |
+| `value` | unknown | No | Keyframe value, typed to match the track's target property: numbers and strings as-is; Color as {r, g, b, a}; Vector2 as {x, y}; Vector3 as {x, y, z}; Quaternion/Vector4 as {x, y, z, w} (the same shape get_keyframes and get_properties emit). A bare numeric array of the right length is accepted for those types; any other mismatch is rejected with TYPE_MISMATCH rather than stored and coerced to black/zero at play time. |
 | `transition` | number | No | Transition curve, 1.0 = linear |
 
 ### Examples

@@ -38,6 +38,14 @@ describe('scene tool', () => {
       expect(result).toBe('Opened scene: res://main.tscn');
     });
 
+    it('save mentions players whose RESET was applied for the write (#364)', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ path: 'res://main.tscn', reset_applied: ['Player/AnimationPlayer'] });
+      const result = await scene.execute({ action: 'save' }, ctx);
+      expect(result).toContain('Saved scene: res://main.tscn');
+      expect(result).toContain('RESET applied for save on Player/AnimationPlayer');
+    });
+
     it('save returns path from Godot response and passes optional path', async () => {
       const ctx = createToolContext(mock);
 

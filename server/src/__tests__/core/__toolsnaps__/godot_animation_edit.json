@@ -19,7 +19,7 @@
           "remove_keyframe",
           "update_keyframe"
         ],
-        "description": "play: Play an animation\nstop: Stop playback\nseek: Seek to a position in the current animation\ncreate: Create an animation\ndelete: Delete an animation\nupdate_props: Update animation properties\nadd_track: Add a track to an animation\nremove_track: Remove a track\nadd_keyframe: Add a keyframe to a track\nremove_keyframe: Remove a keyframe\nupdate_keyframe: Update a keyframe"
+        "description": "play: Play an animation\nstop: Stop playback. Godot leaves the first keyframe values on the nodes unless the player has a RESET animation; the reply warns when it does not.\nseek: Seek to a position in the current animation\ncreate: Create an animation\ndelete: Delete an animation\nupdate_props: Update animation properties\nadd_track: Add a track to an animation\nremove_track: Remove a track\nadd_keyframe: Add a keyframe to a track\nremove_keyframe: Remove a keyframe\nupdate_keyframe: Update a keyframe"
       },
       "node_path": {
         "type": "string",
@@ -42,7 +42,7 @@
         "type": "boolean"
       },
       "keep_state": {
-        "description": "Keep current animation state (for: stop)",
+        "description": "Keep the current pose instead of seeking to the first keyframe (default false) (for: stop)",
         "type": "boolean"
       },
       "seconds": {
@@ -97,6 +97,10 @@
         "description": "Track index to insert at, -1 for end (for: add_track)",
         "type": "number"
       },
+      "create_reset": {
+        "description": "Also key the property's current value into the player's RESET animation (created if missing), as the editor's track panel does, so previews are undone by RESET and save writes the rest pose. Default true. (for: add_track)",
+        "type": "boolean"
+      },
       "track_index": {
         "type": "number",
         "description": "Track index (required for: remove_track, add_keyframe, remove_keyframe, update_keyframe)"
@@ -106,7 +110,7 @@
         "type": "number"
       },
       "value": {
-        "description": "Keyframe value (for: add_keyframe, update_keyframe)"
+        "description": "Keyframe value, typed to match the track's target property: numbers and strings as-is; Color as {r, g, b, a}; Vector2 as {x, y}; Vector3 as {x, y, z}; Quaternion/Vector4 as {x, y, z, w} (the same shape get_keyframes and get_properties emit). A bare numeric array of the right length is accepted for those types; any other mismatch is rejected with TYPE_MISMATCH rather than stored and coerced to black/zero at play time. (for: add_keyframe, update_keyframe)"
       },
       "transition": {
         "description": "Transition curve, 1.0 = linear (for: add_keyframe, update_keyframe)",

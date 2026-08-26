@@ -116,6 +116,14 @@ describe('animationEdit tool', () => {
       }, ctx)).toBe('Seeked to position: 1.5');
     });
 
+    it('stop surfaces the no-RESET warning (#364)', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({ stopped: true, warning: 'No RESET animation on this player: ...' });
+      const result = await animationEdit.execute({ action: 'stop', node_path: '/root/AnimPlayer' }, ctx);
+      expect(result).toContain('Animation stopped');
+      expect(result).toContain('WARNING: No RESET animation');
+    });
+
     it('play passes optional speed/blend/from_end params', async () => {
       mock.mockResponse({ playing: 'walk', from_position: 0 });
       const ctx = createToolContext(mock);
@@ -174,6 +182,19 @@ describe('animationEdit tool', () => {
         track_type: 'value',
         track_path: 'Sprite2D:frame',
       }, ctx)).toBe('Added track 0: value -> Sprite2D:frame');
+
+      mock.mockResponse({
+        track_index: 1, track_path: 'Zone:modulate', track_type: 'value',
+        reset_key_added: true, reset_value: { r: 1, g: 1, b: 1, a: 1 },
+      });
+      expect(await animationEdit.execute({
+        action: 'add_track',
+        node_path: '/root/AnimPlayer',
+        animation_name: 'pulse',
+        track_type: 'value',
+        track_path: 'Zone:modulate',
+      }, ctx)).toBe('Added track 1: value -> Zone:modulate (RESET key added: {"r":1,"g":1,"b":1,"a":1})');
+      expect(mock.calls[mock.calls.length - 1].params.create_reset).toBeUndefined();
 
       mock.mockResponse({ removed_track: 2 });
       expect(await animationEdit.execute({

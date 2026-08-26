@@ -65,6 +65,44 @@ static func serialize_value(value: Variant) -> Variant:
 			return value
 
 
+# Resolve what an animation track actually writes to: the node (or the
+# resource on it) named by the track path, the remaining property sub-path,
+# and the property's current value/type. This is how the editor knows a
+# `Zone:modulate` track holds a Color. Returns {found: false} when the root
+# node or target cannot be reached from the mixer.
+static func resolve_track_target(mixer: AnimationMixer, anim: Animation, track_index: int) -> Dictionary:
+	var root := mixer.get_node_or_null(mixer.root_node)
+	if root == null:
+		return {"found": false}
+	var track_path := anim.track_get_path(track_index)
+	if track_path.is_empty():
+		return {"found": false}
+	var track_type := anim.track_get_type(track_index)
+	# Transform tracks name a Node3D, not a property.
+	if track_type in [Animation.TYPE_POSITION_3D, Animation.TYPE_ROTATION_3D, Animation.TYPE_SCALE_3D]:
+		var n3d := root.get_node_or_null(NodePath(str(track_path).get_slice(":", 0)))
+		if n3d == null or not n3d is Node3D:
+			return {"found": false}
+		var value: Variant
+		match track_type:
+			Animation.TYPE_POSITION_3D: value = (n3d as Node3D).position
+			Animation.TYPE_ROTATION_3D: value = (n3d as Node3D).quaternion
+			_: value = (n3d as Node3D).scale
+		return {"found": true, "target": n3d, "subpath": NodePath(""), "value": value, "type": typeof(value)}
+	if track_path.get_subname_count() == 0:
+		return {"found": false}
+	var resolved := root.get_node_and_resource(track_path)
+	var node: Node = resolved[0]
+	if node == null:
+		return {"found": false}
+	var target: Object = resolved[1] if resolved[1] != null else node
+	var subpath: NodePath = resolved[2]
+	if subpath.get_subname_count() == 0:
+		return {"found": false}
+	var value: Variant = target.get_indexed(subpath)
+	return {"found": true, "target": target, "subpath": subpath, "value": value, "type": typeof(value)}
+
+
 static func deserialize_value(value: Variant) -> Variant:
 	# uid:// references (written into .tscn by the editor since 4.4) resolve the
 	# same way res:// does — load() accepts both. Without the uid:// arm, a uid
