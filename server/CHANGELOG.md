@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.2...godot-mcp-v4.1.3) (2026-08-26)
+
+
+### Bug Fixes
+
+* sequence report type changes, fail fast on game exit, UI facts in digest ([#361](https://github.com/satelliteoflove/godot-mcp/issues/361)) ([b6037da](https://github.com/satelliteoflove/godot-mcp/commit/b6037daa1190b24565e1df5ad0ad5b82b411c2a3))
+
 ## [4.1.2](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.1...godot-mcp-v4.1.2) (2026-08-26)
 
 
