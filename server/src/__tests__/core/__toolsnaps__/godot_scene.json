@@ -11,10 +11,10 @@
           "save",
           "reload"
         ],
-        "description": "open: Open a scene file\nsave: Save the current scene\nreload: Reload an open scene from disk, discarding the editor's unsaved in-memory copy. Use after editing a .tscn file directly to refresh the editor without a full restart; the scene must already be open."
+        "description": "open: Open a scene file\nsave: Save the currently active scene to its own file\nreload: Reload an open scene from disk, discarding the editor's unsaved in-memory copy. Use after editing a .tscn file directly to refresh the editor without a full restart; the scene must already be open."
       },
       "scene_path": {
-        "description": "for open: Path to scene file to open; for save: Path to save to (defaults to the current scene path); for reload: Path of the open scene to reload (defaults to the current scene) (required for: open; optional for: save, reload)",
+        "description": "for open: Path to scene file to open; for save: Must match the active scene's file (defaults to it); a scene with no file yet may be saved to a new path. Naming a different scene is rejected (SCENE_MISMATCH) instead of overwriting it with the active tab's content; for reload: Path of the open scene to reload (defaults to the current scene) (required for: open; optional for: save, reload)",
         "type": "string"
       }
     },

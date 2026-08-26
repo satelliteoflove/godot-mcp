@@ -86,6 +86,19 @@ func save_scene(params: Dictionary) -> Dictionary:
 	if not root:
 		return _error("NO_SCENE", "No scene is currently open")
 
+	# What gets packed is always the active tab. An explicit path that names a
+	# different file would overwrite that file with this tab's content (#346), so
+	# it is only accepted as a "save as" for a scene that has no file yet.
+	var current_file := root.scene_file_path
+	if not current_file.is_empty():
+		var target := _localize_scene_path(path)
+		if target != _localize_scene_path(current_file):
+			return _error("SCENE_MISMATCH",
+				"scene_path %s is not the active scene (%s); save packs the active tab, " % [target, current_file] +
+				"so this would overwrite %s with the wrong content. " % target +
+				"Open the target scene first, or omit scene_path to save the active one.")
+		path = target
+
 	var packed_scene := PackedScene.new()
 	var err := packed_scene.pack(root)
 	if err != OK:

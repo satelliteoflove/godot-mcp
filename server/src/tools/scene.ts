@@ -8,11 +8,14 @@ const SceneSchema = z.discriminatedUnion('action', [
     scene_path: z.string().describe('Path to scene file to open'),
   }),
   z.object({
-    action: z.literal('save').describe('Save the current scene'),
+    action: z.literal('save').describe('Save the currently active scene to its own file'),
     scene_path: z
       .string()
       .optional()
-      .describe('Path to save to (defaults to the current scene path)'),
+      .describe(
+        'Must match the active scene\'s file (defaults to it); a scene with no file yet may be saved to a new path. ' +
+        'Naming a different scene is rejected (SCENE_MISMATCH) instead of overwriting it with the active tab\'s content',
+      ),
   }),
   z.object({
     action: z

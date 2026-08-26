@@ -243,6 +243,41 @@ describe('runtimeState tool', () => {
       const result = await runtimeState.execute({ action: 'digest' }, ctx);
       expect(structuredOf(result).hint).toBeDefined();
     });
+
+    it('surfaces max_nodes truncation in the hint (#327)', async () => {
+      mock.mockResponse({
+        scene: 'res://main.tscn',
+        selection: 'fallback',
+        entity_count: 2,
+        entities: [{ path: '/root/Main/A', type: 'Node2D' }, { path: '/root/Main/B', type: 'Node2D' }],
+        nodes_returned: 2,
+        nodes_total_matched: 48,
+        nodes_truncated: true,
+        hint: 'existing hint',
+      });
+      const ctx = createToolContext(mock);
+
+      const data = structuredOf(await runtimeState.execute({ action: 'digest', max_nodes: 2 }, ctx));
+      expect(data.nodes_truncated).toBe(true);
+      expect(data.hint).toMatch(/TRUNCATED: 2 of 48/);
+      expect(data.hint).toMatch(/existing hint$/);
+    });
+
+    it('leaves the hint alone when nothing was truncated', async () => {
+      mock.mockResponse({
+        scene: 'res://main.tscn',
+        selection: 'group',
+        entity_count: 1,
+        entities: [{ path: '/root/Main/A', type: 'Node2D' }],
+        nodes_returned: 1,
+        nodes_total_matched: 1,
+        nodes_truncated: false,
+      });
+      const ctx = createToolContext(mock);
+
+      const data = structuredOf(await runtimeState.execute({ action: 'digest' }, ctx));
+      expect(data.hint).toBeUndefined();
+    });
   });
 
   // ── watch_start ──────────────────────────────────────────────────────────

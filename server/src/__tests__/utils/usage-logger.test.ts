@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { logToolUsage, categorizeError } from '../../utils/usage-logger.js';
+import { logToolUsage, categorizeError, extractErrorCode } from '../../utils/usage-logger.js';
 import {
   GodotCommandError,
   GodotConnectionError,
@@ -43,6 +43,18 @@ describe('usage-logger', () => {
     it('returns "unknown" for non-Error values', () => {
       expect(categorizeError(null)).toBe('unknown');
       expect(categorizeError('string')).toBe('unknown');
+    });
+  });
+
+  describe('extractErrorCode', () => {
+    it('returns the bridge code for GodotCommandError', () => {
+      expect(extractErrorCode(new GodotCommandError('NOT_RUNNING', 'no game'))).toBe('NOT_RUNNING');
+    });
+
+    it('returns undefined for other errors and non-errors', () => {
+      expect(extractErrorCode(new GodotConnectionError('x'))).toBeUndefined();
+      expect(extractErrorCode(new Error('x'))).toBeUndefined();
+      expect(extractErrorCode(null)).toBeUndefined();
     });
   });
 
@@ -89,6 +101,19 @@ describe('usage-logger', () => {
 
       expect(lastEntry.tool).toBe('test_tool');
       expect(lastEntry.ts).toBeDefined();
+    });
+
+    it('writes error_code alongside error_type when provided', () => {
+      process.env.GODOT_MCP_USAGE_LOG = 'true';
+
+      logToolUsage('test_tool', { action: 'digest' }, false, 5, 0, 'command', 'NOT_RUNNING');
+
+      const content = fs.readFileSync(LOG_FILE, 'utf-8');
+      const lines = content.trim().split('\n');
+      const lastEntry = JSON.parse(lines[lines.length - 1]);
+
+      expect(lastEntry.error_type).toBe('command');
+      expect(lastEntry.error_code).toBe('NOT_RUNNING');
     });
   });
 });

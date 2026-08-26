@@ -799,10 +799,15 @@ func _handle_get_runtime_state(data: Array) -> void:
 
 	# Collect entities (skipped entirely when select="none" — explicit paths only)
 	var entities: Array = []
+	# Matches past the max_nodes cap are counted, not collected, so the
+	# response can say how much was left out (#327).
+	var walk_stats: Dictionary = {"matched": 0}
 	if actual_selection != "none":
 		_collect_runtime_state(scene_root, scene_root, actual_selection, group_name,
 			name_filter, type_filter, include_fields,
-			max_nodes, entities)
+			max_nodes, entities, walk_stats)
+	var nodes_returned: int = entities.size()
+	var nodes_total_matched: int = walk_stats["matched"]
 
 	# Explicit paths: include nodes the scene walk cannot reach (e.g. autoload
 	# singletons under /root). For each, return _mcp_state() if present, else a
@@ -861,6 +866,9 @@ func _handle_get_runtime_state(data: Array) -> void:
 		"selection": actual_selection,
 		"entity_count": entities.size(),
 		"entities": entities,
+		"nodes_returned": nodes_returned,
+		"nodes_total_matched": nodes_total_matched,
+		"nodes_truncated": nodes_total_matched > nodes_returned,
 	}
 	if not autoloads.is_empty():
 		result["available_autoloads"] = autoloads
@@ -890,11 +898,15 @@ func _has_mcp_state_nodes(node: Node) -> bool:
 	return false
 
 
+## Walks the tree collecting up to max_nodes matching entities into results.
+## Every match is counted in stats["matched"] whether or not it fit under the
+## cap, so callers can report truncation instead of presenting a partial list
+## as the whole scene (#327). The walk keeps going past the cap purely to count.
 func _collect_runtime_state(node: Node, scene_root: Node, selection: String, group_name: String,
 		name_filter: String, type_filter: String, include_fields: Array,
-		max_nodes: int, results: Array) -> void:
-	if results.size() >= max_nodes:
-		return
+		max_nodes: int, results: Array, stats: Dictionary = {}) -> void:
+	if not stats.has("matched"):
+		stats["matched"] = 0
 
 	var include_node := false
 	match selection:
@@ -938,16 +950,16 @@ func _collect_runtime_state(node: Node, scene_root: Node, selection: String, gro
 			include_node = false
 
 	if include_node:
-		var entity := _extract_node_state(node, scene_root, include_fields)
-		if entity != null:
-			results.append(entity)
+		stats["matched"] += 1
+		if results.size() < max_nodes:
+			var entity := _extract_node_state(node, scene_root, include_fields)
+			if entity != null:
+				results.append(entity)
 
 	for child in node.get_children():
-		if results.size() >= max_nodes:
-			return
 		_collect_runtime_state(child, scene_root, selection, group_name,
 			name_filter, type_filter, include_fields,
-			max_nodes, results)
+			max_nodes, results, stats)
 
 
 # _mcp_state() contract: return a Dictionary with two categories —
@@ -1235,10 +1247,19 @@ class _MCPGameLogger extends Logger:
 		return _dropped
 
 
+# Builtin ui_* actions worth listing: the ones an agent can inject for menu
+# navigation. Keep in sync with INJECTABLE_UI_ACTIONS in input_commands.gd so
+# the game-sourced and project-sourced maps agree (#348).
+const INJECTABLE_UI_ACTIONS: Array[String] = [
+	"ui_up", "ui_down", "ui_left", "ui_right",
+	"ui_accept", "ui_cancel", "ui_focus_next", "ui_focus_prev",
+]
+
+
 func _handle_get_input_map() -> void:
 	var actions: Array = []
 	for action_name in InputMap.get_actions():
-		if action_name.begins_with("ui_"):
+		if action_name.begins_with("ui_") and not action_name in INJECTABLE_UI_ACTIONS:
 			continue
 		var events := InputMap.action_get_events(action_name)
 		var event_strings: Array = []
