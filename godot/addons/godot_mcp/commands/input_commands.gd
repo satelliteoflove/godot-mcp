@@ -3,6 +3,8 @@ extends MCPBaseCommand
 class_name MCPInputCommands
 
 const INPUT_TIMEOUT := 30.0
+# Error text the debugger plugin emits when the session ends mid-call (#359).
+const SESSION_ENDED := "Game session ended"
 # How long to wait for the game bridge to report it is ready to receive input
 # before giving up. The natural workflow is run -> immediately drive the game;
 # the session connects before the scene loads, so this short wait absorbs that
@@ -221,6 +223,9 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 
 	while _sequence_pending:
 		await Engine.get_main_loop().process_frame
+		if _sequence_pending and not debugger_plugin.has_active_session():
+			_sequence_pending = false
+			_sequence_result = {"error": SESSION_ENDED}
 		if (Time.get_ticks_msec() - op_start) / 1000.0 > timeout:
 			_sequence_pending = false
 			if debugger_plugin.input_sequence_completed.is_connected(_on_sequence_completed):
@@ -232,6 +237,8 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	if debugger_plugin.sequence_capture_received.is_connected(_on_sequence_capture):
 		debugger_plugin.sequence_capture_received.disconnect(_on_sequence_capture)
 
+	if _sequence_result.get("error", "") == SESSION_ENDED:
+		return _error("GAME_EXITED", "The game exited during the input sequence (stopped, quit, or crashed)")
 	if _sequence_result.has("error"):
 		return _error("SEQUENCE_ERROR", _sequence_result.get("error", "Unknown error"))
 
@@ -289,12 +296,17 @@ func type_text(params: Dictionary) -> Dictionary:
 
 	while _type_text_pending:
 		await Engine.get_main_loop().process_frame
+		if _type_text_pending and not debugger_plugin.has_active_session():
+			_type_text_pending = false
+			_type_text_result = {"error": SESSION_ENDED}
 		if (Time.get_ticks_msec() - op_start) / 1000.0 > timeout:
 			_type_text_pending = false
 			if debugger_plugin.type_text_completed.is_connected(_on_type_text_completed):
 				debugger_plugin.type_text_completed.disconnect(_on_type_text_completed)
 			return _error("TIMEOUT", "Timed out waiting for text input to complete")
 
+	if _type_text_result.get("error", "") == SESSION_ENDED:
+		return _error("GAME_EXITED", "The game exited during text input (stopped, quit, or crashed)")
 	if _type_text_result.has("error"):
 		return _error("TYPE_TEXT_ERROR", _type_text_result.get("error", "Unknown error"))
 

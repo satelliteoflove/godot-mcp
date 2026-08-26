@@ -76,6 +76,22 @@ func _handle_bridge_ready(session_id: int) -> void:
 
 
 func _setup_session(session_id: int) -> void:
+	_session_started(session_id)
+	# Godot reuses the EditorDebuggerSession across runs, so this virtual fires
+	# once per editor lifetime. Both lifecycle signals are wired here: without
+	# `stopped`, the game quitting mid-call was invisible to every relay, which
+	# then sat out its full timeout (#359); without `started`, the id cleared
+	# on stop would never come back for the next run.
+	var session := get_session(session_id)
+	if session == null:
+		return
+	if not session.started.is_connected(_session_started):
+		session.started.connect(_session_started.bind(session_id))
+	if not session.stopped.is_connected(_session_stopped):
+		session.stopped.connect(_session_stopped)
+
+
+func _session_started(session_id: int) -> void:
 	_active_session_id = session_id
 	# New game session: its bridge has not announced readiness yet.
 	_bridge_ready = false
@@ -102,8 +118,11 @@ func _session_stopped() -> void:
 	if _pending_type_text:
 		_pending_type_text = false
 		type_text_completed.emit({"error": "Game session ended"})
+	# Drop pending relays rather than answering them with an empty dictionary,
+	# which callers would have read as a successful (empty) response. The relay
+	# loops notice has_active_session() going false and report GAME_EXITED.
 	for msg_type in _pending_requests:
-		_responses[msg_type] = {}
+		_responses.erase(msg_type)
 	_pending_requests.clear()
 
 

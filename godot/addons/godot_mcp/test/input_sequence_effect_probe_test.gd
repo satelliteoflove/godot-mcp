@@ -63,6 +63,13 @@ func _run() -> void:
 	_check("missing after reads as null", d3["report"]["a"]["after"], null)
 	_check("missing after counts as changed", d3["report"]["a"]["changed"], true)
 
+	# A reading that changes Variant type across the window (a String path that
+	# became an {error} Dictionary) must diff as changed, not raise (#358).
+	var d4 := bridge._compute_report_deltas({"a": "/root/Menu/Resume"}, {"a": {"error": "On call to 'get_path':"}})
+	_check("type change across window counts as changed", d4["report"]["a"]["changed"], true)
+	var d5 := bridge._compute_report_deltas({"a": 3}, {"a": 3.0})
+	_check("int vs float of same value counts as changed", d5["report"]["a"]["changed"], true)
+
 	# --- 2. drain/settle + clean emit on a report-ful sequence --------------
 	# `1 + 1` evaluates in the predicate context (tree/root always present), so the
 	# probe path is exercised with no game-specific autoload.
@@ -81,12 +88,25 @@ func _run() -> void:
 	_check("probe state reset after emit", bridge._sequence_report.is_empty(), true)
 	_check("the tap registered and released (not latched)", Input.is_action_pressed(ACTION), false)
 
-	# --- 3. a bad report expression rejects without starting a sequence -----
+	# --- 3. a report expression that fails to PARSE rejects without starting a
+	# sequence. One that parses but cannot evaluate yet (unknown identifier) is
+	# accepted since #353 — it reads as {error} in the diff instead.
+	bridge._handle_execute_input_sequence([
+		[{"action_name": ACTION, "start_ms": 0, "duration_ms": 10}],
+		["1 +"],
+	])
+	_check("unparseable report expression does NOT start a sequence", bridge._sequence_running, false)
+
 	bridge._handle_execute_input_sequence([
 		[{"action_name": ACTION, "start_ms": 0, "duration_ms": 10}],
 		["bogus_identifier_xyz + 1"],
 	])
-	_check("invalid report expression does NOT start a sequence", bridge._sequence_running, false)
+	_check("eval-failing report expression still starts a sequence (#353)", bridge._sequence_running, true)
+	var baseline: Variant = bridge._sequence_report_before.get("bogus_identifier_xyz + 1")
+	_check("its baseline reads as {error}", baseline is Dictionary and baseline.has("error"), true)
+	for i in 6:
+		await process_frame
+	_check("that sequence finished cleanly", bridge._sequence_running, false)
 
 	root.remove_child(bridge)
 	bridge.free()

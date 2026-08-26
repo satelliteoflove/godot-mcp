@@ -60,6 +60,11 @@ describe('runtimeState tool', () => {
       expect(runtimeState.schema.safeParse({ action: 'digest', select: 'fallback' }).success).toBe(false);
     });
 
+    it('accepts select="visible" and include "ui" (#360)', () => {
+      expect(runtimeState.schema.safeParse({ action: 'digest', select: 'visible', type: 'Label' }).success).toBe(true);
+      expect(runtimeState.schema.safeParse({ action: 'digest', include: ['ui'] }).success).toBe(true);
+    });
+
     it('accepts select="none" with explicit paths', () => {
       expect(
         runtimeState.schema.safeParse({ action: 'digest', select: 'none', paths: ['/root/GameState'] }).success

@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_entity_data_and_onscreen()
 	_test_max_nodes_and_type_filter()
 	_test_fallback_branch_conditions_hold()
+	_test_ui_fields()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -130,6 +131,7 @@ func _build_scene() -> void:
 	_scene.add_child(ui)
 	var label := Label.new()
 	label.name = "Score"
+	label.text = "Score: 12"
 	ui.add_child(label)
 	var button := Button.new()
 	button.name = "Start"
@@ -241,6 +243,23 @@ func _test_fallback_branch_conditions_hold() -> void:
 	# nodes, auto would resolve to fallback (per the resolver order in the bridge).
 	_check("no mcp_watch members (auto would pick fallback)", get_nodes_in_group("mcp_watch").size(), 0)
 	_check("no _mcp_state() nodes (auto would pick fallback)", _bridge._has_mcp_state_nodes(_scene), false)
+
+
+func _test_ui_fields() -> void:
+	# Controls carry a `ui` block with layout facts from the running process (#360).
+	var r := _collect(40, "")
+	var label = _find_by_name(r, "/UI/Score")
+	_check("Label selected by the visibility tier", label != null, true)
+	if label == null:
+		return
+	var ui: Dictionary = label.get("ui", {})
+	_check("ui.text carries the label text", ui.get("text", ""), "Score: 12")
+	_check("ui.visible_in_tree", ui.get("visible_in_tree", false), true)
+	_check("ui.has_focus false for an unfocused label", ui.get("has_focus", true), false)
+	var rect: Dictionary = ui.get("global_rect", {})
+	_check("ui.global_rect has a positive width", float(rect.get("w", 0.0)) > 0.0, true)
+	var mesh = _find_by_name(r, "/MeshFront")
+	_check("non-Control entities carry no ui block", mesh != null and not mesh.has("ui"), true)
 
 
 # ── Tiny TAP-ish harness ──────────────────────────────────────────────────────

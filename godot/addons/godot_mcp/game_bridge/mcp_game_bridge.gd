@@ -264,7 +264,10 @@ func _compute_report_deltas(before: Dictionary, after: Dictionary) -> Dictionary
 	for src in before:
 		var b: Variant = before[src]
 		var a: Variant = after.get(src, null)
-		var changed: bool = b != a
+		# Compare type first: `!=` across Variant types (a String reading that
+		# turned into an {error} Dictionary) raises in GDScript 4 and would abort
+		# the emit, leaving the caller to time out (#358).
+		var changed: bool = typeof(a) != typeof(b) or a != b
 		if changed:
 			any_changed = true
 		deltas[src] = {"before": b, "after": a, "changed": changed}
@@ -789,7 +792,11 @@ func _handle_get_runtime_state(data: Array) -> void:
 
 	# Determine which selection tier to use
 	var actual_selection: String = select_mode
-	if select_mode == "auto":
+	if select_mode == "visible":
+		# Explicit request for the visibility tier (#360): reaches runtime-spawned
+		# UI and world nodes even when an mcp_watch group or _mcp_state() exists.
+		actual_selection = "fallback"
+	elif select_mode == "auto":
 		if _has_group_members(scene_root, group_name):
 			actual_selection = "group"
 		elif _has_mcp_state_nodes(scene_root):
@@ -845,6 +852,14 @@ func _handle_get_runtime_state(data: Array) -> void:
 
 	var autoloads := _list_autoload_paths(scene_root)
 
+	# Which Control has keyboard/controller focus, for UI navigation checks (#360).
+	var focus_owner_path := ""
+	var scene_viewport := scene_root.get_viewport()
+	if scene_viewport != null:
+		var focus_owner := scene_viewport.gui_get_focus_owner()
+		if focus_owner != null:
+			focus_owner_path = _node_path_string(focus_owner, scene_root)
+
 	var hint := ""
 	if actual_selection == "fallback":
 		hint = ("No nodes found in group '%s' and no _mcp_state() methods detected; " +
@@ -874,6 +889,8 @@ func _handle_get_runtime_state(data: Array) -> void:
 		result["available_autoloads"] = autoloads
 	if camera_entity:
 		result["camera"] = camera_entity
+	if not focus_owner_path.is_empty():
+		result["focus_owner"] = focus_owner_path
 	if not hint.is_empty():
 		result["hint"] = hint
 	if not unresolved_paths.is_empty():
@@ -978,6 +995,7 @@ func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 	var want_groups := want or include_fields.has("groups")
 	var want_onscreen := want or include_fields.has("onscreen")
 	var want_state := want or include_fields.has("state")
+	var want_ui := want or include_fields.has("ui")
 
 	var entity: Dictionary = {
 		"path": _node_path_string(node, scene_root),
@@ -1037,6 +1055,9 @@ func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 			entity["anim"] = asp.animation
 			entity["anim_frame"] = asp.frame
 
+	if want_ui and node is Control:
+		entity["ui"] = _control_ui_state(node as Control)
+
 	if want_onscreen:
 		# Resolve the camera from the node's own viewport (handles SubViewport
 		# cameras) and use the correct geometry per dimension — 3D frustum, 2D
@@ -1058,6 +1079,26 @@ func _extract_node_state(node: Node, scene_root: Node, include_fields: Array,
 				entity["state"] = snap
 
 	return entity
+
+
+# Layout-engine facts about a Control that only the running process can
+# answer (#360): where it actually landed, whether it is shown, what it says,
+# and whether it holds focus. `text` covers Label, Button, LineEdit,
+# RichTextLabel and anything else exposing a String `text` property.
+func _control_ui_state(c: Control) -> Dictionary:
+	var r := c.get_global_rect()
+	var ui: Dictionary = {
+		"global_rect": {
+			"x": snapped(r.position.x, 0.01), "y": snapped(r.position.y, 0.01),
+			"w": snapped(r.size.x, 0.01), "h": snapped(r.size.y, 0.01),
+		},
+		"visible_in_tree": c.is_visible_in_tree(),
+		"has_focus": c.has_focus(),
+	}
+	var text: Variant = c.get("text")
+	if text is String:
+		ui["text"] = (text as String).substr(0, 200)
+	return ui
 
 
 const _MCP_STATE_MAX_BYTES := 1024
