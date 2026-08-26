@@ -21,6 +21,26 @@ const LOOP_MODE_MAP := {
 	"pingpong": Animation.LOOP_PINGPONG
 }
 
+# JSON shape an agent should send for each Variant type a key can hold.
+const VALUE_SHAPE_HINT := {
+	TYPE_COLOR: "{r, g, b, a}",
+	TYPE_VECTOR2: "{x, y}",
+	TYPE_VECTOR2I: "{x, y}",
+	TYPE_VECTOR3: "{x, y, z}",
+	TYPE_VECTOR3I: "{x, y, z}",
+	TYPE_VECTOR4: "{x, y, z, w}",
+	TYPE_QUATERNION: "{x, y, z, w}",
+}
+
+# Track types whose key value has a fixed Variant type regardless of target.
+const TRACK_VALUE_TYPE := {
+	Animation.TYPE_POSITION_3D: TYPE_VECTOR3,
+	Animation.TYPE_SCALE_3D: TYPE_VECTOR3,
+	Animation.TYPE_ROTATION_3D: TYPE_QUATERNION,
+	Animation.TYPE_BLEND_SHAPE: TYPE_FLOAT,
+	Animation.TYPE_BEZIER: TYPE_FLOAT,
+}
+
 
 func get_commands() -> Dictionary:
 	return {
@@ -69,6 +89,109 @@ func _loop_mode_to_string(loop_mode: int) -> String:
 		if LOOP_MODE_MAP[key] == loop_mode:
 			return key
 	return "none"
+
+
+# The Variant type a key on this track must hold: fixed by the track type for
+# transform/bezier/blend-shape tracks, otherwise read off the live target
+# property; falling back to the track's first key. TYPE_NIL = unknowable.
+func _expected_key_type(player: AnimationPlayer, anim: Animation, track_index: int) -> int:
+	var track_type := anim.track_get_type(track_index)
+	if TRACK_VALUE_TYPE.has(track_type):
+		return TRACK_VALUE_TYPE[track_type]
+	if track_type != Animation.TYPE_VALUE:
+		return TYPE_NIL
+	var target := MCPUtils.resolve_track_target(player, anim, track_index)
+	if target.get("found", false) and target["type"] != TYPE_NIL:
+		return target["type"]
+	if anim.track_get_key_count(track_index) > 0:
+		return typeof(anim.track_get_key_value(track_index, 0))
+	return TYPE_NIL
+
+
+# Fit a deserialized key value to the type the track writes (#363). A bare
+# numeric array is unambiguous once the target type is known, so [r,g,b,a]
+# becomes a Color and [x,y] a Vector2; anything else that does not match is
+# rejected instead of being stored and silently coerced to black/zero by the
+# property setter at play time. Returns {ok, value} or {ok: false, error}.
+func _coerce_key_value(value: Variant, expected_type: int) -> Dictionary:
+	if expected_type == TYPE_NIL or typeof(value) == expected_type:
+		return {"ok": true, "value": value}
+	var vt := typeof(value)
+	if expected_type == TYPE_FLOAT and vt == TYPE_INT:
+		return {"ok": true, "value": float(value)}
+	if expected_type == TYPE_INT and vt == TYPE_FLOAT and is_equal_approx(value, roundf(value)):
+		return {"ok": true, "value": int(value)}
+	if vt == TYPE_ARRAY and _is_numeric_array(value):
+		var a: Array = value
+		match expected_type:
+			TYPE_VECTOR2 when a.size() == 2: return {"ok": true, "value": Vector2(a[0], a[1])}
+			TYPE_VECTOR2I when a.size() == 2: return {"ok": true, "value": Vector2i(a[0], a[1])}
+			TYPE_VECTOR3 when a.size() == 3: return {"ok": true, "value": Vector3(a[0], a[1], a[2])}
+			TYPE_VECTOR3I when a.size() == 3: return {"ok": true, "value": Vector3i(a[0], a[1], a[2])}
+			TYPE_VECTOR4 when a.size() == 4: return {"ok": true, "value": Vector4(a[0], a[1], a[2], a[3])}
+			TYPE_QUATERNION when a.size() == 4: return {"ok": true, "value": Quaternion(a[0], a[1], a[2], a[3])}
+			TYPE_COLOR when a.size() == 3: return {"ok": true, "value": Color(a[0], a[1], a[2])}
+			TYPE_COLOR when a.size() == 4: return {"ok": true, "value": Color(a[0], a[1], a[2], a[3])}
+	var hint: String = VALUE_SHAPE_HINT.get(expected_type, type_string(expected_type))
+	return {"ok": false, "error": "expected %s as %s, got %s" % [type_string(expected_type), hint, type_string(vt)]}
+
+
+func _is_numeric_array(a: Array) -> bool:
+	if a.is_empty():
+		return false
+	for v in a:
+		if not (v is int or v is float):
+			return false
+	return true
+
+
+# Mirror the editor panel's default "Create RESET Track(s)": when a track is
+# added, the property's current value goes into a RESET animation key so a
+# preview can be undone and reset_on_save has something to apply (#364).
+# Returns {added: bool, value} — false when the target is unreachable or
+# RESET already has this track.
+func _ensure_reset_key(player: AnimationPlayer, anim: Animation, track_index: int) -> Dictionary:
+	var track_type := anim.track_get_type(track_index)
+	if track_type in [Animation.TYPE_METHOD, Animation.TYPE_AUDIO, Animation.TYPE_ANIMATION]:
+		return {"added": false}
+	var target := MCPUtils.resolve_track_target(player, anim, track_index)
+	if not target.get("found", false):
+		return {"added": false, "reason": "target not resolvable from the player's root_node"}
+	var track_path := anim.track_get_path(track_index)
+
+	var reset: Animation = player.get_animation("RESET") if player.has_animation("RESET") else null
+	if reset == null:
+		reset = Animation.new()
+		reset.length = 0.001
+		var lib: AnimationLibrary = player.get_animation_library("") if player.has_animation_library("") else null
+		if lib == null:
+			lib = AnimationLibrary.new()
+			player.add_animation_library("", lib)
+		lib.add_animation("RESET", reset)
+	elif reset == anim:
+		return {"added": false}
+
+	for i in reset.get_track_count():
+		if reset.track_get_path(i) == track_path and reset.track_get_type(i) == track_type:
+			return {"added": false, "reason": "RESET already has this track"}
+
+	var rt := reset.add_track(track_type)
+	reset.track_set_path(rt, track_path)
+	var current: Variant = target["value"]
+	match track_type:
+		Animation.TYPE_BEZIER:
+			reset.bezier_track_insert_key(rt, 0.0, float(current))
+		Animation.TYPE_BLEND_SHAPE:
+			reset.blend_shape_track_insert_key(rt, 0.0, float(current))
+		Animation.TYPE_POSITION_3D:
+			reset.position_track_insert_key(rt, 0.0, current)
+		Animation.TYPE_ROTATION_3D:
+			reset.rotation_track_insert_key(rt, 0.0, current)
+		Animation.TYPE_SCALE_3D:
+			reset.scale_track_insert_key(rt, 0.0, current)
+		_:
+			reset.track_insert_key(rt, 0.0, current)
+	return {"added": true, "value": _serialize_value(current)}
 
 
 func _find_animation_players(node: Node, result: Array, root: Node) -> void:
@@ -273,7 +396,14 @@ func stop_animation(params: Dictionary) -> Dictionary:
 
 	player.stop(keep_state)
 
-	return _success({"stopped": true})
+	var result := {"stopped": true}
+	if not keep_state and not player.has_animation("RESET") and player.get_animation_list().size() > 0:
+		# Godot's stop() leaves the first keyframe's values on the nodes; only a
+		# RESET animation puts them back (#364).
+		result["warning"] = ("No RESET animation on this player: the first keyframe values now sit on the " +
+			"animated nodes and would be written by godot_scene save. Tracks added with add_track get " +
+			"RESET keys automatically; for tracks authored elsewhere, add a RESET animation with the rest values.")
+	return _success(result)
 
 
 func seek_animation(params: Dictionary) -> Dictionary:
@@ -449,11 +579,19 @@ func add_animation_track(params: Dictionary) -> Dictionary:
 
 	anim.track_set_path(track_index, track_path)
 
-	return _success({
+	var result := {
 		"track_index": track_index,
 		"track_path": track_path,
-		"track_type": track_type
-	})
+		"track_type": track_type,
+	}
+	if params.get("create_reset", true):
+		var reset := _ensure_reset_key(player, anim, track_index)
+		result["reset_key_added"] = reset.get("added", false)
+		if reset.has("value"):
+			result["reset_value"] = reset["value"]
+		if reset.has("reason"):
+			result["reset_skipped"] = reset["reason"]
+	return _success(result)
 
 
 func remove_animation_track(params: Dictionary) -> Dictionary:
@@ -521,6 +659,11 @@ func add_keyframe(params: Dictionary) -> Dictionary:
 
 	var value = MCPUtils.deserialize_value(params["value"])
 	var track_type := anim.track_get_type(track_index)
+	if track_type != Animation.TYPE_METHOD:
+		var fit := _coerce_key_value(value, _expected_key_type(player, anim, track_index))
+		if not fit["ok"]:
+			return _error("TYPE_MISMATCH", "value for track %s: %s" % [anim.track_get_path(track_index), fit["error"]])
+		value = fit["value"]
 	var key_index: int
 
 	match track_type:
@@ -622,6 +765,11 @@ func update_keyframe(params: Dictionary) -> Dictionary:
 
 	if params.has("value"):
 		var new_value = MCPUtils.deserialize_value(params["value"])
+		if anim.track_get_type(track_index) != Animation.TYPE_METHOD:
+			var fit := _coerce_key_value(new_value, _expected_key_type(player, anim, track_index))
+			if not fit["ok"]:
+				return _error("TYPE_MISMATCH", "value for track %s: %s" % [anim.track_get_path(track_index), fit["error"]])
+			new_value = fit["value"]
 		anim.track_set_key_value(track_index, keyframe_index, new_value)
 		result["value"] = _serialize_value(new_value)
 

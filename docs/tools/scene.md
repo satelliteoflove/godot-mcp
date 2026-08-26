@@ -24,7 +24,7 @@ Open a scene file
 
 #### `save`
 
-Save the currently active scene to its own file
+Save the currently active scene to its own file. Honors reset_on_save: players with a RESET animation are written at their rest pose, not a previewed one.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

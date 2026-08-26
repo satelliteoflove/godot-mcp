@@ -99,8 +99,15 @@ func save_scene(params: Dictionary) -> Dictionary:
 				"Open the target scene first, or omit scene_path to save the active one.")
 		path = target
 
+	# This save packs the tree directly rather than going through EditorNode,
+	# so the editor's reset_on_save never runs and a previewed animation pose
+	# would be written into the file (#364). Apply each mixer's RESET animation
+	# for the duration of the pack, then put the preview pose back.
+	var reset_backups := _apply_reset_for_save(root)
+
 	var packed_scene := PackedScene.new()
 	var err := packed_scene.pack(root)
+	_restore_after_save(reset_backups)
 	if err != OK:
 		return _error("PACK_FAILED", "Failed to pack scene: %s" % error_string(err))
 
@@ -108,7 +115,80 @@ func save_scene(params: Dictionary) -> Dictionary:
 	if err != OK:
 		return _error("SAVE_FAILED", "Failed to save scene: %s" % error_string(err))
 
-	return _success({"path": path})
+	var result := {"path": path}
+	var reset_players: Array[String] = []
+	for b in reset_backups:
+		reset_players.append(b["player"])
+	if not reset_players.is_empty():
+		result["reset_applied"] = reset_players
+	return _success(result)
+
+
+# Emulates AnimationMixer's reset-on-save (apply_reset/make_backup are not
+# scriptable): for every mixer under root with reset_on_save and a RESET
+# animation, remember each RESET-tracked property's current value, then write
+# the RESET key value in its place. Returns the backups for _restore_after_save.
+func _apply_reset_for_save(root: Node) -> Array:
+	var backups: Array = []
+	var mixers: Array = []
+	_collect_mixers(root, mixers)
+	for mixer in mixers:
+		if not mixer.reset_on_save or not mixer.has_animation("RESET"):
+			continue
+		var reset: Animation = mixer.get_animation("RESET")
+		var entries: Array = []
+		for t in reset.get_track_count():
+			if reset.track_get_key_count(t) == 0:
+				continue
+			var target := MCPUtils.resolve_track_target(mixer, reset, t)
+			if not target.get("found", false):
+				continue
+			var reset_value: Variant
+			match reset.track_get_type(t):
+				Animation.TYPE_VALUE:
+					reset_value = reset.track_get_key_value(t, 0)
+				Animation.TYPE_BEZIER:
+					reset_value = reset.bezier_track_get_key_value(t, 0)
+				Animation.TYPE_POSITION_3D:
+					reset_value = reset.position_track_interpolate(t, 0.0)
+				Animation.TYPE_ROTATION_3D:
+					reset_value = reset.rotation_track_interpolate(t, 0.0)
+				Animation.TYPE_SCALE_3D:
+					reset_value = reset.scale_track_interpolate(t, 0.0)
+				_:
+					continue
+			entries.append({"target": target["target"], "subpath": target["subpath"],
+				"type": reset.track_get_type(t), "value": target["value"]})
+			_write_track_value(target["target"], target["subpath"], reset.track_get_type(t), reset_value)
+		if not entries.is_empty():
+			backups.append({"player": str(root.get_path_to(mixer)), "entries": entries})
+	return backups
+
+
+func _restore_after_save(backups: Array) -> void:
+	for b in backups:
+		for e in b["entries"]:
+			if is_instance_valid(e["target"]):
+				_write_track_value(e["target"], e["subpath"], e["type"], e["value"])
+
+
+func _write_track_value(target: Object, subpath: NodePath, track_type: int, value: Variant) -> void:
+	match track_type:
+		Animation.TYPE_POSITION_3D:
+			(target as Node3D).position = value
+		Animation.TYPE_ROTATION_3D:
+			(target as Node3D).quaternion = value
+		Animation.TYPE_SCALE_3D:
+			(target as Node3D).scale = value
+		_:
+			target.set_indexed(subpath, value)
+
+
+func _collect_mixers(node: Node, out: Array) -> void:
+	if node is AnimationMixer:
+		out.append(node)
+	for c in node.get_children():
+		_collect_mixers(c, out)
 
 
 # Reload an already-open scene from disk, picking up a direct .tscn edit without

@@ -8,7 +8,7 @@ const SceneSchema = z.discriminatedUnion('action', [
     scene_path: z.string().describe('Path to scene file to open'),
   }),
   z.object({
-    action: z.literal('save').describe('Save the currently active scene to its own file'),
+    action: z.literal('save').describe('Save the currently active scene to its own file. Honors reset_on_save: players with a RESET animation are written at their rest pose, not a previewed one.'),
     scene_path: z
       .string()
       .optional()
@@ -46,10 +46,13 @@ export const scene = defineTool({
       }
 
       case 'save': {
-        const result = await godot.sendCommand<{ path: string }>('save_scene', {
+        const result = await godot.sendCommand<{ path: string; reset_applied?: string[] }>('save_scene', {
           path: args.scene_path,
         });
-        return `Saved scene: ${result.path}`;
+        const reset = result.reset_applied?.length
+          ? ` (RESET applied for save on ${result.reset_applied.join(', ')}; preview pose kept in the editor)`
+          : '';
+        return `Saved scene: ${result.path}${reset}`;
       }
 
       case 'reload': {

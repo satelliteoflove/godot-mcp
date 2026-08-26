@@ -53,9 +53,9 @@ const AnimationEditSchema = z.discriminatedUnion('action', [
     from_end: z.boolean().optional().describe('Play from end for reverse'),
   }),
   z.object({
-    action: z.literal('stop').describe('Stop playback'),
+    action: z.literal('stop').describe('Stop playback. Godot leaves the first keyframe values on the nodes unless the player has a RESET animation; the reply warns when it does not.'),
     node_path: nodePathField,
-    keep_state: z.boolean().optional().describe('Keep current animation state'),
+    keep_state: z.boolean().optional().describe('Keep the current pose instead of seeking to the first keyframe (default false)'),
   }),
   z.object({
     action: z.literal('seek').describe('Seek to a position in the current animation'),
@@ -93,6 +93,12 @@ const AnimationEditSchema = z.discriminatedUnion('action', [
     track_type: TrackTypeEnum.describe('Type of track'),
     track_path: z.string().describe('Node path and property, e.g. "Sprite2D:frame"'),
     insert_at: z.number().optional().describe('Track index to insert at, -1 for end'),
+    create_reset: z
+      .boolean()
+      .optional()
+      .describe(
+        'Also key the property\'s current value into the player\'s RESET animation (created if missing), as the editor\'s track panel does, so previews are undone by RESET and save writes the rest pose. Default true.'
+      ),
   }),
   z.object({
     action: z.literal('remove_track').describe('Remove a track'),
@@ -106,7 +112,7 @@ const AnimationEditSchema = z.discriminatedUnion('action', [
     animation_name: animNameField,
     track_index: trackIndexField,
     time: z.number().describe('Keyframe time in seconds'),
-    value: z.unknown().optional().describe('Keyframe value'),
+    value: z.unknown().optional().describe('Keyframe value, typed to match the track\'s target property: numbers and strings as-is; Color as {r, g, b, a}; Vector2 as {x, y}; Vector3 as {x, y, z}; Quaternion/Vector4 as {x, y, z, w} (the same shape get_keyframes and get_properties emit). A bare numeric array of the right length is accepted for those types; any other mismatch is rejected with TYPE_MISMATCH rather than stored and coerced to black/zero at play time.'),
     transition: z.number().optional().describe('Transition curve, 1.0 = linear'),
     method_name: z.string().optional().describe('Method name for method tracks'),
     args: z.array(z.unknown()).optional().describe('Method arguments'),
@@ -125,7 +131,7 @@ const AnimationEditSchema = z.discriminatedUnion('action', [
     track_index: trackIndexField,
     keyframe_index: keyframeIndexField,
     time: z.number().optional().describe('Keyframe time in seconds'),
-    value: z.unknown().optional().describe('Keyframe value'),
+    value: z.unknown().optional().describe('Keyframe value, typed to match the track\'s target property: numbers and strings as-is; Color as {r, g, b, a}; Vector2 as {x, y}; Vector3 as {x, y, z}; Quaternion/Vector4 as {x, y, z, w} (the same shape get_keyframes and get_properties emit). A bare numeric array of the right length is accepted for those types; any other mismatch is rejected with TYPE_MISMATCH rather than stored and coerced to black/zero at play time.'),
     transition: z.number().optional().describe('Transition curve, 1.0 = linear'),
   }),
 ]);
@@ -238,11 +244,11 @@ export const animationEdit = defineTool({
         return `Playing animation: ${result.playing}`;
       }
       case 'stop': {
-        await godot.sendCommand('stop_animation', {
+        const result = await godot.sendCommand<{ stopped: boolean; warning?: string }>('stop_animation', {
           node_path: args.node_path,
           keep_state: args.keep_state,
         });
-        return 'Animation stopped';
+        return result.warning ? `Animation stopped\nWARNING: ${result.warning}` : 'Animation stopped';
       }
       case 'seek': {
         const result = await godot.sendCommand<{ position: number }>('seek_animation', {
@@ -292,14 +298,23 @@ export const animationEdit = defineTool({
           track_index: number;
           track_path: string;
           track_type: string;
+          reset_key_added?: boolean;
+          reset_value?: unknown;
+          reset_skipped?: string;
         }>('add_animation_track', {
           node_path: args.node_path,
           animation_name: args.animation_name,
           track_type: args.track_type,
           track_path: args.track_path,
           insert_at: args.insert_at,
+          create_reset: args.create_reset,
         });
-        return `Added track ${result.track_index}: ${result.track_type} -> ${result.track_path}`;
+        const reset = result.reset_key_added
+          ? ` (RESET key added: ${JSON.stringify(result.reset_value)})`
+          : result.reset_skipped
+            ? ` (no RESET key: ${result.reset_skipped})`
+            : '';
+        return `Added track ${result.track_index}: ${result.track_type} -> ${result.track_path}${reset}`;
       }
       case 'remove_track': {
         const result = await godot.sendCommand<{ removed_track: number }>('remove_animation_track', {
