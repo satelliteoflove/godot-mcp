@@ -307,6 +307,29 @@ describe('editorEdit tool', () => {
     });
   });
 
+  describe('rescan (#350)', () => {
+    it('sends rescan_filesystem with an empty path list by default', async () => {
+      mock.mockResponse({ scanned: true, reimported: [], duration_ms: 420 });
+      const ctx = createToolContext(mock);
+
+      const result = await editorEdit.execute({ action: 'rescan' }, ctx);
+
+      expect(mock.calls[0].command).toBe('rescan_filesystem');
+      expect(mock.calls[0].params.paths).toEqual([]);
+      expect(result).toBe('Filesystem rescanned in 420ms');
+    });
+
+    it('forwards paths and reports what was reimported', async () => {
+      mock.mockResponse({ scanned: true, reimported: ['res://art/atlas.png'], duration_ms: 900 });
+      const ctx = createToolContext(mock);
+
+      const result = await editorEdit.execute({ action: 'rescan', paths: ['res://art/atlas.png'] }, ctx);
+
+      expect(mock.calls[0].params.paths).toEqual(['res://art/atlas.png']);
+      expect(result).toContain('reimported res://art/atlas.png');
+    });
+  });
+
   describe('restart', () => {
     it('sends restart_editor with save=true by default and confirms reconnect', async () => {
       mock.mockResponse({ restarting: true, save: true });

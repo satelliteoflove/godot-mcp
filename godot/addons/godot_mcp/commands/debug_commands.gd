@@ -15,9 +15,24 @@ func get_commands() -> Dictionary:
 	}
 
 
+# How long to wait for the editor to report a running scene before calling the
+# launch a failure. The play process spawns synchronously; this only needs to
+# cover a deferred start, not game boot.
+const LAUNCH_CONFIRM_TIMEOUT_SEC := 2.0
+
+
 func run_project(params: Dictionary) -> Dictionary:
 	var scene_path: String = params.get("scene_path", "")
 	var frozen: bool = params.get("frozen", false)
+
+	# play_main_scene() with no main scene set pops a modal in the editor and
+	# launches nothing; reporting success there is a silent no-op (#347).
+	if scene_path.is_empty():
+		var main_scene := str(ProjectSettings.get_setting("application/run/main_scene", ""))
+		if main_scene.is_empty():
+			return _error("NO_MAIN_SCENE",
+				"application/run/main_scene is not set, so there is nothing to run. " +
+				"Pass scene_path, or set the main scene in project settings.")
 
 	# Launch-frozen: the spawned game inherits the editor's environment, so
 	# setting this before play makes the bridge freeze the tree in _ready —
@@ -39,6 +54,15 @@ func run_project(params: Dictionary) -> Dictionary:
 		await Engine.get_main_loop().process_frame
 		await Engine.get_main_loop().process_frame
 		OS.set_environment(LAUNCH_FROZEN_ENV, "")
+
+	# Confirm something actually launched before reporting success (#347).
+	var start := Time.get_ticks_msec()
+	while not EditorInterface.is_playing_scene():
+		if (Time.get_ticks_msec() - start) / 1000.0 > LAUNCH_CONFIRM_TIMEOUT_SEC:
+			return _error("RUN_FAILED",
+				"The editor did not start playing within %.1fs. " % LAUNCH_CONFIRM_TIMEOUT_SEC +
+				"Check get_log_messages for the reason (a missing scene file or an editor dialog blocking the run).")
+		await Engine.get_main_loop().process_frame
 
 	return _success({"frozen": frozen})
 

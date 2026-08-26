@@ -93,17 +93,17 @@ describe('input tool', () => {
     });
 
     it('returns message when no actions defined', async () => {
-      mock.mockResponse({ actions: [], source: 'editor' });
+      mock.mockResponse({ actions: [], source: 'project' });
       const ctx = createToolContext(mock);
 
       const result = await input.execute({ action: 'get_map' }, ctx);
       expect(result).toContain('No custom input actions defined');
     });
 
-    it('appends a stale-project advisory when the editor-sourced map is flagged stale (#245)', async () => {
+    it('appends a stale-project advisory when the project-sourced map is flagged stale (#245)', async () => {
       mock.mockResponse({
         actions: [{ name: 'jump', events: ['Space'] }],
-        source: 'editor',
+        source: 'project',
         staleness: {
           stale: true,
           summary: 'project.godot was edited on disk: 1 input action(s) added on disk (dash). Run `godot_editor_edit restart` to reload.',
@@ -118,10 +118,10 @@ describe('input tool', () => {
       expect(result).toContain('godot_editor_edit restart');
     });
 
-    it('appends the advisory even when the stale editor map is empty', async () => {
+    it('appends the advisory even when the stale project map is empty', async () => {
       mock.mockResponse({
         actions: [],
-        source: 'editor',
+        source: 'project',
         staleness: { stale: true, summary: 'autoload G removed on disk.' },
       });
       const ctx = createToolContext(mock);

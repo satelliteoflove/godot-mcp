@@ -316,7 +316,8 @@ export const input = defineTool({
         const result = await godot.sendCommand<{
           actions: InputMapAction[];
           source: string;
-          // Editor-sourced maps carry this when project.godot's [input] section was
+          // Project-sourced maps (no game running; read from the editor's loaded
+          // ProjectSettings) carry this when project.godot's [input] section was
           // edited on disk after load (#245), so the map below may be incomplete.
           // The game-sourced path reads fresh from the bridge and never sets it.
           staleness?: ProjectStaleness;

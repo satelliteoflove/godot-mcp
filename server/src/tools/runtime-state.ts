@@ -33,6 +33,10 @@ interface DigestResponse {
   hint?: string;
   unresolved_paths?: string[];
   available_autoloads?: string[];
+  // Truncation honesty (#327). Absent from addons that predate it.
+  nodes_returned?: number;
+  nodes_total_matched?: number;
+  nodes_truncated?: boolean;
 }
 
 interface WatchRawSample {
@@ -425,6 +429,12 @@ export const runtimeState = defineTool({
         if (args.include !== undefined) params.include = args.include;
 
         const result = await godot.sendCommand<DigestResponse>('get_runtime_state', params);
+        if (result.nodes_truncated) {
+          const note =
+            `TRUNCATED: ${result.nodes_returned} of ${result.nodes_total_matched} matching nodes returned ` +
+            '(max_nodes cap). This is NOT the whole scene — raise max_nodes or narrow with name/type/paths.';
+          result.hint = result.hint ? `${note} ${result.hint}` : note;
+        }
         return structured(result);
       }
 

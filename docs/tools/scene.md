@@ -24,11 +24,11 @@ Open a scene file
 
 #### `save`
 
-Save the current scene
+Save the currently active scene to its own file
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `scene_path` | string | No | Path to save to (defaults to the current scene path) |
+| `scene_path` | string | No | Must match the active scene's file (defaults to it); a scene with no file yet may be saved to a new path. Naming a different scene is rejected (SCENE_MISMATCH) instead of overwriting it with the active tab's content |
 
 #### `reload`
 

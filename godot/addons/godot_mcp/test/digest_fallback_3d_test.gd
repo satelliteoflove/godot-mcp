@@ -138,10 +138,10 @@ func _build_scene() -> void:
 
 # ── Collection helper ──────────────────────────────────────────────────────────
 
-func _collect(max_nodes: int, type_filter: String) -> Array:
+func _collect(max_nodes: int, type_filter: String, stats: Dictionary = {}) -> Array:
 	var results: Array = []
 	_bridge._collect_runtime_state(_scene, _scene, "fallback", "mcp_watch",
-		"", type_filter, [], max_nodes, results)
+		"", type_filter, [], max_nodes, results, stats)
 	return results
 
 
@@ -214,8 +214,15 @@ func _test_entity_data_and_onscreen() -> void:
 
 func _test_max_nodes_and_type_filter() -> void:
 	# max_nodes still bounds the result.
-	var capped := _collect(2, "")
+	var stats := {}
+	var capped := _collect(2, "", stats)
 	_check("max_nodes caps the result", capped.size(), 2)
+
+	# Matches past the cap are still counted so the digest can report
+	# truncation instead of a partial list dressed up as the whole scene (#327).
+	var full := _collect(200, "")
+	_check("total matched is counted past the cap", stats["matched"], full.size())
+	_check("total matched exceeds the capped result", stats["matched"] > capped.size(), true)
 
 	# type filter still narrows post-selection.
 	var grids := _collect(40, "GridMap")

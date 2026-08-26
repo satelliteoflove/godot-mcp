@@ -145,6 +145,17 @@ const EditorEditSchema = z
     }),
     z.object({
       action: z
+        .literal('rescan')
+        .describe(
+          'Rescan the project filesystem so the editor imports assets written to disk outside the editor (textures, audio, fonts, .tres) without a restart. Do this after writing a new asset and before opening or reloading a scene that references it; otherwise the resource loads empty because no .import exists yet. Returns once the scan and its imports have finished.'
+        ),
+      paths: z
+        .array(z.string())
+        .optional()
+        .describe('res:// paths of existing assets to force through reimport after the scan (for assets whose bytes changed on disk).'),
+    }),
+    z.object({
+      action: z
         .literal('set_viewport_2d')
         .describe(
           'Center and/or zoom the 2D editor viewport. Pass at least one parameter; omitted parameters PRESERVE the current view (e.g. pass only zoom to zoom in on the current center). The addon reads the live viewport transform to fill in whatever you leave out.'
@@ -280,7 +291,7 @@ export const editorEdit = defineTool({
   name: 'godot_editor_edit',
   annotations: { title: 'Editor Control (edit)', readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   description:
-    'Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.',
+    'Drive the editor: select a node, run or stop the project, restart the editor, rescan the filesystem to import assets written outside the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.',
   schema: EditorEditSchema,
   async execute(args: EditorEditArgs, { godot }) {
     switch (args.action) {
@@ -318,6 +329,16 @@ export const editorEdit = defineTool({
           }
         }
         return `Editor is restarting${save ? ' (project saved first)' : ' without saving'}. The bridge reconnects automatically in a few seconds - retry your next command then.`;
+      }
+
+      case 'rescan': {
+        const result = await godot.sendCommand<{
+          scanned: boolean;
+          reimported: string[];
+          duration_ms: number;
+        }>('rescan_filesystem', { paths: args.paths ?? [] }, { timeoutMs: 90_000 });
+        const reimported = result.reimported.length > 0 ? `; reimported ${result.reimported.join(', ')}` : '';
+        return `Filesystem rescanned in ${result.duration_ms}ms${reimported}`;
       }
 
       case 'set_viewport_2d': {

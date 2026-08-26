@@ -90,7 +90,7 @@ Capture a lossless PNG of an editor viewport. Same context cost as screenshot_ga
 
 ## godot_editor_edit
 
-Drive the editor: select a node, run or stop the project, restart the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.
+Drive the editor: select a node, run or stop the project, restart the editor, rescan the filesystem to import assets written outside the editor, and center/zoom the 2D viewport. Use run with frozen=true as the deterministic-playtest entry point (game time holds at frame 0 until godot_game_time steps or thaws it). To test edited gameplay scripts just stop then run — the launched game loads .gd/.tscn fresh from disk; reserve restart for EDITOR-side staleness (edited @tool/addon code, a stale project.godot, or a cached .gdshader). For observation only (state, selection, logs, screenshots) use godot_editor_read instead; restart does not start a cold editor, so one must already be running.
 
 ### Actions
 
@@ -124,6 +124,14 @@ Restart the editor, reloading project.godot (autoloads, input map), addon code, 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `save` | boolean | No | Save the project before restarting (default: true). Set false to discard unsaved editor changes. |
+
+#### `rescan`
+
+Rescan the project filesystem so the editor imports assets written to disk outside the editor (textures, audio, fonts, .tres) without a restart. Do this after writing a new asset and before opening or reloading a scene that references it; otherwise the resource loads empty because no .import exists yet. Returns once the scan and its imports have finished.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `paths` | string[] | No | res:// paths of existing assets to force through reimport after the scan (for assets whose bytes changed on disk). |
 
 #### `set_viewport_2d`
 
@@ -159,7 +167,7 @@ Center and/or zoom the 2D editor viewport. Pass at least one parameter; omitted 
 }
 ```
 
-*2 more actions available: `restart`, `set_viewport_2d`*
+*3 more actions available: `restart`, `rescan`, `set_viewport_2d`*
 
 ---
 

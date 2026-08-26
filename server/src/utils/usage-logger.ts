@@ -16,6 +16,7 @@ interface UsageEntry {
   duration_ms: number;
   response_bytes: number;
   error_type?: string;
+  error_code?: string;
 }
 
 function isEnabled(): boolean {
@@ -65,7 +66,8 @@ export function logToolUsage(
   success: boolean,
   durationMs: number,
   responseBytes: number,
-  errorType?: string
+  errorType?: string,
+  errorCode?: string
 ): void {
   if (!isEnabled()) return;
 
@@ -84,6 +86,10 @@ export function logToolUsage(
 
   if (errorType) {
     entry.error_type = errorType;
+  }
+
+  if (errorCode) {
+    entry.error_code = errorCode;
   }
 
   writeEntry(entry);
@@ -108,4 +114,15 @@ export function categorizeError(error: unknown): string {
   }
 
   return 'unknown';
+}
+
+/**
+ * Extract the bridge error code (e.g. NOT_RUNNING, INVALID_PARAMS) from a
+ * GodotCommandError so the usage log can tell "called at the wrong time"
+ * apart from "the tool is broken". Returns undefined for other errors.
+ */
+export function extractErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof Error) || error.name !== 'GodotCommandError') return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && code.length > 0 ? code : undefined;
 }

@@ -88,29 +88,55 @@ func get_input_map(_params: Dictionary) -> Dictionary:
 	return _success(_input_map_result)
 
 
+# Builtin ui_* actions worth listing without a game running: the ones an agent
+# can actually inject for menu navigation. The other ~100 ui_text_*/ui_*.macos
+# variants are noise here (get_settings category=input lists them all).
+const INJECTABLE_UI_ACTIONS: Array[String] = [
+	"ui_up", "ui_down", "ui_left", "ui_right",
+	"ui_accept", "ui_cancel", "ui_focus_next", "ui_focus_prev",
+]
+
+
+# With no game running, the project's actions come from ProjectSettings, not
+# the editor's InputMap: that map holds the editor's own shortcuts
+# (spatial_editor/* and friends), not the project's actions (#348).
 func _get_editor_input_map() -> Dictionary:
 	var actions: Array[Dictionary] = []
-	for action_name in InputMap.get_actions():
-		if action_name.begins_with("ui_"):
+	var seen := {}
+	for prop in ProjectSettings.get_property_list():
+		var full_name: String = prop.get("name", "")
+		if not full_name.begins_with("input/"):
 			continue
-		var events := InputMap.action_get_events(action_name)
-		var event_strings: Array[String] = []
-		for event in events:
-			event_strings.append(_event_to_string(event))
-		actions.append({
-			"name": action_name,
-			"events": event_strings,
-		})
-	# This map is read from the editor's in-memory InputMap, which is loaded at
-	# startup and goes stale if project.godot's [input] section is edited on disk
-	# (#245). Flag that so the caller knows the map may be incomplete and can
-	# recover with `godot_editor_edit restart`. The game-running path above reads fresh
-	# from the bridge, so it never carries this.
-	var result := {"actions": actions, "source": "editor"}
+		var action_name := full_name.trim_prefix("input/")
+		if action_name.begins_with("ui_") and not action_name in INJECTABLE_UI_ACTIONS:
+			continue
+		seen[action_name] = true
+		actions.append(_project_action_entry(action_name))
+	# Builtins are registered in ProjectSettings, but guard against a build
+	# that omits them from the property list.
+	for ui_name in INJECTABLE_UI_ACTIONS:
+		if not seen.has(ui_name) and ProjectSettings.has_setting("input/" + ui_name):
+			actions.append(_project_action_entry(ui_name))
+	# ProjectSettings is loaded at startup and goes stale if project.godot's
+	# [input] section is edited on disk (#245). Flag that so the caller knows
+	# the map may be incomplete and can recover with `godot_editor_edit restart`.
+	# The game-running path above reads fresh from the bridge, so it never
+	# carries this.
+	var result := {"actions": actions, "source": "project"}
 	var staleness := MCPUtils.detect_project_staleness()
 	if staleness.get("stale", false):
 		result["staleness"] = staleness
 	return _success(result)
+
+
+func _project_action_entry(action_name: String) -> Dictionary:
+	var event_strings: Array[String] = []
+	var setting: Variant = ProjectSettings.get_setting("input/" + action_name, null)
+	if setting is Dictionary:
+		for event in setting.get("events", []):
+			if event is InputEvent:
+				event_strings.append(_event_to_string(event))
+	return {"name": action_name, "events": event_strings}
 
 
 func _event_to_string(event: InputEvent) -> String:
