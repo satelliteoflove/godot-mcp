@@ -20,13 +20,13 @@ Snapshot current game entity state as structured JSON — exact positions, veloc
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `select` | `group`, `method`, `auto`, `none` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "auto" = best available (default: auto picks group → method → a visibility fallback that surfaces visible 2D nodes (CanvasItems) AND 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas), "none" = no automatic selection; return only the nodes named in paths |
+| `select` | `group`, `method`, `visible`, `auto`, `none` | No | Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), "visible" = the visibility tier explicitly (visible 2D CanvasItems including runtime-spawned UI, AND 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas), "auto" = best available (default: auto picks group → method → the visibility tier as a fallback), "none" = no automatic selection; return only the nodes named in paths. Use "visible" with name/type filters to reach UI that is not in the group, e.g. select="visible", type="Label". |
 | `group` | string | No | Group name to use when select="group" or "auto" (default: "mcp_watch") |
 | `paths` | string[] | No | Explicit absolute node paths to include in addition to tier selection, e.g. ["/root/GameState"]. The digest walks the current scene only, so autoload singletons — where global game state often lives (cash, score, settings) — are otherwise unreachable. Each path returns _mcp_state() if present, else a snapshot of the node's script variables (scalars/arrays, ~1 KB cap). Paths that do not resolve are returned in unresolved_paths. |
 | `name` | string | No | Glob filter on node name (e.g. "Player*") |
 | `type` | string | No | Class filter (e.g. "CharacterBody2D") |
 | `max_nodes` | integer | No | Maximum nodes in result (default: 40) |
-| `include` | string[] | No | Subset of fields to include (default: all available) |
+| `include` | string[] | No | Subset of fields to include (default: all available). "ui" adds global_rect / visible_in_tree / has_focus / text on Controls. |
 
 #### `watch_start`
 

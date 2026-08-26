@@ -73,6 +73,9 @@ func _send_and_wait(msg_type: String, args: Array = []):
 	var start_time := Time.get_ticks_msec()
 	while not debugger_plugin.has_response(msg_type):
 		await Engine.get_main_loop().process_frame
+		if not debugger_plugin.has_active_session():
+			_last_error = _error("GAME_EXITED", "The game exited while waiting for %s (stopped, quit, or crashed)" % msg_type)
+			return null
 		if (Time.get_ticks_msec() - start_time) / 1000.0 > GENERIC_TIMEOUT:
 			debugger_plugin.clear_response(msg_type)
 			_last_error = _error("TIMEOUT", "Timed out waiting for %s response" % msg_type)

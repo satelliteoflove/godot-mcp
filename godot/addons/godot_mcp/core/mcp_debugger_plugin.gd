@@ -79,6 +79,11 @@ func _setup_session(session_id: int) -> void:
 	_active_session_id = session_id
 	# New game session: its bridge has not announced readiness yet.
 	_bridge_ready = false
+	# Without this the game quitting (or crashing, or being stopped) mid-call
+	# was invisible to every relay, which then sat out its full timeout (#359).
+	var session := get_session(session_id)
+	if session and not session.stopped.is_connected(_session_stopped):
+		session.stopped.connect(_session_stopped)
 
 
 func _session_stopped() -> void:
@@ -102,8 +107,11 @@ func _session_stopped() -> void:
 	if _pending_type_text:
 		_pending_type_text = false
 		type_text_completed.emit({"error": "Game session ended"})
+	# Drop pending relays rather than answering them with an empty dictionary,
+	# which callers would have read as a successful (empty) response. The relay
+	# loops notice has_active_session() going false and report GAME_EXITED.
 	for msg_type in _pending_requests:
-		_responses[msg_type] = {}
+		_responses.erase(msg_type)
 	_pending_requests.clear()
 
 

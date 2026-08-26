@@ -98,6 +98,9 @@ func _send_and_wait(msg_type: String, args: Array, timeout: float, call_id: int)
 		# break in the window — including a developer's own breakpoint hit by
 		# unrelated game code while an exec call is in flight. Accepted for the
 		# dev-tooling threat model and surfaced in the tool description.
+		if not debugger_plugin.has_active_session():
+			_last_error = _error("GAME_EXITED", "The game exited while waiting for %s (stopped, quit, or crashed)" % msg_type)
+			return null
 		if debugger_plugin.is_session_breaked():
 			debugger_plugin.continue_session()
 		if debugger_plugin.has_response(msg_type):

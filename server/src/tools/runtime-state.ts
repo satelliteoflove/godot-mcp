@@ -22,6 +22,13 @@ interface EntitySnapshot {
   zoom?: { x: number; y: number };
   onscreen?: boolean;
   state?: Record<string, unknown>;
+  // Controls only (#360): layout facts from the running process.
+  ui?: {
+    global_rect: { x: number; y: number; w: number; h: number };
+    visible_in_tree: boolean;
+    has_focus: boolean;
+    text?: string;
+  };
 }
 
 interface DigestResponse {
@@ -29,6 +36,7 @@ interface DigestResponse {
   selection: 'group' | 'method' | 'fallback';
   entity_count: number;
   camera?: EntitySnapshot;
+  focus_owner?: string;
   entities: EntitySnapshot[];
   hint?: string;
   unresolved_paths?: string[];
@@ -246,7 +254,7 @@ function summarizeWatchResponse(raw: WatchRawResponse) {
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
-const INCLUDE_VALUES = ['transform', 'velocity', 'anim', 'groups', 'onscreen', 'state'] as const;
+const INCLUDE_VALUES = ['transform', 'velocity', 'anim', 'groups', 'onscreen', 'state', 'ui'] as const;
 
 const RuntimeStateSchema = z.discriminatedUnion('action', [
   z.object({
@@ -266,13 +274,15 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
         'checks without a screenshot.'
       ),
     select: z
-      .enum(['group', 'method', 'auto', 'none'])
+      .enum(['group', 'method', 'visible', 'auto', 'none'])
       .optional()
       .describe(
         'Selection tier: "group" = nodes in mcp_watch group, "method" = nodes with _mcp_state(), ' +
-        '"auto" = best available (default: auto picks group → method → a visibility fallback that ' +
-        'surfaces visible 2D nodes (CanvasItems) AND 3D world nodes — meshes, gridmaps, cameras, ' +
-        'lights, physics bodies and areas), "none" = no automatic selection; return only the nodes named in paths'
+        '"visible" = the visibility tier explicitly (visible 2D CanvasItems including runtime-spawned UI, ' +
+        'AND 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas), ' +
+        '"auto" = best available (default: auto picks group → method → the visibility tier as a fallback), ' +
+        '"none" = no automatic selection; return only the nodes named in paths. Use "visible" with name/type ' +
+        'filters to reach UI that is not in the group, e.g. select="visible", type="Label".'
       ),
     group: z
       .string()
@@ -301,7 +311,7 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
     include: z
       .array(z.enum(INCLUDE_VALUES))
       .optional()
-      .describe('Subset of fields to include (default: all available)'),
+      .describe('Subset of fields to include (default: all available). "ui" adds global_rect / visible_in_tree / has_focus / text on Controls.'),
   }),
   z.object({
     action: z
