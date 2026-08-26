@@ -205,6 +205,25 @@ describe('animationEdit tool', () => {
       }, ctx)).toBe('Removed track: 2');
     });
 
+    it('create_reset_keys lists what was keyed and what was skipped', async () => {
+      const ctx = createToolContext(mock);
+      mock.mockResponse({
+        animations: ['beat_pulse'],
+        added: [{ animation: 'beat_pulse', track_index: 0, track_path: 'Zone:modulate', value: { r: 1, g: 1, b: 1, a: 1 } }],
+        skipped: [{ animation: 'beat_pulse', track_index: 1, track_path: 'Zone:modulate', reason: 'RESET already has this track' }],
+        has_reset: true,
+      });
+      const result = await animationEdit.execute({
+        action: 'create_reset_keys',
+        node_path: '/root/AnimPlayer',
+        animation_name: 'beat_pulse',
+      }, ctx);
+      expect(mock.calls[0].command).toBe('create_reset_keys');
+      expect(result).toContain('1 added, 1 skipped across 1 animation(s)');
+      expect(result).toContain('+ beat_pulse[0] Zone:modulate = {"r":1,"g":1,"b":1,"a":1}');
+      expect(result).toContain('- beat_pulse[1] Zone:modulate: RESET already has this track');
+    });
+
     it('keyframe operations return formatted confirmations', async () => {
       const ctx = createToolContext(mock);
 

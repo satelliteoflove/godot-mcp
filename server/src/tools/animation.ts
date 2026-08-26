@@ -101,6 +101,15 @@ const AnimationEditSchema = z.discriminatedUnion('action', [
       ),
   }),
   z.object({
+    action: z
+      .literal('create_reset_keys')
+      .describe(
+        'Backfill RESET keys for existing tracks: every track on one animation (or all of the player\'s animations) gets a RESET key holding the property\'s current value where RESET lacks one. Use it on tracks authored by hand or before add_track keyed RESET automatically, and call it BEFORE previewing, while the nodes still hold their rest pose.'
+      ),
+    node_path: nodePathField,
+    animation_name: z.string().optional().describe('Animation to cover (default: all animations on the player except RESET)'),
+  }),
+  z.object({
     action: z.literal('remove_track').describe('Remove a track'),
     node_path: nodePathField,
     animation_name: animNameField,
@@ -226,7 +235,7 @@ export const animationEdit = defineTool({
     openWorldHint: false,
   },
   description:
-    "Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.",
+    "Create and modify animations on an AnimationPlayer and preview them in the editor: create, delete, or update animations, add and remove tracks and keyframes, backfill RESET keys for existing tracks (create_reset_keys), and play, stop, or seek the editor's preview (playback controls the editor, not the running game). Pair each change with an immediate play or seek to check the result; this is the only way to verify animation feel without running the whole game. To inspect animation data without changing it, use godot_animation_read.",
   schema: AnimationEditSchema,
   async execute(args: AnimationEditArgs, { godot }) {
     switch (args.action) {
@@ -315,6 +324,27 @@ export const animationEdit = defineTool({
             ? ` (no RESET key: ${result.reset_skipped})`
             : '';
         return `Added track ${result.track_index}: ${result.track_type} -> ${result.track_path}${reset}`;
+      }
+      case 'create_reset_keys': {
+        const result = await godot.sendCommand<{
+          animations: string[];
+          added: Array<{ animation: string; track_index: number; track_path: string; value: unknown }>;
+          skipped: Array<{ animation: string; track_index: number; track_path: string; reason: string }>;
+          has_reset: boolean;
+        }>('create_reset_keys', {
+          node_path: args.node_path,
+          animation_name: args.animation_name,
+        });
+        const lines = [
+          `RESET keys: ${result.added.length} added, ${result.skipped.length} skipped across ${result.animations.length} animation(s)`,
+        ];
+        for (const a of result.added) {
+          lines.push(`  + ${a.animation}[${a.track_index}] ${a.track_path} = ${JSON.stringify(a.value)}`);
+        }
+        for (const sk of result.skipped) {
+          lines.push(`  - ${sk.animation}[${sk.track_index}] ${sk.track_path}: ${sk.reason}`);
+        }
+        return lines.join('\n');
       }
       case 'remove_track': {
         const result = await godot.sendCommand<{ removed_track: number }>('remove_animation_track', {

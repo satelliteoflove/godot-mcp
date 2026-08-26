@@ -92,6 +92,20 @@ func _initialize() -> void:
 	_check("RESET key added for the position track", r3.get("added", false), true)
 	_check("position RESET key holds the rest position", reset.position_track_interpolate(1, 0.0), Vector3(1, 2, 3))
 
+	# --- backfill over an animation authored without RESET keys ---------------
+	var legacy := Animation.new()
+	lib.add_animation("legacy", legacy)
+	var l_scale := legacy.add_track(Animation.TYPE_SCALE_3D)
+	legacy.track_set_path(l_scale, NodePath("Cube"))
+	var l_missing := legacy.add_track(Animation.TYPE_VALUE)
+	legacy.track_set_path(l_missing, NodePath("Nope:modulate"))
+	var before_tracks := reset.get_track_count()
+	var b1: Dictionary = anim_cmd._ensure_reset_key(player, legacy, l_scale)
+	_check("backfill keys an unkeyed scale track", b1.get("added", false), true)
+	var b2: Dictionary = anim_cmd._ensure_reset_key(player, legacy, l_missing)
+	_check("unresolvable target is skipped with a reason", not b2.get("added", true) and b2.has("reason"), true)
+	_check("backfill added exactly one RESET track", reset.get_track_count(), before_tracks + 1)
+
 	# --- save-time reset round trip (#364) -----------------------------------
 	# Simulate a preview having left the first keyframe on the nodes.
 	zone.modulate = Color(1.6, 1.6, 1.6, 1)
