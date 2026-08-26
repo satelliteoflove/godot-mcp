@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.5](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.4...godot-mcp-v4.1.5) (2026-08-26)
+
+
+### Bug Fixes
+
+* add create_reset_keys to backfill RESET for existing animation tracks ([#367](https://github.com/satelliteoflove/godot-mcp/issues/367)) ([4ae278f](https://github.com/satelliteoflove/godot-mcp/commit/4ae278fb57d73e09f93042bc228dab49233fafed))
+
 ## [4.1.4](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.3...godot-mcp-v4.1.4) (2026-08-26)
 
 
