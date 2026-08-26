@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.4](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.3...godot-mcp-v4.1.4) (2026-08-26)
+
+
+### Bug Fixes
+
+* type keyframe values against the track target, honor RESET on preview and save ([#365](https://github.com/satelliteoflove/godot-mcp/issues/365)) ([17f2dca](https://github.com/satelliteoflove/godot-mcp/commit/17f2dca87cd0a7f203c219433a34e51070e8c3ba)), closes [#363](https://github.com/satelliteoflove/godot-mcp/issues/363) [#364](https://github.com/satelliteoflove/godot-mcp/issues/364)
+
 ## [4.1.3](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.2...godot-mcp-v4.1.3) (2026-08-26)
 
 
