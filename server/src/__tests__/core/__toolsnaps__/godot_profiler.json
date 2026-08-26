@@ -1,6 +1,6 @@
 {
   "name": "godot_profiler",
-  "description": "Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks (useful for finding per-frame cost sources); get_signal_connections maps signal wiring. For observing game state rather than performance, use godot_runtime_state.",
+  "description": "Profile a running game; every action errors if no game is playing. Use snapshot for one-shot engine metrics, or start → get_data for a per-frame time series with percentile stats, frame-budget usage, spike detection, and monitor trends. get_active_processes lists scripts with live _process/_physics_process callbacks across the whole tree, tagged scene/autoload/exec (useful for finding per-frame cost sources); get_signal_connections maps signal wiring, including an autoload's outgoing connections. get_data's per-frame detail is a ring of the last 300 frames; its run block covers the whole profile. For observing game state rather than performance, use godot_runtime_state.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,10 +14,10 @@
           "get_active_processes",
           "get_signal_connections"
         ],
-        "description": "snapshot: Full performance snapshot (all engine metrics)\nstart: Start per-frame time-series profiling\nstop: Stop time-series profiling\nget_data: Get collected time-series data with spike detection\nget_active_processes: List active _process/_physics_process scripts\nget_signal_connections: Inspect signal connections"
+        "description": "snapshot: Full performance snapshot (all engine metrics)\nstart: Start per-frame time-series profiling\nstop: Stop time-series profiling\nget_data: Get collected time-series data with spike detection. Per-frame detail (percentiles, spikes, monitor trends) covers a ring buffer of the LAST 300 frames only — the `window` field says how much of the run that is; `run` carries whole-run aggregates (frames, duration, avg/max, frames over budget, a frame-time histogram) so a ten-second profile can still answer \"did anything spike\".\nget_active_processes: List scripts with live _process/_physics_process callbacks across the whole tree — scene, autoloads, and nodes attached by godot_exec — tagged by location.\nget_signal_connections: Inspect signal connections"
       },
       "node_path": {
-        "description": "Node path (defaults to scene root) (for: get_signal_connections)",
+        "description": "Node to walk from (default: the whole tree — scene, autoloads and exec-attached nodes). An absolute /root/... path may name an autoload. (for: get_signal_connections)",
         "type": "string"
       }
     },

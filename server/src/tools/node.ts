@@ -45,7 +45,7 @@ const NodeReadSchema = z
       root_path: z
         .string()
         .optional()
-        .describe('Path to start search from (defaults to scene root)'),
+        .describe('Path to start search from (defaults to scene root). An absolute /root/... path may name an autoload or any node beside the scene.'),
     }),
   ])
   // Constraints a discriminated union can't express on its own, so they live here:

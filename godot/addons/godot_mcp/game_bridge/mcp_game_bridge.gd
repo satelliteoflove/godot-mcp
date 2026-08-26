@@ -562,10 +562,34 @@ func _get_node_from_path(path: String, scene_root: Node) -> Node:
 				return scene_root
 			return scene_root.get_node_or_null(relative)
 
+	if path.begins_with("/root/") or path == "/root":
+		# Absolute path beside the scene: an autoload, the exec holder, etc. (#369)
+		var tree := get_tree()
+		return tree.root.get_node_or_null(path.trim_prefix("/root").trim_prefix("/")) if tree else null
+
 	if path.begins_with("/"):
 		path = path.substr(1)
 
 	return scene_root.get_node_or_null(path)
+
+
+# Where a node lives relative to the running scene: "scene", "autoload", "exec"
+# (attached by godot_exec under the holder), or "root" (anything else beside
+# the scene). The bridge's own node is filtered out by callers.
+func _node_location(node: Node, scene_root: Node) -> String:
+	var tree := get_tree()
+	var n := node
+	while n != null and n.get_parent() != tree.root:
+		n = n.get_parent()
+	if n == null:
+		return "root"
+	if n == scene_root:
+		return "scene"
+	if n == _exec_holder:
+		return "exec"
+	if ProjectSettings.has_setting("autoload/" + String(n.name)):
+		return "autoload"
+	return "root"
 
 
 func _find_recursive(node: Node, scene_root: Node, name_pattern: String, type_filter: String, results: Array) -> void:
@@ -573,11 +597,7 @@ func _find_recursive(node: Node, scene_root: Node, name_pattern: String, type_fi
 	var type_matches := type_filter.is_empty() or node.is_class(type_filter)
 
 	if name_matches and type_matches:
-		var path := "/root/" + scene_root.name
-		var relative := scene_root.get_path_to(node)
-		if relative != NodePath("."):
-			path += "/" + str(relative)
-		results.append({"path": path, "type": node.get_class()})
+		results.append({"path": _node_path_string(node, scene_root), "type": node.get_class()})
 
 	for child in node.get_children():
 		_find_recursive(child, scene_root, name_pattern, type_filter, results)
@@ -645,8 +665,13 @@ func _handle_get_active_processes() -> void:
 		EngineDebugger.send_message("godot_mcp:game_response", ["get_active_processes", {"processes": []}])
 		return
 
+	# Walk the whole tree, not just the scene: autoloads and exec-attached
+	# nodes are exactly the per-frame cost sources a scene walk misses (#369).
 	var script_map: Dictionary = {}
-	_collect_processes(scene_root, scene_root, script_map)
+	for child in tree.root.get_children():
+		if child == self:
+			continue
+		_collect_processes(child, scene_root, script_map)
 
 	var processes: Array = []
 	for script_path in script_map:
@@ -678,6 +703,7 @@ func _collect_processes(node: Node, scene_root: Node, script_map: Dictionary) ->
 				"has_physics_process": false,
 				"instance_count": 0,
 				"example_paths": [],
+				"locations": [],
 			}
 
 		var entry: Dictionary = script_map[script_path]
@@ -687,11 +713,10 @@ func _collect_processes(node: Node, scene_root: Node, script_map: Dictionary) ->
 			entry.has_physics_process = true
 		entry.instance_count += 1
 		if entry.example_paths.size() < 3:
-			var path := "/root/" + scene_root.name
-			var relative := scene_root.get_path_to(node)
-			if relative != NodePath("."):
-				path += "/" + str(relative)
-			entry.example_paths.append(path)
+			entry.example_paths.append(_node_path_string(node, scene_root))
+		var loc := _node_location(node, scene_root)
+		if not entry.locations.has(loc):
+			entry.locations.append(loc)
 
 	for child in node.get_children():
 		_collect_processes(child, scene_root, script_map)
@@ -706,15 +731,20 @@ func _handle_get_signal_connections(data: Array) -> void:
 		EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": []}])
 		return
 
-	var search_root: Node = scene_root
-	if not node_path.is_empty():
-		search_root = _get_node_from_path(node_path, scene_root)
+	var connections: Array = []
+	if node_path.is_empty():
+		# Whole tree minus the bridge: an autoload's outgoing connections (a beat
+		# clock driving scene nodes) are invisible to a scene-rooted walk (#369).
+		for child in tree.root.get_children():
+			if child == self:
+				continue
+			_collect_signal_connections(child, scene_root, connections, 0)
+	else:
+		var search_root := _get_node_from_path(node_path, scene_root)
 		if not search_root:
 			EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": [], "error": "Node not found: " + node_path}])
 			return
-
-	var connections: Array = []
-	_collect_signal_connections(search_root, scene_root, connections, 0)
+		_collect_signal_connections(search_root, scene_root, connections, 0)
 
 	EngineDebugger.send_message("godot_mcp:game_response", ["get_signal_connections", {"connections": connections}])
 
@@ -753,12 +783,11 @@ func _collect_signal_connections(node: Node, scene_root: Node, connections: Arra
 		_collect_signal_connections(child, scene_root, connections, depth + 1)
 
 
-func _node_path_string(node: Node, scene_root: Node) -> String:
-	var path := "/root/" + scene_root.name
-	var relative := scene_root.get_path_to(node)
-	if relative != NodePath("."):
-		path += "/" + str(relative)
-	return path
+# Absolute tree path. Identical to the old "/root/<scene>/<relative>" form for
+# scene nodes, and correct (not "/root/Main/../Conductor") for autoloads and
+# other nodes beside the scene now that walkers can reach them (#369).
+func _node_path_string(node: Node, _scene_root: Node) -> String:
+	return str(node.get_path())
 
 
 func _handle_get_runtime_state(data: Array) -> void:

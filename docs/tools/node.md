@@ -40,7 +40,7 @@ Find nodes by name and/or type. Searches the RUNNING game's live tree when a gam
 |-----------|------|----------|-------------|
 | `name_pattern` | string | No | Glob pattern to match node names, e.g. "*Spawner*", "Turret?" |
 | `type` | string | No | Filter by node type, e.g. "CharacterBody2D", "Area2D" |
-| `root_path` | string | No | Path to start search from (defaults to scene root) |
+| `root_path` | string | No | Path to start search from (defaults to scene root). An absolute /root/... path may name an autoload or any node beside the scene. |
 
 ### Examples
 
