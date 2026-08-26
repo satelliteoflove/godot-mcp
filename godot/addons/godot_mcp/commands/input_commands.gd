@@ -88,9 +88,10 @@ func get_input_map(_params: Dictionary) -> Dictionary:
 	return _success(_input_map_result)
 
 
-# Builtin ui_* actions worth listing without a game running: the ones an agent
-# can actually inject for menu navigation. The other ~100 ui_text_*/ui_*.macos
-# variants are noise here (get_settings category=input lists them all).
+# Builtin ui_* actions worth listing: the ones an agent can actually inject for
+# menu navigation. The other ~100 ui_text_*/ui_*.macos variants are noise here
+# (get_settings category=input lists them all). Keep in sync with the same
+# constant in mcp_game_bridge.gd so both map sources agree.
 const INJECTABLE_UI_ACTIONS: Array[String] = [
 	"ui_up", "ui_down", "ui_left", "ui_right",
 	"ui_accept", "ui_cancel", "ui_focus_next", "ui_focus_prev",

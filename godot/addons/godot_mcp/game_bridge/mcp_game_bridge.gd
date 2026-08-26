@@ -1247,10 +1247,19 @@ class _MCPGameLogger extends Logger:
 		return _dropped
 
 
+# Builtin ui_* actions worth listing: the ones an agent can inject for menu
+# navigation. Keep in sync with INJECTABLE_UI_ACTIONS in input_commands.gd so
+# the game-sourced and project-sourced maps agree (#348).
+const INJECTABLE_UI_ACTIONS: Array[String] = [
+	"ui_up", "ui_down", "ui_left", "ui_right",
+	"ui_accept", "ui_cancel", "ui_focus_next", "ui_focus_prev",
+]
+
+
 func _handle_get_input_map() -> void:
 	var actions: Array = []
 	for action_name in InputMap.get_actions():
-		if action_name.begins_with("ui_"):
+		if action_name.begins_with("ui_") and not action_name in INJECTABLE_UI_ACTIONS:
 			continue
 		var events := InputMap.action_get_events(action_name)
 		var event_strings: Array = []
