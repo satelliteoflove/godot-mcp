@@ -13,6 +13,7 @@ import { registerAllTools } from './tools/index.js';
 import { GodotCommandError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 import { getServerVersion } from './version.js';
+import { checkBuildFreshness } from './utils/build-info.js';
 
 function isReadOnlyMode(): boolean {
   const envValue = process.env.GODOT_MCP_READ_ONLY;
@@ -171,6 +172,13 @@ export async function main(deps: MainDeps = {}) {
   server.onclose = gracefulShutdown;
 
   logger.info('Server started');
+
+  // A source checkout whose dist predates its src: every tool reply would be
+  // from old code while addon_status says versions match. Say so once.
+  const build = checkBuildFreshness();
+  if (build.stale) {
+    logger.warning(`Server build is stale: ${build.reason}`);
+  }
 
   // Now reach for Godot, in the background. initializeConnection swallows its
   // own connect failures and schedules reconnects, so this never rejects and

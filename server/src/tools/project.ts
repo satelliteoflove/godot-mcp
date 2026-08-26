@@ -4,6 +4,7 @@ import { structured } from '../core/structured.js';
 import { staleAdvisory, type ProjectStaleness } from '../utils/project-staleness.js';
 import type { AnyToolDefinition } from '../core/types.js';
 import { getServerVersion } from '../version.js';
+import { checkBuildFreshness } from '../utils/build-info.js';
 
 const ProjectSchema = z.discriminatedUnion('action', [
   z.object({
@@ -21,7 +22,7 @@ const ProjectSchema = z.discriminatedUnion('action', [
       .describe('Include built-in ui_* actions (with category="input")'),
   }),
   z.object({
-    action: z.literal('addon_status').describe('Check addon/server version compatibility'),
+    action: z.literal('addon_status').describe('Check addon/server version compatibility, and whether the running server build is stale (source edited after the last npm run build)'),
   }),
   z.object({
     action: z
@@ -41,7 +42,7 @@ export const project = defineTool({
   name: 'godot_project',
   annotations: { title: 'Project Info', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
-    'Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops. For scene contents or node properties, use godot_node_read instead.',
+    'Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops; it also reports whether the running server build is stale relative to its source checkout. For scene contents or node properties, use godot_node_read instead.',
   schema: ProjectSchema,
   async execute(args: ProjectArgs, { godot }) {
     switch (args.action) {
@@ -67,14 +68,21 @@ export const project = defineTool({
 
       case 'addon_status': {
         const serverVersion = getServerVersion();
+        // server_version comes from package.json, which a stale dist shares with
+        // fresh source; server_build compares the built source hash to src/.
+        const build = checkBuildFreshness();
+        const buildNote = build.stale ? `Server build is STALE: ${build.reason}` : null;
 
         if (!godot.isConnected) {
           return structured(
             {
               connected: false,
               server_version: serverVersion,
-              recommendation:
+              server_build: build,
+              recommendation: [
+                buildNote,
                 'Not connected to Godot. Ask user for their project path, then install with: npx @satelliteoflove/godot-mcp --install-addon <path>',
+              ].filter(Boolean).join(' '),
             }
           );
         }
@@ -82,19 +90,22 @@ export const project = defineTool({
         const addonVersion = godot.addonVersion;
         const projectPath = godot.projectPath;
         const versionsMatch = godot.versionsMatch;
+        const mismatchNote = versionsMatch
+          ? null
+          : `Version mismatch. Close Godot and run: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`;
+        const notes = [buildNote, mismatchNote].filter(Boolean);
 
         return structured(
           {
             connected: true,
             server_version: serverVersion,
+            server_build: build,
             addon_version: addonVersion ?? 'unknown',
             versions_match: versionsMatch,
             project_path: projectPath,
             project_name: godot.projectName,
             godot_version: godot.godotVersion,
-            recommendation: versionsMatch
-              ? null
-              : `Version mismatch. Close Godot and run: npx @satelliteoflove/godot-mcp --install-addon "${projectPath}"`,
+            recommendation: notes.length > 0 ? notes.join(' ') : null,
           }
         );
       }

@@ -1,6 +1,6 @@
 {
   "name": "godot_project",
-  "description": "Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops. For scene contents or node properties, use godot_node_read instead.",
+  "description": "Read project-level data from the editor: name, path, Godot version, and main scene (get_info), plus project settings including input mappings (get_settings). After editing project.godot as a file, use check_stale to detect whether the editor is still running stale autoloads or input map from before the edit; restart via godot_editor_edit to reload. Use addon_status to diagnose addon/server version skew when commands misbehave or the connection drops; it also reports whether the running server build is stale relative to its source checkout. For scene contents or node properties, use godot_node_read instead.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -12,7 +12,7 @@
           "addon_status",
           "check_stale"
         ],
-        "description": "get_info: Get project name, path, version, and main scene\nget_settings: Get project settings\naddon_status: Check addon/server version compatibility\ncheck_stale: Check whether project.godot was edited on disk after the editor loaded it, leaving the editor with stale autoloads / input map (and phantom \"Identifier not found\" errors in its log that do not exist at runtime). Returns the disk-vs-editor divergence; run godot_editor_edit restart to reload. Useful right after editing project.godot as a file."
+        "description": "get_info: Get project name, path, version, and main scene\nget_settings: Get project settings\naddon_status: Check addon/server version compatibility, and whether the running server build is stale (source edited after the last npm run build)\ncheck_stale: Check whether project.godot was edited on disk after the editor loaded it, leaving the editor with stale autoloads / input map (and phantom \"Identifier not found\" errors in its log that do not exist at runtime). Returns the disk-vs-editor divergence; run godot_editor_edit restart to reload. Useful right after editing project.godot as a file."
       },
       "category": {
         "description": "Settings category to filter by (use \"input\" for input mappings) (for: get_settings)",

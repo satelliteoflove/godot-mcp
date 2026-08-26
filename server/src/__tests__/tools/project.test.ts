@@ -9,6 +9,21 @@ describe('project tool', () => {
     mock = createMockGodot();
   });
 
+  describe('addon_status', () => {
+    it('reports server_build beside the version comparison', async () => {
+      const ctx = createToolContext(mock);
+      Object.assign(ctx.godot, {
+        isConnected: true, addonVersion: '4.1.7', versionsMatch: true,
+        projectPath: '/p', projectName: 'demo',
+      });
+      const data = structuredOf(await project.execute({ action: 'addon_status' }, ctx));
+      expect(data.versions_match).toBe(true);
+      // Under vitest this module runs from src/, which is fresh by construction.
+      expect(data.server_build).toEqual({ mode: 'source', stale: false });
+      expect(data.recommendation).toBeNull();
+    });
+  });
+
   describe('check_stale (#245)', () => {
     it('queries get_project_staleness', async () => {
       mock.mockResponse({ stale: false });
