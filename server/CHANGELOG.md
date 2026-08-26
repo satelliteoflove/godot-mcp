@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.1](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.0...godot-mcp-v4.1.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* close out the open bug reports ([#351](https://github.com/satelliteoflove/godot-mcp/issues/351)) ([7f3986b](https://github.com/satelliteoflove/godot-mcp/commit/7f3986b66f450bdb129dc594fb9f5930074a00aa))
+
 ## [4.1.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.0.1...godot-mcp-v4.1.0) (2026-06-20)
 
 
