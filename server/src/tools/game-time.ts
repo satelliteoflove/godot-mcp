@@ -66,7 +66,7 @@ const GameTimeSchema = z
       until: z
         .string()
         .min(1)
-        .describe('A GDScript boolean expression, re-evaluated against the running game every frame; stepping stops the frame it is truthy. Autoloads are in scope by name (e.g. `G.wave > 1`, `GameState.tick_count % 12 == 11`), plus `tree` (the SceneTree) and `root` (the root Window) for tree queries (e.g. `tree.get_nodes_in_group("enemies").size() >= 1`). Must parse and evaluate without error against the current state or the call is rejected up front. Expressions do NOT short-circuit (`and`/`or` evaluate both operands), so to read a node that may not exist yet, do not guard with `arr.size() > 0 and arr[0].x` — sequence two calls instead: step_until the node exists (`tree.get_nodes_in_group("boss").size() >= 1`), then step_until reading it (`tree.get_nodes_in_group("boss")[0].state == 4`).'),
+        .describe('A GDScript boolean expression, re-evaluated against the running game every frame; stepping stops the frame it is truthy. Autoloads are in scope by name (e.g. `G.wave > 1`, `GameState.tick_count % 12 == 11`), plus `tree` (the SceneTree), `root` (the root Window) for tree queries (e.g. `tree.get_nodes_in_group("enemies").size() >= 1`), and the engine singletons `Engine`, `Time`, `Performance`, `AudioServer`, `Input`, `DisplayServer`, `OS`. Must parse and evaluate without error against the current state or the call is rejected up front. Expressions do NOT short-circuit (`and`/`or` evaluate both operands), so to read a node that may not exist yet, do not guard with `arr.size() > 0 and arr[0].x` — sequence two calls instead: step_until the node exists (`tree.get_nodes_in_group("boss").size() >= 1`), then step_until reading it (`tree.get_nodes_in_group("boss")[0].state == 4`).'),
       max_ms: z
         .number()
         .int()
@@ -77,7 +77,7 @@ const GameTimeSchema = z
       report: z
         .array(z.string().min(1))
         .optional()
-        .describe('Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. ["G.wave", "tree.get_nodes_in_group(\\"enemies\\").size()"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse and evaluate without error up front.'),
+        .describe('Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. ["G.wave", "tree.get_nodes_in_group(\\"enemies\\").size()"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse up front, but is only evaluated when stepping stops, so it may read state the step itself creates (a spawned node); an expression that fails then comes back as { error: message } in the map without failing the call. Game code can tell it is inside a step window via `get_node("/root/MCPGameBridge").is_stepping()`.'),
       inputs: z
         .array(InputEntrySchema)
         .optional()
