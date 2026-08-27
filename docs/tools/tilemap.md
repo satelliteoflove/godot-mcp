@@ -43,7 +43,7 @@ Get the layer's TileSet info
 
 #### `get_used_cells`
 
-Get all used cells
+All used cells grouped by tile: tiles[] of {source_id, atlas_coords, alternative_tile, count, cells: [[x, y], ...]}. Answers "where is tile T" in one call; a few bytes per cell.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -60,7 +60,7 @@ Get a single cell
 
 #### `get_cells_in_region`
 
-Get cells within a rectangular region
+Cells within a rectangular region, grouped by tile exactly like get_used_cells.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -221,7 +221,7 @@ Get the GridMap's MeshLibrary info
 
 #### `get_used_cells`
 
-Get all used cells
+All used cells grouped by MeshLibrary item: items[] of {item, count, cells: [[x, y, z], ...]}. Orientation per cell is in get_cell / get_cells_by_item.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

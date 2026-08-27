@@ -23,14 +23,14 @@ const TilemapReadSchema = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('get_info').describe('Get TileMapLayer info'), node_path: tilemapNodePath }),
   z.object({ action: z.literal('get_tileset_info').describe("Get the layer's TileSet info"), node_path: tilemapNodePath }),
-  z.object({ action: z.literal('get_used_cells').describe('Get all used cells'), node_path: tilemapNodePath }),
+  z.object({ action: z.literal('get_used_cells').describe('All used cells grouped by tile: tiles[] of {source_id, atlas_coords, alternative_tile, count, cells: [[x, y], ...]}. Answers "where is tile T" in one call; a few bytes per cell.'), node_path: tilemapNodePath }),
   z.object({
     action: z.literal('get_cell').describe('Get a single cell'),
     node_path: tilemapNodePath,
     coords: Vector2iSchema.describe('Cell coordinates'),
   }),
   z.object({
-    action: z.literal('get_cells_in_region').describe('Get cells within a rectangular region'),
+    action: z.literal('get_cells_in_region').describe('Cells within a rectangular region, grouped by tile exactly like get_used_cells.'),
     node_path: tilemapNodePath,
     min_coords: Vector2iSchema.describe('Minimum corner of region'),
     max_coords: Vector2iSchema.describe('Maximum corner of region'),
@@ -197,7 +197,7 @@ const GridmapReadSchema = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('get_info').describe('Get GridMap info'), node_path: gridmapNodePath }),
   z.object({ action: z.literal('get_meshlib_info').describe("Get the GridMap's MeshLibrary info"), node_path: gridmapNodePath }),
-  z.object({ action: z.literal('get_used_cells').describe('Get all used cells'), node_path: gridmapNodePath }),
+  z.object({ action: z.literal('get_used_cells').describe('All used cells grouped by MeshLibrary item: items[] of {item, count, cells: [[x, y, z], ...]}. Orientation per cell is in get_cell / get_cells_by_item.'), node_path: gridmapNodePath }),
   z.object({
     action: z.literal('get_cell').describe('Get a single cell'),
     node_path: gridmapNodePath,

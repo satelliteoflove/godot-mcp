@@ -41,7 +41,7 @@ describe('tilemap read tool', () => {
       node_path: '/root/Ground',
     }, ctx) as string)).toHaveProperty('tile_size');
 
-    mock.mockResponse({ cells: [{ x: 0, y: 0 }], count: 1 });
+    mock.mockResponse({ count: 1, tiles: [{ source_id: 0, atlas_coords: { x: 0, y: 0 }, alternative_tile: 0, count: 1, cells: [[0, 0]] }] });
     expect(structuredOf(await tilemapRead.execute({
       action: 'get_used_cells',
       node_path: '/root/Ground',
@@ -59,7 +59,7 @@ describe('tilemap read tool', () => {
     }, ctx);
     expect(mock.calls[0].params.coords).toEqual({ x: 5, y: 10 });
 
-    mock.mockResponse({ cells: [], count: 0 });
+    mock.mockResponse({ count: 0, tiles: [] });
     await tilemapRead.execute({
       action: 'get_cells_in_region',
       node_path: '/root/Ground',

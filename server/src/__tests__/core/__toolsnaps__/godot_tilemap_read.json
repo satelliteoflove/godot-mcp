@@ -15,7 +15,7 @@
           "get_cells_in_region",
           "convert_coords"
         ],
-        "description": "list_layers: List TileMapLayer nodes in the scene\nget_info: Get TileMapLayer info\nget_tileset_info: Get the layer's TileSet info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_in_region: Get cells within a rectangular region\nconvert_coords: Convert between local position and map coordinates"
+        "description": "list_layers: List TileMapLayer nodes in the scene\nget_info: Get TileMapLayer info\nget_tileset_info: Get the layer's TileSet info\nget_used_cells: All used cells grouped by tile: tiles[] of {source_id, atlas_coords, alternative_tile, count, cells: [[x, y], ...]}. Answers \"where is tile T\" in one call; a few bytes per cell.\nget_cell: Get a single cell\nget_cells_in_region: Cells within a rectangular region, grouped by tile exactly like get_used_cells.\nconvert_coords: Convert between local position and map coordinates"
       },
       "root_path": {
         "description": "Starting node path (defaults to scene root) (for: list_layers)",
