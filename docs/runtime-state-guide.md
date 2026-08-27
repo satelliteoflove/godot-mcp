@@ -250,7 +250,8 @@ them in a digest (e.g. `/root/GameState`):
 ```
 
 then `{ "action": "watch_collect" }` returns a per-field summary
-(start/end/min/max/mean/slope plus events for numbers; transitions for strings). The raw
+(start/end/min/max/mean/slope for numbers, with `min_at`/`max_at` giving the `t_ms`
+of the first sample at each extreme, plus sign-change events; transitions for strings). The raw
 per-frame samples never reach the agent, so the cost is bounded by field count, not window
 length. See [Tools Reference -> Runtime State](tools/runtime-state.md) for the full surface.
 
