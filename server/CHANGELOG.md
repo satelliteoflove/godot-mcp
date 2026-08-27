@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.8](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.7...godot-mcp-v4.1.8) (2026-08-27)
+
+
+### Bug Fixes
+
+* watch honors hz; scene3d bounds include GridMap (4.1.8) ([#381](https://github.com/satelliteoflove/godot-mcp/issues/381)) ([1aa3652](https://github.com/satelliteoflove/godot-mcp/commit/1aa3652010a1d02bb7006ebbda5318f867372eb2))
+
 ## [4.1.7](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.6...godot-mcp-v4.1.7) (2026-08-26)
 
 
