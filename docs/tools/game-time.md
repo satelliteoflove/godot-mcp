@@ -29,6 +29,7 @@ Advance a bounded slice of game time, then re-freeze. Freezes first if the game 
 | `duration_ms` | integer | No | Game time to advance in milliseconds (max 50000; loop steps for longer). Scaled by Engine.time_scale like normal play. Mutually exclusive with frames. |
 | `frames` | integer | No | Frames to advance instead of a duration (max 1200). frames: 1 is a single-frame advance. Mutually exclusive with duration_ms. |
 | `inputs` | array | No | Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, raw keys (with modifier combos), and relative mouse-look (look: [dx, dy], delivered as InputEventMouseMotion.relative inside the frozen step — the FPS-camera testing path). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end. |
+| `report` | string[] | No | Optional GDScript expressions evaluated on the window's last frame and returned as a { expression: value } map, exactly as for step_until (same scope: autoloads by name, `tree`, `root`, engine singletons). Reads what the inputs did in the same call instead of a follow-up exec. |
 
 #### `step_until`
 

@@ -52,6 +52,7 @@ func _run() -> void:
 	_test_freeze_pauses_sampling(sampler, emitter)
 	_test_hz_is_game_time(sampler)
 	_test_field_reporting(sampler)
+	_test_final_sample_on_stop(sampler)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
 	await _test_auto_stop(sampler, emitter)
@@ -290,6 +291,29 @@ func _test_field_reporting(sampler: MCPRuntimeStateSampler) -> void:
 	var w: Array = fields.get("/root/Bar:size.x", [])
 	_check("fields: Control size.x sampled", w.size() == 1 and w[0].value == 100.0, true)
 	ctl.queue_free()
+
+
+func _test_final_sample_on_stop(sampler: MCPRuntimeStateSampler) -> void:
+	# #389: a value that flips on a frame with no scheduled sample must still be
+	# the `end` of the window when stop()/collect() read it.
+	var fake: Node = root.get_node("/root/FakeAutoload")
+	var before = fake.score
+	fake.score = 1
+	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 10, 5000, [])
+	sampler._process(0.01)  # first frame samples (score 1)
+	fake.score = 2
+	sampler._process(0.01)  # 20 ms in, next sample not due until 100 ms
+	var mid: Array = (sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", [])
+	_check("final sample: collect sees the flip the schedule missed", mid.back().value, 2.0)
+	_check("final sample: collect took exactly one extra sample", mid.size(), 2)
+	var again: Array = (sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", [])
+	_check("final sample: a second collect with no new frames adds nothing", again.size(), 2)
+	fake.score = 3
+	sampler._process(0.01)
+	var fin: Array = (sampler.stop().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", [])
+	_check("final sample: stop ends on the current value", fin.back().value, 3.0)
+	_check("final sample: sampler runs late in the frame", sampler.process_priority > 0, true)
+	fake.score = before
 
 
 func _test_arg_caps(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:

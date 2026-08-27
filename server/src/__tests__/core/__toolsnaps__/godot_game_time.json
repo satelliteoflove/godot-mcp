@@ -291,6 +291,14 @@
           ]
         }
       },
+      "report": {
+        "description": "for step: Optional GDScript expressions evaluated on the window's last frame and returned as a { expression: value } map, exactly as for step_until (same scope: autoloads by name, `tree`, `root`, engine singletons). Reads what the inputs did in the same call instead of a follow-up exec.; for step_until: Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. [\"G.wave\", \"tree.get_nodes_in_group(\\\"enemies\\\").size()\"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse up front, but is only evaluated when stepping stops, so it may read state the step itself creates (a spawned node); an expression that fails then comes back as { error: message } in the map without failing the call. Game code can tell it is inside a step window via `get_node(\"/root/MCPGameBridge\").is_stepping()`. (for: step, step_until)",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
       "until": {
         "type": "string",
         "minLength": 1,
@@ -301,14 +309,6 @@
         "type": "integer",
         "minimum": 1,
         "maximum": 50000
-      },
-      "report": {
-        "description": "Optional GDScript expressions (same scope as `until`) evaluated when stepping stops and returned as a { expression: value } map — e.g. [\"G.wave\", \"tree.get_nodes_in_group(\\\"enemies\\\").size()\"]. Use this to read the state you care about in the same call instead of a separate observation round-trip. Each must parse up front, but is only evaluated when stepping stops, so it may read state the step itself creates (a spawned node); an expression that fails then comes back as { error: message } in the map without failing the call. Game code can tell it is inside a step window via `get_node(\"/root/MCPGameBridge\").is_stepping()`. (for: step_until)",
-        "type": "array",
-        "items": {
-          "type": "string",
-          "minLength": 1
-        }
       }
     },
     "required": [
