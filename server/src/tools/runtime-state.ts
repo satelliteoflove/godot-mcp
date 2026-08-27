@@ -423,7 +423,10 @@ export const runtimeState = defineTool({
   description:
     'Observe live game state as structured data. ' +
     'Use digest for a one-shot entity snapshot (replaces most godot_editor_read screenshot_game calls). ' +
-    'Use watch_start → watch_collect for state-over-time without context blowup.',
+    'Use watch_start → watch_collect for state-over-time without context blowup. ' +
+    'Navigation (NavigationAgent path state, NavigationServer map sync, find-path) is not ' +
+    'exposed here; use godot_exec with the recipe in docs/runtime-state-guide.md ' +
+    '"Reading navigation state".',
   schema: RuntimeStateSchema,
 
   async execute(args: RuntimeStateArgs, { godot }) {

@@ -336,6 +336,60 @@ func _can_resync() -> bool:
 evaluation at the end of the window, and false otherwise (including while
 frozen). The `has_node` guard keeps the game running without the addon.
 
+## Reading navigation state
+
+There is no `nav` action. `digest` and `watch` only see what a node exposes, and
+NavigationAgent state is a handful of getters plus a server with its own sync
+model, so read it with `godot_exec`. The recipe below returns everything that
+usually matters for "the agent isn't moving" in one call; adjust the paths.
+
+```gdscript
+var agent: NavigationAgent3D = get_node("/root/Main/Guard/NavigationAgent3D")
+var body: Node3D = agent.get_parent()
+var pos := body.global_position
+var next := agent.get_next_path_position()
+var to_next := pos.distance_to(next)
+var to_next_xz := Vector2(pos.x, pos.z).distance_to(Vector2(next.x, next.z))
+var map := agent.get_navigation_map()
+return JSON.stringify({
+    "target": agent.target_position,
+    "target_reachable": agent.is_target_reachable(),
+    "finished": agent.is_navigation_finished(),
+    "next": next,
+    "distance_to_next": to_next,
+    "distance_to_next_xz": to_next_xz,
+    "distance_to_target": agent.distance_to_target(),
+    "path_points": agent.get_current_navigation_path().size(),
+    "path_index": agent.get_current_navigation_path_index(),
+    # The classic stuck case: the next point is within path_desired_distance
+    # in 3D (usually straight below the agent) but not once flattened to XZ,
+    # so the agent never advances past it and its XZ move direction is zero.
+    "stuck_next_point_below": to_next <= agent.path_desired_distance and to_next_xz > 0.01,
+    "map_iteration": NavigationServer3D.map_get_iteration_id(map),
+    "map_regions": NavigationServer3D.map_get_regions(map).size(),
+    "closest_nav_point": NavigationServer3D.map_get_closest_point(map, pos),
+})
+```
+
+Things to know before trusting the numbers:
+
+- The NavigationServer syncs once per physics tick. A region you just baked
+  (`NavigationRegion3D.bake_navigation_mesh()` or a swapped `navigation_mesh`)
+  isn't queryable, and `map_get_iteration_id` doesn't change, until the next
+  tick. Under a freeze that means one `godot_game_time step` first.
+- `get_next_path_position()` is what the agent will steer toward. If it equals
+  the current position after flattening the Y axis, the agent is stuck on the
+  gotcha above; raise `path_desired_distance`, or project the target onto the
+  navmesh with `map_get_closest_point` before assigning it.
+- `map_get_closest_point` on top of a wall or pillar means the bake climbed
+  it: check the region's `agent_max_slope` / `cell_height` before blaming the
+  agent.
+- Route checks: `NavigationServer3D.map_get_path(map, from, to, true)` returns
+  the polyline the agent would follow; sum the segment lengths for total
+  distance. `NavigationRegion3D.get_bounds()` gives a region's AABB.
+- The 2D API is the same shape (`NavigationAgent2D`, `NavigationServer2D`,
+  `Vector2`); drop the XZ flattening.
+
 ## Quick checklist
 
 - Tag the entities that matter into the `mcp_watch` group.

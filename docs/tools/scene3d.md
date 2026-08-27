@@ -10,7 +10,7 @@
 
 ## godot_scene3d
 
-Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs, combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.
+Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.
 
 ### Actions
 
@@ -28,7 +28,7 @@ Get spatial data for a Node3D and optionally its children
 
 #### `get_bounds`
 
-Get the combined AABB of a subtree
+Get the combined AABB of a subtree (VisualInstance3D and GridMap nodes)
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
