@@ -39,6 +39,7 @@ interface Contract {
   watch_start_request: Shape;
   watch_start_request_positional: string[];
   watch_start_response: Shape;
+  unresolved_field: Shape;
   unresolved_signal: Shape;
   watch_collect_response: Shape;
   field_sample: Shape;
@@ -93,6 +94,7 @@ describe('watch wire contract (#286)', () => {
     const shapes: (keyof Contract)[] = [
       'watch_start_request',
       'watch_start_response',
+      'unresolved_field',
       'unresolved_signal',
       'watch_collect_response',
       'field_sample',
@@ -117,6 +119,7 @@ describe('watch wire contract (#286)', () => {
       objFromContract('watch_start_response', {
         started: true,
         resolved_fields: 0,
+        unresolved_fields: [],
         connected_signals: 0,
         unresolved_signals: [],
       })
@@ -139,6 +142,13 @@ describe('watch wire contract (#286)', () => {
     const startResp = objFromContract('watch_start_response', {
       started: true,
       resolved_fields: 2,
+      unresolved_fields: [
+        objFromContract('unresolved_field', {
+          path: '/root/HUD/Bar',
+          field: 'pos.y',
+          reason: 'not_readable',
+        }),
+      ],
       connected_signals: 1,
       unresolved_signals: [
         objFromContract('unresolved_signal', {
@@ -160,6 +170,12 @@ describe('watch wire contract (#286)', () => {
 
     // Each assertion proves the TS decode read a specific contract key.
     expect(data.resolved_fields).toBe(2); // resolved_fields
+    expect(data.unresolved_fields).toHaveLength(1); // unresolved_fields
+    expect(data.unresolved_fields[0]).toMatchObject({
+      path: '/root/HUD/Bar', // unresolved_field.path
+      field: 'pos.y', // unresolved_field.field
+      reason: 'not_readable', // unresolved_field.reason
+    });
     expect(data.connected_signals).toBe(1); // connected_signals
     expect(data.unresolved_signals).toHaveLength(1); // unresolved_signals
     expect(data.unresolved_signals[0]).toMatchObject({

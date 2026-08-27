@@ -50,7 +50,13 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 	_elapsed_ms = 0.0
 	_next_sample_ms = 0.0  # first unpaused frame samples immediately (t ~= one delta)
 
+	# resolved_fields counts fields that are READABLE at start (node found and a
+	# probe read returned a value), not node lookups. Every field that isn't is
+	# listed in unresolved_fields with a reason, the same way signals are: a
+	# missing node or an inapplicable key (pos.y on a node with no position) used
+	# to be a silent gap in the result while still counted as resolved (#383).
 	var field_count := 0
+	var unresolved_fields: Array = []
 	for spec in specs:
 		if field_count >= MAX_FIELDS:
 			break
@@ -61,16 +67,24 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 
 		var node := _resolve_node(node_path)
 		if node == null:
+			for field_key in fields:
+				unresolved_fields.append({"path": node_path, "field": str(field_key), "reason": "node_not_found"})
 			continue
 
 		var resolved_fields: Array = []
 		for field_key in fields:
 			if field_count >= MAX_FIELDS:
-				break
+				unresolved_fields.append({"path": node_path, "field": str(field_key), "reason": "field_cap"})
+				continue
 			var full_key: String = node_path + ":" + str(field_key)
+			if _read_field(node, str(field_key)) == null:
+				# Still sampled (a _mcp_state key may appear later), but not counted
+				# as resolved and named in the reply so the gap is not a surprise.
+				unresolved_fields.append({"path": node_path, "field": str(field_key), "reason": "not_readable"})
+			else:
+				field_count += 1
 			_samples[full_key] = []
 			resolved_fields.append({"key": field_key, "full_key": full_key})
-			field_count += 1
 
 		if not resolved_fields.is_empty():
 			_specs.append({"node": node, "node_path": node_path, "fields": resolved_fields})
@@ -140,6 +154,7 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 
 	return {
 		"resolved_fields": field_count,
+		"unresolved_fields": unresolved_fields,
 		"connected_signals": connected,
 		"unresolved_signals": unresolved,
 	}
@@ -355,11 +370,23 @@ func _read_field(node: Node, key: String) -> Variant:
 				return snapped((node as Node2D).global_position.x, 0.01)
 			if node is Node3D:
 				return snapped((node as Node3D).global_position.x, 0.01)
+			if node is Control:
+				# Post-layout global rect: the value a "did the HUD move" question
+				# is about, and the same shape as the digest `ui` block (#383).
+				return snapped((node as Control).get_global_rect().position.x, 0.01)
 		"pos.y":
 			if node is Node2D:
 				return snapped((node as Node2D).global_position.y, 0.01)
 			if node is Node3D:
 				return snapped((node as Node3D).global_position.y, 0.01)
+			if node is Control:
+				return snapped((node as Control).get_global_rect().position.y, 0.01)
+		"size.x":
+			if node is Control:
+				return snapped((node as Control).get_global_rect().size.x, 0.01)
+		"size.y":
+			if node is Control:
+				return snapped((node as Control).get_global_rect().size.y, 0.01)
 		"pos.z":
 			if node is Node3D:
 				return snapped((node as Node3D).global_position.z, 0.01)

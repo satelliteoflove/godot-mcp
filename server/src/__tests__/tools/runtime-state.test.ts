@@ -467,6 +467,39 @@ describe('runtimeState tool', () => {
 
   // ── watch_collect ────────────────────────────────────────────────────────
 
+  describe('watch_start', () => {
+    it('surfaces unresolved_fields with a warning', async () => {
+      mock.mockResponse({
+        started: true,
+        resolved_fields: 1,
+        unresolved_fields: [{ path: '/root/HUD/Bar', field: 'pos.y', reason: 'not_readable' }],
+        connected_signals: 0,
+        unresolved_signals: [],
+      });
+      const ctx = createToolContext(mock);
+      const result = await runtimeState.execute(
+        { action: 'watch_start', specs: [{ path: '/root/HUD/Bar', fields: ['pos.y', 'x'] }] },
+        ctx
+      );
+      const data = structuredOf(result);
+      expect(data.resolved_fields).toBe(1);
+      expect(data.unresolved_fields).toEqual([{ path: '/root/HUD/Bar', field: 'pos.y', reason: 'not_readable' }]);
+      expect(data.warnings.join(' ')).toContain('/root/HUD/Bar:pos.y (not_readable)');
+    });
+
+    it('degrades to an empty unresolved_fields list against an older addon', async () => {
+      mock.mockResponse({ started: true, resolved_fields: 2 });
+      const ctx = createToolContext(mock);
+      const result = await runtimeState.execute(
+        { action: 'watch_start', specs: [{ path: '/root/P', fields: ['pos.x'] }] },
+        ctx
+      );
+      const data = structuredOf(result);
+      expect(data.unresolved_fields).toEqual([]);
+      expect(data.warnings).toEqual([]);
+    });
+  });
+
   describe('watch_collect', () => {
     it('summarizes numeric fields from raw samples', async () => {
       const raw = {
