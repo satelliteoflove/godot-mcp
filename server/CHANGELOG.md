@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.10](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.9...godot-mcp-v4.1.10) (2026-08-27)
+
+
+### Bug Fixes
+
+* numeric watch summaries say when min and max happened ([#390](https://github.com/satelliteoflove/godot-mcp/issues/390)) ([977919d](https://github.com/satelliteoflove/godot-mcp/commit/977919d75390a724459c4166dd854a2eae0cf5e6)), closes [#384](https://github.com/satelliteoflove/godot-mcp/issues/384)
+
 ## [4.1.9](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.8...godot-mcp-v4.1.9) (2026-08-27)
 
 
