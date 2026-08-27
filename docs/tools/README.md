@@ -54,7 +54,7 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 3D spatial information and bounding box tools
 
-- `godot_scene3d` - Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs, combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.
+- `godot_scene3d` - Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.
 
 ## [Documentation](docs.md)
 
@@ -78,7 +78,7 @@ Performance profiling: snapshots, per-frame time series with spike detection, ac
 
 Observe live game entity state as structured JSON — positions, velocities, animation state, and custom _mcp_state() data. Works out of the box for both 2D and 3D scenes (the auto fallback surfaces visible 3D world nodes — meshes, gridmaps, cameras, lights, physics bodies and areas — not just UI). Much cheaper than screenshots.
 
-- `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most godot_editor_read screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup.
+- `godot_runtime_state` - Observe live game state as structured data. Use digest for a one-shot entity snapshot (replaces most godot_editor_read screenshot_game calls). Use watch_start → watch_collect for state-over-time without context blowup. Navigation (NavigationAgent path state, NavigationServer map sync, find-path) is not exposed here; use godot_exec with the recipe in docs/runtime-state-guide.md "Reading navigation state".
 
 ## [Game Time Control](game-time.md)
 

@@ -99,11 +99,11 @@ func _run() -> void:
 	emitter.fired.emit()
 	emitter.hit.emit(3)
 
-	# Drive a few field samples deterministically (interval forced to 1, as in the
-	# timeline test) so `fields` is non-empty and field_sample keys can be checked.
-	sampler._sample_interval = 1
+	# Drive a few field samples deterministically (each frame advances game time
+	# past the 60 Hz interval, as in the timeline test) so `fields` is non-empty
+	# and field_sample keys can be checked.
 	for i in 3:
-		sampler._process(0.0)
+		sampler._process(0.02)
 
 	var result: Dictionary = sampler.collect()
 

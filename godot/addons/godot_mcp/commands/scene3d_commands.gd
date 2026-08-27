@@ -96,13 +96,60 @@ func _get_node3d_info(node: Node3D) -> Dictionary:
 		"visible": node.visible,
 	}
 
-	if node is VisualInstance3D:
-		var aabb := (node as VisualInstance3D).get_aabb()
-		var global_aabb := node.global_transform * aabb
+	var bounds := _local_bounds(node)
+	if bounds.has("aabb"):
+		var aabb: AABB = bounds.aabb
 		info["aabb"] = _serialize_aabb(aabb)
-		info["global_aabb"] = _serialize_aabb(global_aabb)
+		info["global_aabb"] = _serialize_aabb(node.global_transform * aabb)
 
 	return info
+
+
+## Local-space bounds of a node that draws something, or {} when it draws
+## nothing we can measure (no mesh, or a GridMap with no cells). VisualInstance3D
+## reports its own AABB. GridMap is a
+## plain Node3D that renders through its own RenderingServer instances, so its
+## bounds are folded from the placed cells: each cell contributes its library
+## mesh's AABB (through the item mesh transform, cell orientation and
+## cell_scale, at the cell's local origin), or a cell_size box when the item
+## has no mesh -- so it covers what is actually drawn, not just the grid (#379).
+func _local_bounds(node: Node) -> Dictionary:
+	if node is VisualInstance3D:
+		var aabb := (node as VisualInstance3D).get_aabb()
+		# A MeshInstance3D with no mesh (assigned at runtime, null in the editor)
+		# reports a zero-size AABB at its origin. That is not geometry: counting it
+		# would merge a point into the subtree bounds and report a bogus zero box.
+		if aabb.size == Vector3.ZERO:
+			return {}
+		return {"aabb": aabb}
+	if node is GridMap:
+		var grid := node as GridMap
+		var cells := grid.get_used_cells()
+		if cells.is_empty():
+			return {}
+		var library: MeshLibrary = grid.mesh_library
+		var cell_box := AABB(-grid.cell_size / 2.0, grid.cell_size)
+		var scale_basis := Basis().scaled(Vector3.ONE * grid.cell_scale)
+		var total := AABB()
+		var first := true
+		for cell in cells:
+			var item := grid.get_cell_item(cell)
+			var origin: Vector3 = grid.map_to_local(cell)
+			var cell_aabb: AABB
+			var mesh: Mesh = library.get_item_mesh(item) if library != null and library.get_item_list().has(item) else null
+			if mesh != null:
+				var orientation := grid.get_basis_with_orthogonal_index(grid.get_cell_item_orientation(cell))
+				var xform := Transform3D(orientation * scale_basis, origin) * library.get_item_mesh_transform(item)
+				cell_aabb = xform * mesh.get_aabb()
+			else:
+				cell_aabb = AABB(cell_box.position + origin, cell_box.size)
+			if first:
+				total = cell_aabb
+				first = false
+			else:
+				total = total.merge(cell_aabb)
+		return {"aabb": total}
+	return {}
 
 
 func _serialize_aabb(aabb: AABB) -> Dictionary:
@@ -131,7 +178,7 @@ func get_scene_bounds(params: Dictionary) -> Dictionary:
 	_collect_bounds(search_root, state)
 
 	if state.count == 0:
-		return _error("NO_GEOMETRY", "No VisualInstance3D nodes found under: %s" % (root_path if not root_path.is_empty() else "scene root"))
+		return _error("NO_GEOMETRY", "No VisualInstance3D or populated GridMap nodes found under: %s" % (root_path if not root_path.is_empty() else "scene root"))
 
 	var usable_path := "/root/" + scene_root.name
 	if search_root != scene_root:
@@ -146,10 +193,9 @@ func get_scene_bounds(params: Dictionary) -> Dictionary:
 
 
 func _collect_bounds(node: Node, state: Dictionary) -> void:
-	if node is VisualInstance3D:
-		var visual := node as VisualInstance3D
-		var local_aabb := visual.get_aabb()
-		var global_aabb := visual.global_transform * local_aabb
+	var bounds := _local_bounds(node)
+	if bounds.has("aabb"):
+		var global_aabb: AABB = (node as Node3D).global_transform * bounds.aabb
 
 		if state.first:
 			state.aabb = global_aabb

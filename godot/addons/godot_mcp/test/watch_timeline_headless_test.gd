@@ -50,6 +50,7 @@ func _run() -> void:
 	_test_fairness_three(sampler, emitter)
 	_test_field_samples_truncated(sampler, emitter)
 	_test_freeze_pauses_sampling(sampler, emitter)
+	_test_hz_is_game_time(sampler)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
 	await _test_auto_stop(sampler, emitter)
@@ -193,16 +194,15 @@ func _test_fairness_three(sampler: MCPRuntimeStateSampler, emitter: _Emitter) ->
 
 func _test_field_samples_truncated(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
 	# Sampled-field history caps at MAX_SAMPLES_PER_FIELD; overflow must be FLAGGED,
-	# not silently dropped (#285 #4). Drive _process directly with the interval forced
-	# to 1 so the sample count is deterministic and independent of the headless frame
-	# rate (which makes the fps-derived _sample_interval unpredictable).
+	# not silently dropped (#285 #4). Drive _process directly with a 20 ms delta
+	# (past the 60 Hz interval) so every frame samples and the count is
+	# deterministic, independent of the headless frame rate.
 	# Watch a real field ("score", saturates) alongside a never-readable "ghost" field
 	# (_read_field returns null, so it never appends and must never appear in
 	# fields_truncated) — proving the flag is genuinely per-field, not blanket.
 	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score", "ghost"]}], 60, 5000, [])
-	sampler._sample_interval = 1
 	for i in MCPRuntimeStateSampler.MAX_SAMPLES_PER_FIELD + 25:
-		sampler._process(0.0)
+		sampler._process(0.02)
 	var result: Dictionary = sampler.stop()
 	var ft: Dictionary = result.get("fields_truncated", {})
 	_check("field saturation: overflow flagged for the saturated field",
@@ -220,9 +220,8 @@ func _test_freeze_pauses_sampling(sampler: MCPRuntimeStateSampler, _emitter: _Em
 	# but the sampler inherits PROCESS_MODE_ALWAYS so _process keeps firing. Those
 	# paused frames must NOT advance the window or record samples — otherwise the
 	# window (formerly wall-clock) ran down during frozen idle and stepped tests
-	# came back flat. Drive _process directly with the interval forced to 1.
+	# came back flat. Drive _process directly; 500 ms deltas exceed any interval.
 	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 60, 5000, [])
-	sampler._sample_interval = 1
 	paused = true
 	for i in 5:
 		sampler._process(0.5)  # 5 frames @ 500ms each — would be 2500ms of WALL time
@@ -240,6 +239,24 @@ func _test_freeze_pauses_sampling(sampler: MCPRuntimeStateSampler, _emitter: _Em
 	_check("freeze: sampling resumes once unpaused (step)", live_samples > 0, true)
 	_check("freeze: window advances in GAME time once unpaused (~1500ms)",
 		int(live.get("window_ms")) >= 1400, true)
+	sampler.stop()
+
+
+func _test_hz_is_game_time(sampler: MCPRuntimeStateSampler) -> void:
+	# #378: hz is a rate in game time, not a frame stride. 1 s of game time must
+	# yield ~hz samples regardless of the frame rate it is delivered at.
+	sampler.start([{"path": "/root/FakeAutoload", "fields": ["score"]}], 10, 5000, [])
+	for i in 240:
+		sampler._process(1.0 / 240.0)  # 240 fps for 1 s
+	var fast: int = ((sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
+	_check("hz: 1 s at 240 fps gives ~10 samples at 10 Hz (not 40)", fast >= 10 and fast <= 11, true)
+	for i in 30:
+		sampler._process(1.0 / 30.0)  # then 30 fps for 1 s -- same rate expected
+	var total: int = ((sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
+	_check("hz: a frame-rate change mid-window keeps the same sample rate", total - fast >= 9 and total - fast <= 11, true)
+	sampler._process(0.5)  # one 500 ms stall: exactly one sample, no burst
+	var after_stall: int = ((sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
+	_check("hz: a long frame takes one sample, no catch-up burst", after_stall - total, 1)
 	sampler.stop()
 
 
