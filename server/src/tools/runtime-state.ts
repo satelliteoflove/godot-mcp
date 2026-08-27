@@ -75,6 +75,7 @@ interface WatchRawResponse {
 // ── Server-side summarization helpers ───────────────────────────────────────
 
 export interface NumericFieldSummary {
+  samples: number;
   start: number;
   end: number;
   min: number;
@@ -88,6 +89,7 @@ export interface NumericFieldSummary {
 }
 
 export interface StringFieldSummary {
+  samples: number;
   start: string;
   end: string;
   changes: Array<{ t_ms: number; from: string; to: string }>;
@@ -100,7 +102,7 @@ export function summarizeNumericField(
   windowMs: number
 ): NumericFieldSummary {
   if (samples.length === 0) {
-    return { start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] };
+    return { samples: 0, start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] };
   }
 
   const values = samples.map((s) => s.value as number);
@@ -122,12 +124,12 @@ export function summarizeNumericField(
     }
   }
 
-  return { start: first, end: last, min, max, mean, slope, events };
+  return { samples: samples.length, start: first, end: last, min, max, mean, slope, events };
 }
 
 export function summarizeStringField(samples: WatchRawSample[]): StringFieldSummary {
   if (samples.length === 0) {
-    return { start: '', end: '', changes: [] };
+    return { samples: 0, start: '', end: '', changes: [] };
   }
 
   const first = samples[0].value as string;
@@ -142,7 +144,7 @@ export function summarizeStringField(samples: WatchRawSample[]): StringFieldSumm
     }
   }
 
-  return { start: first, end: last, changes };
+  return { samples: samples.length, start: first, end: last, changes };
 }
 
 function summarizeWatchRaw(raw: WatchRawResponse): Record<string, NumericFieldSummary | StringFieldSummary> {
@@ -237,9 +239,13 @@ function summarizeWatchResponse(raw: WatchRawResponse) {
   const stringFieldTruncated = Object.values(fields).some(
     (f) => 'changes' in f && f.samples_truncated === true
   );
+  // sample_count is the SUM over fields (two fields at 10 Hz for 1 s read 20), so
+  // it is not a rate; samples_per_field (the longest field) is, against window_ms.
+  const samplesPerField = Math.max(0, ...Object.values(raw.fields).map((f) => f.length));
   return structured({
     window_ms: raw.window_ms,
     sample_count: raw.sample_count,
+    samples_per_field: samplesPerField,
     fields,
     timeline,
     // Honest headline: the timeline omits entries for ANY reason — the signal-event

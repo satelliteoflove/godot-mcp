@@ -82,6 +82,16 @@ func _process(_delta: float) -> bool:
 	_approx("collect: merged min", state.aabb.position, Vector3(-10.5, 0.5, -0.5))
 	_approx("collect: merged max", state.aabb.end, Vector3(20.5, 5.5, 16.5))
 
+	# A MeshInstance3D with no mesh (runtime-assigned) has no bounds and is not counted.
+	var bare := MeshInstance3D.new()
+	bare.position = Vector3(50, 50, 50)
+	parent.add_child(bare)
+	_check("mesh-less MeshInstance3D has no bounds", cmds._local_bounds(bare).has("aabb"), false)
+	state = {"aabb": AABB(), "count": 0, "first": true}
+	cmds._collect_bounds(parent, state)
+	_check("collect: mesh-less instance not counted", state.count, 2)
+	_approx("collect: mesh-less instance does not stretch the box", state.aabb.end, Vector3(20.5, 5.5, 16.5))
+
 	print("1..%d" % _n)
 	if _fail == 0:
 		print("ALL PASS - %d checks" % _n)

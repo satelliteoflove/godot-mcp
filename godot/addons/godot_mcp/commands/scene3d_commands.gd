@@ -106,7 +106,8 @@ func _get_node3d_info(node: Node3D) -> Dictionary:
 
 
 ## Local-space bounds of a node that draws something, or {} when it draws
-## nothing we can measure. VisualInstance3D reports its own AABB. GridMap is a
+## nothing we can measure (no mesh, or a GridMap with no cells). VisualInstance3D
+## reports its own AABB. GridMap is a
 ## plain Node3D that renders through its own RenderingServer instances, so its
 ## bounds are folded from the placed cells: each cell contributes its library
 ## mesh's AABB (through the item mesh transform, cell orientation and
@@ -114,7 +115,13 @@ func _get_node3d_info(node: Node3D) -> Dictionary:
 ## has no mesh -- so it covers what is actually drawn, not just the grid (#379).
 func _local_bounds(node: Node) -> Dictionary:
 	if node is VisualInstance3D:
-		return {"aabb": (node as VisualInstance3D).get_aabb()}
+		var aabb := (node as VisualInstance3D).get_aabb()
+		# A MeshInstance3D with no mesh (assigned at runtime, null in the editor)
+		# reports a zero-size AABB at its origin. That is not geometry: counting it
+		# would merge a point into the subtree bounds and report a bogus zero box.
+		if aabb.size == Vector3.ZERO:
+			return {}
+		return {"aabb": aabb}
 	if node is GridMap:
 		var grid := node as GridMap
 		var cells := grid.get_used_cells()

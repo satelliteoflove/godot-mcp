@@ -490,7 +490,9 @@ describe('runtimeState tool', () => {
 
       expect(data.window_ms).toBe(1000);
       expect(data.sample_count).toBe(5);
+      expect(data.samples_per_field).toBe(5);
       const summary = data.fields['/root/Player:pos.x'];
+      expect(summary.samples).toBe(5);
       expect(summary.start).toBe(100);
       expect(summary.end).toBe(250);
       expect(summary.min).toBe(100);

@@ -344,7 +344,7 @@ model, so read it with `godot_exec`. The recipe below returns everything that
 usually matters for "the agent isn't moving" in one call; adjust the paths.
 
 ```gdscript
-var agent: NavigationAgent3D = get_node("/root/Main/Guard/NavigationAgent3D")
+var agent: NavigationAgent3D = root.get_node("/root/Main/Guard/NavigationAgent3D")
 var body: Node3D = agent.get_parent()
 var pos := body.global_position
 var next := agent.get_next_path_position()
@@ -361,10 +361,11 @@ return JSON.stringify({
     "distance_to_target": agent.distance_to_target(),
     "path_points": agent.get_current_navigation_path().size(),
     "path_index": agent.get_current_navigation_path_index(),
-    # The classic stuck case: the next point is within path_desired_distance
-    # in 3D (usually straight below the agent) but not once flattened to XZ,
-    # so the agent never advances past it and its XZ move direction is zero.
-    "stuck_next_point_below": to_next <= agent.path_desired_distance and to_next_xz > 0.01,
+    # The classic stuck case: the next point sits straight below (or above)
+    # the agent, so the XZ distance is ~0 and the flattened move direction is
+    # zero, while the 3D distance is still at or past path_desired_distance,
+    # so the agent never counts the point as reached and never advances.
+    "stuck_next_point_below": to_next_xz < 0.01 and to_next >= agent.path_desired_distance,
     "map_iteration": NavigationServer3D.map_get_iteration_id(map),
     "map_regions": NavigationServer3D.map_get_regions(map).size(),
     "closest_nav_point": NavigationServer3D.map_get_closest_point(map, pos),
@@ -378,9 +379,11 @@ Things to know before trusting the numbers:
   isn't queryable, and `map_get_iteration_id` doesn't change, until the next
   tick. Under a freeze that means one `godot_game_time step` first.
 - `get_next_path_position()` is what the agent will steer toward. If it equals
-  the current position after flattening the Y axis, the agent is stuck on the
-  gotcha above; raise `path_desired_distance`, or project the target onto the
-  navmesh with `map_get_closest_point` before assigning it.
+  the current position after flattening the Y axis but is still
+  `path_desired_distance` or more away in 3D, the agent is stuck on the gotcha
+  above; raise `path_desired_distance` past the vertical gap, or keep the
+  agent's Y on the navmesh (`map_get_closest_point`) so the path points aren't
+  below it.
 - `map_get_closest_point` on top of a wall or pillar means the bake climbed
   it: check the region's `agent_max_slope` / `cell_height` before blaming the
   agent.

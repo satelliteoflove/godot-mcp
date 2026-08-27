@@ -110,6 +110,9 @@ export const scene3d = defineTool({
           line += `  rotation: ${formatVector3(n.global_rotation)} rad\n`;
           line += `  scale: ${formatVector3(n.global_scale)}\n`;
           line += `  visible: ${n.visible}`;
+          if (n.aabb) {
+            line += `\n  aabb: ${formatAABB(n.aabb)}`;
+          }
           if (n.global_aabb) {
             line += `\n  global_aabb: ${formatAABB(n.global_aabb)}`;
           }
