@@ -704,7 +704,7 @@ describe('buildTimeline', () => {
 
   it('splits field keys on the LAST colon (paths may contain colons)', () => {
     const fields = {
-      '/root/Player:anim': { start: 'a', end: 'b', changes: [{ t_ms: 10, from: 'a', to: 'b' }] },
+      '/root/Player:anim': { samples: 2, start: 'a', end: 'b', changes: [{ t_ms: 10, from: 'a', to: 'b' }] },
     };
     const [entry] = buildTimeline([], fields);
     expect(entry).toEqual({ t_ms: 10, kind: 'anim_transition', source: '/root/Player', from: 'a', to: 'b' });
@@ -712,8 +712,8 @@ describe('buildTimeline', () => {
 
   it('orders t_ms ties deterministically: signal < anim_transition < field_change', () => {
     const fields = {
-      '/root/P:state': { start: 'x', end: 'y', changes: [{ t_ms: 100, from: 'x', to: 'y' }] },
-      '/root/P:anim': { start: 'a', end: 'b', changes: [{ t_ms: 100, from: 'a', to: 'b' }] },
+      '/root/P:state': { samples: 2, start: 'x', end: 'y', changes: [{ t_ms: 100, from: 'x', to: 'y' }] },
+      '/root/P:anim': { samples: 2, start: 'a', end: 'b', changes: [{ t_ms: 100, from: 'a', to: 'b' }] },
     };
     const events = [{ t_ms: 100, source: '/root/P', signal: 'tick' }];
     expect(buildTimeline(events, fields).map((e) => e.kind)).toEqual([
@@ -741,7 +741,7 @@ describe('buildTimeline', () => {
   it('ignores numeric field summaries entirely', () => {
     const fields = {
       '/root/P:vel.x': {
-        start: 0, end: 5, min: 0, max: 5, mean: 2.5, slope: 5,
+        samples: 2, start: 0, end: 5, min: 0, max: 5, mean: 2.5, slope: 5,
         events: [{ t_ms: 50, from: 0, to: 5, kind: 'zero_cross' as const }],
       },
     };
@@ -754,7 +754,7 @@ describe('buildTimeline', () => {
 describe('summarizeNumericField', () => {
   it('returns zeros for empty input', () => {
     const r = summarizeNumericField([], 1000);
-    expect(r).toEqual({ start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] });
+    expect(r).toEqual({ samples: 0, start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] });
   });
 
   it('handles single sample', () => {
@@ -813,7 +813,7 @@ describe('summarizeNumericField', () => {
 describe('summarizeStringField', () => {
   it('returns empty result for empty input', () => {
     const r = summarizeStringField([]);
-    expect(r).toEqual({ start: '', end: '', changes: [] });
+    expect(r).toEqual({ samples: 0, start: '', end: '', changes: [] });
   });
 
   it('returns no changes for constant value', () => {
