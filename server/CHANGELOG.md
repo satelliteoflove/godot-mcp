@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.11](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.10...godot-mcp-v4.1.11) (2026-08-27)
+
+
+### Bug Fixes
+
+* step report, watch final sample, grouped tilemap cell reads (4.1.11) ([#391](https://github.com/satelliteoflove/godot-mcp/issues/391)) ([6f73158](https://github.com/satelliteoflove/godot-mcp/commit/6f73158152f351bfd3fe94519d4e4aea83dd8289))
+
 ## [4.1.10](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.9...godot-mcp-v4.1.10) (2026-08-27)
 
 
