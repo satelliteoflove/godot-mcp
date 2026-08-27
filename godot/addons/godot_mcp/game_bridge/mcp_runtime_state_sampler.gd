@@ -17,8 +17,12 @@ var _duration_ms: int = 1000
 # godot_game_time freeze the tree is paused between steps, and counting wall time
 # there would run the window down / log stale samples before the step that moves.
 var _elapsed_ms: float = 0.0
-var _frame_index: int = 0
-var _sample_interval: int = 1  # sample every N frames
+# Next sample is due when _elapsed_ms reaches this. Sampling is scheduled in GAME
+# time (1000 / hz ms apart), never as a frame stride: a stride derived from one
+# fps reading at start() is wrong whenever the frame rate during the window
+# differs from it -- launched frozen the reading is 0, after a long freeze it is
+# stale -- and the window then fills 2-4x faster or slower than asked (#378).
+var _next_sample_ms: float = 0.0
 var _samples: Dictionary = {}  # field_key -> Array of {t_ms, value}
 var _events: Array = []        # [{t_ms, source, signal, args?}] -- signal emissions this window
 var _events_truncated: bool = false
@@ -44,8 +48,7 @@ func start(specs: Array, hz: int, duration_ms: int, signal_specs: Array = []) ->
 	_hz = clampi(hz, 1, 60)
 	_duration_ms = clampi(duration_ms, 100, 5000)
 	_elapsed_ms = 0.0
-	_frame_index = 0
-	_sample_interval = max(1, int(Engine.get_frames_per_second() / _hz)) if Engine.get_frames_per_second() > 0 else max(1, int(60.0 / _hz))
+	_next_sample_ms = 0.0  # first unpaused frame samples immediately (t ~= one delta)
 
 	var field_count := 0
 	for spec in specs:
@@ -242,9 +245,14 @@ func _process(delta: float) -> void:
 		_disconnect_all()
 		return
 
-	_frame_index += 1
-	if _frame_index % _sample_interval != 0:
+	if _elapsed_ms < _next_sample_ms:
 		return
+	var interval_ms := 1000.0 / float(_hz)
+	_next_sample_ms += interval_ms
+	if _next_sample_ms <= _elapsed_ms:
+		# A frame longer than the interval (stall, or a big single step): take one
+		# sample now and resync rather than bursting to make up the missed ticks.
+		_next_sample_ms = _elapsed_ms + interval_ms
 
 	for spec in _specs:
 		# Untyped: a typed assignment of a freed instance is a script error that
