@@ -58,6 +58,10 @@ const GameTimeSchema = z
         .array(InputEntrySchema)
         .optional()
         .describe('Input timeline executed inside the window; start_ms is game time from window start. Entries share the godot_input sequence vocabulary: named actions (with analog strength), joypad buttons, axis holds, stick vectors, raw keys (with modifier combos), and relative mouse-look (look: [dx, dy], delivered as InputEventMouseMotion.relative inside the frozen step — the FPS-camera testing path). Inputs must ride inside the step — events injected while frozen miss their is_action_just_pressed edge. Holds are always released by window end.'),
+      report: z
+        .array(z.string().min(1))
+        .optional()
+        .describe('Optional GDScript expressions evaluated on the window\'s last frame and returned as a { expression: value } map, exactly as for step_until (same scope: autoloads by name, `tree`, `root`, engine singletons). Reads what the inputs did in the same call instead of a follow-up exec.'),
     }),
     z.object({
       action: z
@@ -115,9 +119,9 @@ interface StepResult {
   pause_transitions?: Array<{ at_ms: number; paused: boolean }>;
   wall_budget_exceeded?: boolean;
   input_kinds?: Record<string, number>;
+  report?: Record<string, unknown>;
   // step_until only:
   predicate_met?: boolean;
-  report?: Record<string, unknown>;
   predicate_error?: string;
 }
 
@@ -145,6 +149,7 @@ export const gameTime = defineTool({
         const result = await godot.sendCommand<StepResult>('game_time_step', {
           duration_ms: args.duration_ms,
           frames: args.frames,
+          report: args.report,
           inputs: compileInputEntries(args.inputs ?? []),
           relay_timeout_ms: t.relayMs,
           wall_budget_ms: t.bridgeWallMs,

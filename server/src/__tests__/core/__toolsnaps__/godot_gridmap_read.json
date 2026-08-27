@@ -14,7 +14,7 @@
           "get_cell",
           "get_cells_by_item"
         ],
-        "description": "list: List GridMap nodes in the scene\nget_info: Get GridMap info\nget_meshlib_info: Get the GridMap's MeshLibrary info\nget_used_cells: Get all used cells\nget_cell: Get a single cell\nget_cells_by_item: Get all cells using a given MeshLibrary item"
+        "description": "list: List GridMap nodes in the scene\nget_info: Get GridMap info\nget_meshlib_info: Get the GridMap's MeshLibrary info\nget_used_cells: All used cells grouped by MeshLibrary item: items[] of {item, count, cells: [[x, y, z], ...]}. Orientation per cell is in get_cell / get_cells_by_item.\nget_cell: Get a single cell\nget_cells_by_item: Get all cells using a given MeshLibrary item"
       },
       "root_path": {
         "description": "Starting node path (defaults to scene root) (for: list)",

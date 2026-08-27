@@ -1598,7 +1598,8 @@ var _step_last_tree_paused := false
 # fixed-budget step, set for step_until; _step_response_type routes _finish_step's
 # reply to the matching command (the relay correlates by message type). _step_report
 # is the optional readings the agent wants back at stop time (in one round-trip,
-# instead of a separate observation call) — each is [{src: String, expr: Expression}].
+# instead of a separate observation call), for both step kinds — each is
+# [{src: String, expr: Expression}]; _step_predicate_inputs is their context.
 var _step_predicate: Expression = null
 var _step_predicate_inputs: Array = []
 var _step_predicate_met := false
@@ -1734,6 +1735,19 @@ func _handle_game_time_step(data: Array) -> void:
 		return
 	_step_input_kinds = compiled["kinds"]
 
+	# Optional readings at stop time, same contract as step_until's report (#388):
+	# parsed up front in the predicate context, evaluated on the window's last frame.
+	var report_compiled: Array = []
+	var report_inputs: Array = []
+	if not (params.get("report", []) as Array).is_empty():
+		var ctx := _build_predicate_context()
+		var report_result := _compile_report(params.get("report", []), ctx["names"], ctx["inputs"])
+		if report_result.has("error"):
+			_send_game_time_response("game_time_step", {"error": report_result["error"]})
+			return
+		report_compiled = report_result["report"]
+		report_inputs = ctx["inputs"]
+
 	# Step from a running game is allowed — it freezes first, so "advance
 	# 500ms then wait for me" is a single atomic call.
 	_engage_freeze()
@@ -1753,6 +1767,8 @@ func _handle_game_time_step(data: Array) -> void:
 	_step_wall_start = Time.get_ticks_msec()
 	_step_wall_budget_ms = int(params.get("wall_budget_ms", STEP_WALL_BUDGET_MS))
 	_step_predicate = null
+	_step_predicate_inputs = report_inputs
+	_step_report = report_compiled
 	_step_response_type = "game_time_step"
 	_step_active = true
 
@@ -2309,7 +2325,7 @@ func _finish_step() -> void:
 	# gates wall-clock resyncs on it must see the same answer during the last
 	# processed frame and at report time.
 	var report_values: Dictionary = {}
-	if _step_predicate != null and not _step_report.is_empty():
+	if not _step_report.is_empty():
 		report_values = _evaluate_report(_step_report, _step_predicate_inputs)
 
 	_step_active = false
@@ -2337,13 +2353,14 @@ func _finish_step() -> void:
 		result["pause_transitions"] = _step_transitions
 	if _step_wall_exceeded:
 		result["wall_budget_exceeded"] = true
+	# report carries the readings the agent asked for (the "what advanced" hint,
+	# so it need not re-observe), for step and step_until alike (#388).
+	if not _step_report.is_empty():
+		result["report"] = report_values
 	if _step_predicate != null:
-		# step_until: predicate_met is the headline. report carries the readings the
-		# agent asked for (the "what advanced" hint, so it need not re-observe). A
-		# non-met return means the cap or wall budget ran out first.
+		# step_until: predicate_met is the headline. A non-met return means the
+		# cap or wall budget ran out first.
 		result["predicate_met"] = _step_predicate_met
-		if not _step_report.is_empty():
-			result["report"] = report_values
 		if not _step_predicate_error.is_empty():
 			result["predicate_error"] = _step_predicate_error
 

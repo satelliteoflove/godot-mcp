@@ -190,12 +190,33 @@ func get_used_cells(params: Dictionary) -> Dictionary:
 			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
 		return _error("NOT_TILEMAP_LAYER", "Node is not a TileMapLayer: %s" % node_path)
 
-	var cells := layer.get_used_cells()
-	var result := []
-	for cell in cells:
-		result.append(_serialize_vector2i(cell))
+	return _success(_group_cells_by_tile(layer, layer.get_used_cells()))
 
-	return _success({"cells": result, "count": result.size()})
+
+## Cells grouped by tile identity (#387): one entry per distinct
+## source/atlas/alternative, each with its cell list as [x, y] pairs. Answers
+## "where is tile T" directly and costs a few bytes a cell, where a flat
+## per-cell object list was ~90 bytes a cell and still had to be grouped by
+## the reader. Cell data is base64 in the .tscn, so this is the only read path.
+func _group_cells_by_tile(layer: TileMapLayer, cells: Array) -> Dictionary:
+	var groups: Dictionary = {}  # "src:ax,ay:alt" -> tile entry (insertion order kept)
+	for cell in cells:
+		var source_id := layer.get_cell_source_id(cell)
+		var atlas_coords := layer.get_cell_atlas_coords(cell)
+		var alt_tile := layer.get_cell_alternative_tile(cell)
+		var key := "%d:%d,%d:%d" % [source_id, atlas_coords.x, atlas_coords.y, alt_tile]
+		if not groups.has(key):
+			groups[key] = {
+				"source_id": source_id,
+				"atlas_coords": _serialize_vector2i(atlas_coords),
+				"alternative_tile": alt_tile,
+				"count": 0,
+				"cells": [],
+			}
+		var entry: Dictionary = groups[key]
+		entry["count"] += 1
+		(entry["cells"] as Array).append([cell.x, cell.y])
+	return {"count": cells.size(), "tiles": groups.values()}
 
 
 func get_cell(params: Dictionary) -> Dictionary:
@@ -320,20 +341,12 @@ func get_cells_in_region(params: Dictionary) -> Dictionary:
 	var min_coords := _deserialize_vector2i(params["min_coords"])
 	var max_coords := _deserialize_vector2i(params["max_coords"])
 
-	var cells := []
+	var cells: Array = []
 	for cell in layer.get_used_cells():
 		if cell.x >= min_coords.x and cell.x <= max_coords.x and cell.y >= min_coords.y and cell.y <= max_coords.y:
-			var source_id := layer.get_cell_source_id(cell)
-			var atlas_coords := layer.get_cell_atlas_coords(cell)
-			var alt_tile := layer.get_cell_alternative_tile(cell)
-			cells.append({
-				"coords": _serialize_vector2i(cell),
-				"source_id": source_id,
-				"atlas_coords": _serialize_vector2i(atlas_coords),
-				"alternative_tile": alt_tile
-			})
+			cells.append(cell)
 
-	return _success({"cells": cells, "count": cells.size()})
+	return _success(_group_cells_by_tile(layer, cells))
 
 
 func set_cells_batch(params: Dictionary) -> Dictionary:
@@ -500,12 +513,19 @@ func get_gridmap_used_cells(params: Dictionary) -> Dictionary:
 			return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
 		return _error("NOT_GRIDMAP", "Node is not a GridMap: %s" % node_path)
 
+	# Grouped by MeshLibrary item (#387), cells as [x, y, z]; orientation is a
+	# per-cell detail left to get_cell / get_cells_by_item.
 	var cells := gridmap.get_used_cells()
-	var result := []
+	var groups: Dictionary = {}
 	for cell in cells:
-		result.append(_serialize_vector3i(cell))
+		var item := gridmap.get_cell_item(cell)
+		if not groups.has(item):
+			groups[item] = {"item": item, "count": 0, "cells": []}
+		var entry: Dictionary = groups[item]
+		entry["count"] += 1
+		(entry["cells"] as Array).append([cell.x, cell.y, cell.z])
 
-	return _success({"cells": result, "count": result.size()})
+	return _success({"count": cells.size(), "items": groups.values()})
 
 
 func get_gridmap_cell(params: Dictionary) -> Dictionary:

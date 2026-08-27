@@ -46,6 +46,8 @@ describe('game_time tool', () => {
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', max_ms: 0 }).success).toBe(false);
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: ['G.wave', 'G.score'] }).success).toBe(true);
       expect(gameTime.schema.safeParse({ action: 'step_until', until: 'true', report: [''] }).success).toBe(false);
+      expect(gameTime.schema.safeParse({ action: 'step', frames: 1, report: ['G.wave'] }).success).toBe(true);
+      expect(gameTime.schema.safeParse({ action: 'step', frames: 1, report: [''] }).success).toBe(false);
       expect(gameTime.schema.safeParse({
         action: 'step_until',
         until: 'true',
@@ -304,6 +306,31 @@ describe('game_time tool', () => {
       expect(data.predicate_met).toBe(true);
       expect(data.report).toEqual({ 'G.wave': 1 });
       expect(data.elapsed_ms).toBe(4317);
+    });
+
+    it('step forwards report and surfaces its readings (#388)', async () => {
+      mock.mockResponse({
+        completed: true,
+        frozen: true,
+        elapsed_ms: 560,
+        gameplay_ms: 560,
+        frames: 34,
+        physics_ticks: 34,
+        game_paused: false,
+        input_kinds: { action: 1, joy_button: 0, axis: 0, key: 0, look: 0 },
+        report: { 'Conductor.last_input_judgment': 'perfect' },
+      });
+      const ctx = createToolContext(mock);
+      const data = structuredOf(
+        await gameTime.execute(
+          { action: 'step', duration_ms: 560, report: ['Conductor.last_input_judgment'] },
+          ctx
+        )
+      );
+      expect(mock.calls[0].command).toBe('game_time_step');
+      expect(mock.calls[0].params.report).toEqual(['Conductor.last_input_judgment']);
+      expect(data.report).toEqual({ 'Conductor.last_input_judgment': 'perfect' });
+      expect(data.predicate_met).toBeUndefined();
     });
 
     it('reports predicate_met false when the cap is hit first', async () => {
