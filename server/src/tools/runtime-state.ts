@@ -325,14 +325,17 @@ const RuntimeStateSchema = z.discriminatedUnion('action', [
       .describe(
         'Start an in-engine sampler that records specified node fields over a time window. ' +
         'Returns immediately; call watch_collect after duration_ms to get the summarized digest. ' +
-        'Field keys: "pos.x", "pos.y", "vel.x", "vel.y" for built-in properties; ' +
-        'any key from _mcp_state() for custom game state (e.g. "health", "ammo"). ' +
+        'Field keys: "pos.x"/"pos.y"/"pos.z", "vel.x"/"vel.y"/"vel.z", "rot", "anim", "anim_frame" for ' +
+        'Node2D/Node3D/bodies/animation nodes; "pos.x"/"pos.y"/"size.x"/"size.y" (post-layout global ' +
+        'rect) for Controls; any key from _mcp_state() for custom game state (e.g. "health", "ammo"); ' +
+        'or a plain numeric/String/bool property name. ' +
         'TIMING: watch_start and the action that drives state change (godot_input sequence, ' +
         'player input, etc.) must overlap within the watch window. Send both in the same ' +
         'parallel tool call batch, or use a duration_ms large enough (3000–4000ms) to cover ' +
         'the round-trip latency before the driving action is approved and sent. ' +
-        'NODE PATHS: if a path in specs cannot be resolved, that spec is silently skipped; ' +
-        'check resolved_fields in the response — 0 means all paths were invalid.'
+        'resolved_fields counts fields readable at start; every field that is not (node_not_found, ' +
+        'not_readable = the key does not apply to that node type, field_cap) is listed in ' +
+        'unresolved_fields with its reason.'
       ),
     specs: z
       .array(
@@ -461,6 +464,7 @@ export const runtimeState = defineTool({
         const watchResult = await godot.sendCommand<{
           started: boolean;
           resolved_fields?: number;
+          unresolved_fields?: Array<{ path: string; field: string; reason: string }>;
           connected_signals?: number;
           unresolved_signals?: Array<{ path: string; signal: string; reason: string }>;
         }>('watch_start', {
@@ -472,9 +476,17 @@ export const runtimeState = defineTool({
         const wantFields = (args.specs?.length ?? 0) > 0;
         const requestedSignals = args.signals?.length ?? 0;
         const unresolved = watchResult.unresolved_signals ?? [];
+        const unresolvedFields = watchResult.unresolved_fields ?? [];
         const warnings: string[] = [];
         if (wantFields && (watchResult.resolved_fields ?? 0) === 0) {
           warnings.push('0 fields resolved — verify that all node paths in specs exist in the running scene.');
+        }
+        if (unresolvedFields.length > 0) {
+          warnings.push(
+            `unresolved fields: ${unresolvedFields.map((u) => `${u.path}:${u.field} (${u.reason})`).join(', ')}. ` +
+            'not_readable means the key does not apply to that node type (e.g. pos.y on a node with no position) ' +
+            'and is not in _mcp_state(); those fields will be absent from watch_collect.'
+          );
         }
         if (requestedSignals > 0) {
           // Version-skew detection: without it, dropped signal specs read as
@@ -502,6 +514,7 @@ export const runtimeState = defineTool({
           started: watchResult.started,
           note: `Sampler started. Call watch_collect after ~${args.duration_ms ?? 1000}ms to get results.`,
           resolved_fields: watchResult.resolved_fields ?? 0,
+          unresolved_fields: unresolvedFields,
           connected_signals: watchResult.connected_signals ?? 0,
           unresolved_signals: unresolved,
           warnings,

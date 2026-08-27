@@ -1262,6 +1262,7 @@ func _handle_watch_start(data: Array) -> void:
 	EngineDebugger.send_message("godot_mcp:game_response", ["watch_start", {
 		"started": true,
 		"resolved_fields": start_result.get("resolved_fields", 0),
+		"unresolved_fields": start_result.get("unresolved_fields", []),
 		"connected_signals": start_result.get("connected_signals", 0),
 		"unresolved_signals": start_result.get("unresolved_signals", []),
 	}])

@@ -230,7 +230,11 @@ and gets back an entity like:
 ## Watching state over time
 
 Keys you expose from `_mcp_state()` are also valid `watch_start` field keys, alongside the
-built-ins (`pos.x`, `pos.y`, `pos.z`, `vel.x`, `vel.y`, `vel.z`, `rot`, `anim`, ...).
+built-ins (`pos.x`, `pos.y`, `pos.z`, `vel.x`, `vel.y`, `vel.z`, `rot`, `anim`, ...;
+on a Control, `pos.*` and `size.*` read the post-layout global rect). A field
+that can't be read at start (missing node, or a key that doesn't apply to that
+node type) is listed in `unresolved_fields` with a reason and not counted in
+`resolved_fields`.
 Absolute paths work here too, so you can watch an autoload's fields the same way you read
 them in a digest (e.g. `/root/GameState`):
 

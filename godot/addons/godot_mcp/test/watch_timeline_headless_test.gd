@@ -51,6 +51,7 @@ func _run() -> void:
 	_test_field_samples_truncated(sampler, emitter)
 	_test_freeze_pauses_sampling(sampler, emitter)
 	_test_hz_is_game_time(sampler)
+	_test_field_reporting(sampler)
 	_test_arg_caps(sampler, emitter)
 	await _test_window_semantics(sampler, emitter)
 	await _test_auto_stop(sampler, emitter)
@@ -258,6 +259,37 @@ func _test_hz_is_game_time(sampler: MCPRuntimeStateSampler) -> void:
 	var after_stall: int = ((sampler.collect().get("fields", {}) as Dictionary).get("/root/FakeAutoload:score", []) as Array).size()
 	_check("hz: a long frame takes one sample, no catch-up burst", after_stall - total, 1)
 	sampler.stop()
+
+
+func _test_field_reporting(sampler: MCPRuntimeStateSampler) -> void:
+	# #383: resolved_fields counts READABLE fields; every other field is named
+	# with a reason. Controls answer pos.* / size.* from their global rect.
+	var ctl := Control.new()
+	ctl.name = "Bar"
+	ctl.position = Vector2(10, 58)
+	ctl.size = Vector2(100, 8)
+	root.add_child(ctl)
+	var res: Dictionary = sampler.start([
+		{"path": "/root/Bar", "fields": ["pos.y", "size.x", "vel.x"]},
+		{"path": "/root/FakeAutoload", "fields": ["score", "pos.y"]},
+		{"path": "/root/NoSuchNode", "fields": ["pos.x"]},
+	], 60, 5000, [])
+	_check("fields: only readable fields count as resolved", res.get("resolved_fields"), 3)
+	var unresolved: Array = res.get("unresolved_fields", [])
+	_check("fields: 3 unresolved named", unresolved.size(), 3)
+	var by_key := {}
+	for u in unresolved:
+		by_key[str(u.get("path")) + ":" + str(u.get("field"))] = u.get("reason")
+	_check("fields: vel.x on a Control is not_readable", by_key.get("/root/Bar:vel.x"), "not_readable")
+	_check("fields: pos.y on a plain Node is not_readable", by_key.get("/root/FakeAutoload:pos.y"), "not_readable")
+	_check("fields: missing node is node_not_found", by_key.get("/root/NoSuchNode:pos.x"), "node_not_found")
+	sampler._process(0.02)
+	var fields: Dictionary = sampler.stop().get("fields", {})
+	var y: Array = fields.get("/root/Bar:pos.y", [])
+	_check("fields: Control pos.y sampled from the global rect", y.size() == 1 and y[0].value == 58.0, true)
+	var w: Array = fields.get("/root/Bar:size.x", [])
+	_check("fields: Control size.x sampled", w.size() == 1 and w[0].value == 100.0, true)
+	ctl.queue_free()
 
 
 func _test_arg_caps(sampler: MCPRuntimeStateSampler, emitter: _Emitter) -> void:
