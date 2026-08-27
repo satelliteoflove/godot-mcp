@@ -528,6 +528,8 @@ describe('runtimeState tool', () => {
       expect(summary.samples).toBe(5);
       expect(summary.start).toBe(100);
       expect(summary.end).toBe(250);
+      expect(summary.min_at).toBe(0);
+      expect(summary.max_at).toBe(1000);
       expect(summary.min).toBe(100);
       expect(summary.max).toBe(250);
       expect(summary.slope).toBe(150); // (250-100) / 1.0s
@@ -774,7 +776,7 @@ describe('buildTimeline', () => {
   it('ignores numeric field summaries entirely', () => {
     const fields = {
       '/root/P:vel.x': {
-        samples: 2, start: 0, end: 5, min: 0, max: 5, mean: 2.5, slope: 5,
+        samples: 2, start: 0, end: 5, min: 0, max: 5, min_at: 0, max_at: 50, mean: 2.5, slope: 5,
         events: [{ t_ms: 50, from: 0, to: 5, kind: 'zero_cross' as const }],
       },
     };
@@ -787,7 +789,7 @@ describe('buildTimeline', () => {
 describe('summarizeNumericField', () => {
   it('returns zeros for empty input', () => {
     const r = summarizeNumericField([], 1000);
-    expect(r).toEqual({ samples: 0, start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] });
+    expect(r).toEqual({ samples: 0, start: 0, end: 0, min: 0, max: 0, min_at: 0, max_at: 0, mean: 0, slope: 0, events: [] });
   });
 
   it('handles single sample', () => {
@@ -842,6 +844,25 @@ describe('summarizeNumericField', () => {
 });
 
 // ── summarizeStringField unit tests ──────────────────────────────────────────
+
+describe('summarizeNumericField min_at/max_at', () => {
+  it('timestamps the first sample at min and max', () => {
+    const r = summarizeNumericField(
+      [
+        { t_ms: 0, value: 58 },
+        { t_ms: 50, value: 58 },
+        { t_ms: 100, value: 69 },
+        { t_ms: 150, value: 69 },
+        { t_ms: 200, value: 58 },
+      ],
+      200
+    );
+    expect(r.min).toBe(58);
+    expect(r.min_at).toBe(0);
+    expect(r.max).toBe(69);
+    expect(r.max_at).toBe(100);
+  });
+});
 
 describe('summarizeStringField', () => {
   it('returns empty result for empty input', () => {

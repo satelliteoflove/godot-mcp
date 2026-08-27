@@ -80,6 +80,10 @@ export interface NumericFieldSummary {
   end: number;
   min: number;
   max: number;
+  // t_ms of the FIRST sample at min/max: says when an excursion happened, which
+  // start/end/mean cannot (#384). A fact from the samples, not a change heuristic.
+  min_at: number;
+  max_at: number;
   mean: number;
   slope: number;
   events: Array<{ t_ms: number; from: number; to: number; kind: 'sign_change' | 'zero_cross' }>;
@@ -102,7 +106,7 @@ export function summarizeNumericField(
   windowMs: number
 ): NumericFieldSummary {
   if (samples.length === 0) {
-    return { samples: 0, start: 0, end: 0, min: 0, max: 0, mean: 0, slope: 0, events: [] };
+    return { samples: 0, start: 0, end: 0, min: 0, max: 0, min_at: 0, max_at: 0, mean: 0, slope: 0, events: [] };
   }
 
   const values = samples.map((s) => s.value as number);
@@ -110,6 +114,8 @@ export function summarizeNumericField(
   const last = values[values.length - 1];
   const min = Math.min(...values);
   const max = Math.max(...values);
+  const minAt = samples[values.indexOf(min)].t_ms;
+  const maxAt = samples[values.indexOf(max)].t_ms;
   const mean = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
   const slope = windowMs > 0 ? Math.round(((last - first) / (windowMs / 1000)) * 100) / 100 : 0;
 
@@ -124,7 +130,7 @@ export function summarizeNumericField(
     }
   }
 
-  return { samples: samples.length, start: first, end: last, min, max, mean, slope, events };
+  return { samples: samples.length, start: first, end: last, min, max, min_at: minAt, max_at: maxAt, mean, slope, events };
 }
 
 export function summarizeStringField(samples: WatchRawSample[]): StringFieldSummary {
