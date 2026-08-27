@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.9](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.8...godot-mcp-v4.1.9) (2026-08-27)
+
+
+### Bug Fixes
+
+* watch_start names every field it cannot read instead of counting it as resolved ([#385](https://github.com/satelliteoflove/godot-mcp/issues/385)) ([2fb5f07](https://github.com/satelliteoflove/godot-mcp/commit/2fb5f07374f8656d482ae33836f9e3947399be76)), closes [#383](https://github.com/satelliteoflove/godot-mcp/issues/383)
+
 ## [4.1.8](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.7...godot-mcp-v4.1.8) (2026-08-27)
 
 
