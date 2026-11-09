@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.2.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.11...godot-mcp-v4.2.0) (2026-11-09)
+
+
+### Features
+
+* godot_scene3d reads the running game's live tree ([#405](https://github.com/satelliteoflove/godot-mcp/issues/405)) ([#411](https://github.com/satelliteoflove/godot-mcp/issues/411)) ([7b48430](https://github.com/satelliteoflove/godot-mcp/commit/7b48430c69c65cac6c85f434f7162427986d08ec))
+
+
+### Bug Fixes
+
+* exec := inference, run waits for bridge, GODOT_MCP_DISABLE_SERVER ([#410](https://github.com/satelliteoflove/godot-mcp/issues/410)) ([ca662f5](https://github.com/satelliteoflove/godot-mcp/commit/ca662f57d720a82e3040249baab00fb2723bfc89))
+
 ## [4.1.11](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.10...godot-mcp-v4.1.11) (2026-08-27)
 
 
