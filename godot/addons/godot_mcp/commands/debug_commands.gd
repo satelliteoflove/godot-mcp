@@ -20,6 +20,14 @@ func get_commands() -> Dictionary:
 # cover a deferred start, not game boot.
 const LAUNCH_CONFIRM_TIMEOUT_SEC := 2.0
 
+# How long run waits, after the editor reports playing, for the game bridge to
+# announce it is ready (#409). Until then the debug session may not be attached,
+# or may be attached with the bridge not yet listening, and game commands fail
+# with NO_SESSION or time out. Well under the server's 30s socket timeout. A
+# slow-loading main scene that overruns this is still reported as running, with
+# bridge_ready: false.
+const BRIDGE_READY_TIMEOUT_SEC := 10.0
+
 
 func run_project(params: Dictionary) -> Dictionary:
 	var scene_path: String = params.get("scene_path", "")
@@ -64,7 +72,20 @@ func run_project(params: Dictionary) -> Dictionary:
 				"Check get_log_messages for the reason (a missing scene file or an editor dialog blocking the run).")
 		await Engine.get_main_loop().process_frame
 
-	return _success({"frozen": frozen})
+	# Report success only once game commands can actually reach the game (#409).
+	var debugger = _plugin.get_debugger_plugin() if _plugin else null
+	if debugger == null:
+		return _success({"frozen": frozen})
+	start = Time.get_ticks_msec()
+	while not debugger.is_bridge_ready():
+		if not EditorInterface.is_playing_scene():
+			return _error("GAME_EXITED",
+				"The game exited during startup (crashed or quit). Check get_log_messages for the reason.")
+		if (Time.get_ticks_msec() - start) / 1000.0 > BRIDGE_READY_TIMEOUT_SEC:
+			return _success({"frozen": frozen, "bridge_ready": false})
+		await Engine.get_main_loop().process_frame
+
+	return _success({"frozen": frozen, "bridge_ready": true})
 
 
 func stop_project(_params: Dictionary) -> Dictionary:
