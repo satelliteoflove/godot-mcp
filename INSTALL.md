@@ -114,6 +114,12 @@ Or add to your Copilot CLI settings file (`~/.config/github-copilot/mcp.json`):
 | `GODOT_MCP_VERBOSE` | off | Set to `1` to surface info/debug logs on stderr. Warnings and errors always print. |
 | `GODOT_MCP_READ_ONLY` | off | Set to `1` to register only the 12 observation tools — the agent can look but not touch. Same as `--read-only`. |
 
+One variable is read by the Godot addon rather than the server:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GODOT_MCP_DISABLE_SERVER` | off | Set to `1` in the Godot editor's environment to keep the addon from starting its WebSocket server. Meant for one-shot runs like `godot --headless --import` or `--export-release` in CI, which never serve a client and otherwise log an `Already in use` error when a normal editor already holds the port. |
+
 Example with environment variables:
 
 ```bash

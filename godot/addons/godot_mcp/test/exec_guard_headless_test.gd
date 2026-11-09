@@ -34,6 +34,7 @@ func _initialize() -> void:
 	_test_scan_strings_and_comments()
 	_test_scan_sync_only_and_no_code()
 	_test_wrapper_compiles_and_runs()
+	_test_wrapper_type_inference()
 	_test_mechanics_pins()
 	_test_logger_mark_survives_trim()
 
@@ -117,8 +118,8 @@ const BINDINGS := ["G", "tree", "root", "holder"]
 
 # Compile a wrapper for `source`, call _mcp_run with stub bindings, and return
 # {compiled: bool, result: Variant}.
-func _run_wrapped(source: String) -> Dictionary:
-	var wrapper: String = MCPExecGuardScript.build_wrapper(source, PackedStringArray(BINDINGS))
+func _run_wrapped(source: String, types: Dictionary = {}) -> Dictionary:
+	var wrapper: String = MCPExecGuardScript.build_wrapper(source, PackedStringArray(BINDINGS), types)
 	var script := GDScript.new()
 	script.source_code = wrapper
 	if script.reload() != OK or not script.can_instantiate():
@@ -205,6 +206,29 @@ func _test_wrapper_compiles_and_runs() -> void:
 	var dicted := _run_wrapped("var d = {\n    \"k\": 7,\n}\nif true:\n\tpass\nreturn d[\"k\"]")
 	_check("wrapper: space-dict + tab-block compiles", dicted["compiled"], true)
 	_check("wrapper: space-dict + tab-block returns", dicted["result"], 7)
+
+
+# `:=` inference on bindings and engine singletons (#408). The bridge types the
+# fixed bindings and stops passing singletons in, so both must infer.
+const BINDING_TYPES := {"tree": "SceneTree", "root": "Window", "holder": "Node"}
+
+
+func _test_wrapper_type_inference() -> void:
+	var typed := _run_wrapped(
+		"var f := tree.get_frame()\nvar c := root.get_child_count()\nvar h := holder.get_child_count()\n" +
+		"return typeof(f) == TYPE_INT and typeof(c) == TYPE_INT and h == 0", BINDING_TYPES)
+	_check("inference: := on typed tree/root/holder compiles", typed["compiled"], true)
+	_check("inference: := on typed tree/root/holder returns", typed["result"], true)
+
+	var singleton := _run_wrapped("var t := Time.get_ticks_msec()\nvar n := OS.get_name()\nreturn t >= 0 and not n.is_empty()", BINDING_TYPES)
+	_check("inference: := on unshadowed engine singletons compiles", singleton["compiled"], true)
+	_check("inference: := on unshadowed engine singletons returns", singleton["result"], true)
+
+	# Pins the #408 mechanism: an untyped binding is a Variant, so := cannot
+	# infer from it. If a future Godot relaxes this, the check fails loudly and
+	# the typing above may no longer be needed.
+	var untyped := _run_wrapped("var f := tree.get_frame()\nreturn f")
+	_check("inference: := on untyped binding fails to compile (pin)", untyped["compiled"], false)
 
 
 # ── 3. mechanics the bridge handler relies on ─────────────────────────────────

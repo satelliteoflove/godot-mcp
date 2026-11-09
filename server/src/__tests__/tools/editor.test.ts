@@ -305,6 +305,23 @@ describe('editorEdit tool', () => {
       expect(mock.calls[0].command).toBe('run_project');
       expect(mock.calls[0].params.frozen).toBe(true);
     });
+
+    it('warns when the bridge did not report ready in time (#409)', async () => {
+      mock.mockResponse({ frozen: true, bridge_ready: false });
+      const ctx = createToolContext(mock);
+
+      const result = await editorEdit.execute({ action: 'run', frozen: true }, ctx);
+      expect(result).toContain('frozen from frame 0');
+      expect(result).toContain('did not report ready');
+    });
+
+    it('stays quiet when the bridge is ready or the addon predates the field', async () => {
+      for (const response of [{ frozen: false, bridge_ready: true }, {}]) {
+        mock.mockResponse(response);
+        const ctx = createToolContext(mock);
+        expect(await editorEdit.execute({ action: 'run' }, ctx)).toBe('Running project');
+      }
+    });
   });
 
   describe('rescan (#350)', () => {

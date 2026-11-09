@@ -96,7 +96,10 @@ static func scan_source(source: String) -> Dictionary:
 ## untouched (prefixing them would corrupt string content); everything else is
 ## prefixed with one indent unit matched to the user's own indent character, so
 ## the wrapper can never introduce a mixed-tabs-and-spaces parse error.
-static func build_wrapper(source: String, binding_names: PackedStringArray) -> String:
+## binding_types maps a binding name to a type name; those parameters are
+## declared typed (`tree: SceneTree`) so `var f := tree.get_frame()` can infer
+## (#408). Names absent from the map stay untyped Variants.
+static func build_wrapper(source: String, binding_names: PackedStringArray, binding_types: Dictionary = {}) -> String:
 	var normalized := _normalize(source)
 	var lex := _lex(normalized)
 	var in_string_lines: Array = lex["in_string_lines"]
@@ -110,9 +113,13 @@ static func build_wrapper(source: String, binding_names: PackedStringArray) -> S
 			body.append(line)
 		else:
 			body.append(indent + line)
+	var params: PackedStringArray = []
+	for binding in binding_names:
+		var type_name := str(binding_types.get(binding, ""))
+		params.append(binding if type_name.is_empty() else "%s: %s" % [binding, type_name])
 	return "extends RefCounted\n\n%s\nfunc _mcp_run(%s):\n%s\n" % [
 		WRAPPER_WARNING_IGNORES,
-		", ".join(binding_names),
+		", ".join(params),
 		"\n".join(body),
 	]
 

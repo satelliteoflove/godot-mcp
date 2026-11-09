@@ -301,11 +301,19 @@ export const editorEdit = defineTool({
       }
 
       case 'run': {
-        await godot.sendCommand('run_project', { scene_path: args.scene_path, frozen: args.frozen });
+        const run = await godot.sendCommand<{ frozen?: boolean; bridge_ready?: boolean }>('run_project', {
+          scene_path: args.scene_path,
+          frozen: args.frozen,
+        });
         const target = args.scene_path ? `scene: ${args.scene_path}` : 'project';
-        return args.frozen
+        const started = args.frozen
           ? `Running ${target} frozen from frame 0 — use godot_game_time step/thaw to advance`
           : `Running ${target}`;
+        // bridge_ready is absent from older addons; only an explicit false means
+        // the run outlasted the addon's ready wait (#409).
+        return run?.bridge_ready === false
+          ? `${started}. The game is still loading: the MCP bridge did not report ready in time, so game commands may fail with NO_SESSION until it does — retry shortly.`
+          : started;
       }
 
       case 'stop': {

@@ -4,6 +4,7 @@ class_name MCPGameBridge
 const DEFAULT_MAX_WIDTH := 1024
 const Onscreen := preload("onscreen.gd")
 const MeshValidator := preload("mesh_validator.gd")
+const SpatialQuery := preload("spatial_query.gd")
 
 # Cap on frames waited for the main scene to appear before announcing ready
 # anyway. The scene is normally added within a frame or two of the bridge
@@ -153,6 +154,47 @@ func _handle_validate_meshes(data: Array) -> void:
 	else:
 		result = MeshValidator.validate(tree.current_scene, max_findings)
 	EngineDebugger.send_message("godot_mcp:game_response", ["validate_meshes", result])
+
+
+# godot_scene3d against the live tree (#405). Same queries the editor runs on
+# the edited scene (spatial_query.gd), with paths as the game sees them.
+func _handle_spatial_info(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	var node_path := str(params.get("node_path", ""))
+	var scene_root := get_tree().current_scene if get_tree() else null
+	var result: Dictionary
+	if scene_root == null:
+		result = {"error": "NO_SCENE", "message": "The running game has no current scene"}
+	else:
+		var node := _get_node_from_path(node_path, scene_root)
+		if node == null:
+			result = {"error": "NODE_NOT_FOUND", "message": "Node not found in the running game: %s" % node_path}
+		else:
+			result = SpatialQuery.spatial_info(node, params, _live_path)
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_spatial_info", result])
+
+
+func _handle_scene_bounds(data: Array) -> void:
+	var params: Dictionary = data[0] if data.size() > 0 and data[0] is Dictionary else {}
+	var raw_root = params.get("root_path", "")
+	var root_path: String = raw_root if raw_root is String else ""
+	var scene_root := get_tree().current_scene if get_tree() else null
+	var result: Dictionary
+	if scene_root == null:
+		result = {"error": "NO_SCENE", "message": "The running game has no current scene"}
+	else:
+		var search_root := _get_node_from_path(root_path, scene_root)
+		if search_root == null:
+			result = {"error": "NODE_NOT_FOUND", "message": "Root node not found in the running game: %s" % root_path}
+		else:
+			result = SpatialQuery.scene_bounds(search_root, "%s in the running game" % (root_path if not root_path.is_empty() else "the scene root"))
+			if not result.has("error"):
+				result["root_path"] = _live_path(search_root)
+	EngineDebugger.send_message("godot_mcp:game_response", ["get_scene_bounds", result])
+
+
+func _live_path(node: Node) -> String:
+	return str(node.get_path())
 
 
 # Processing is needed by three independent features; only switch it off when
@@ -475,6 +517,12 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		"validate_meshes":
 			_handle_validate_meshes(data)
+			return true
+		"get_spatial_info":
+			_handle_spatial_info(data)
+			return true
+		"get_scene_bounds":
+			_handle_scene_bounds(data)
 			return true
 	return false
 
@@ -2447,18 +2495,48 @@ func _exec_logger_delta(mark: int) -> Array:
 	return out
 
 
+const EXEC_BINDING_TYPES := {"tree": "SceneTree", "root": "Window", "holder": "Node"}
+
+
 func _build_exec_context() -> Dictionary:
-	# The step_until predicate context (autoloads by name + tree/root), plus
-	# `holder`. If a project defines an autoload literally named "holder", the
-	# autoload keeps the name (a duplicate parameter would be a parse error);
-	# the exec holder is still reachable as root.get_node("MCPExecHolder").
-	var ctx := _build_predicate_context()
-	var names: PackedStringArray = ctx["names"]
-	var inputs: Array = ctx["inputs"]
-	if not ("holder" in names):
-		names.append("holder")
-		inputs.append(_ensure_exec_holder())
-	return {"names": names, "inputs": inputs}
+	# Exec compiles real GDScript, which already sees engine singletons (Time,
+	# OS, ...) and singleton-enabled autoloads ("*res://..." in project
+	# settings) as typed globals. Passing those in as untyped parameters would
+	# shadow the globals and break `:=` inference on them (#408), so exec only
+	# binds what GDScript can't already see: autoloads registered without the
+	# singleton flag, plus typed `tree`, `root` and `holder`. This differs from
+	# the step_until predicate context on purpose: Expression sees no globals.
+	#
+	# A project autoload literally named tree/root/holder keeps the name (a
+	# duplicate parameter, or shadowing the autoload's global, would surprise
+	# more than help); the exec holder is still reachable as
+	# root.get_node("MCPExecHolder").
+	var names := PackedStringArray()
+	var inputs: Array = []
+	var taken: Array = []
+	var tree := get_tree()
+	for prop in ProjectSettings.get_property_list():
+		var key: String = prop.get("name", "")
+		if not key.begins_with("autoload/"):
+			continue
+		var autoload_name := key.substr("autoload/".length())
+		taken.append(autoload_name)
+		if str(ProjectSettings.get_setting(key, "")).begins_with("*"):
+			continue  # singleton: already a typed global in GDScript
+		var node := tree.root.get_node_or_null(NodePath(autoload_name))
+		if node == null or node == self:
+			continue
+		names.append(autoload_name)
+		inputs.append(node)
+	var fixed := {"tree": tree, "root": tree.root, "holder": null}
+	var types := {}
+	for binding in fixed:
+		if binding in taken:
+			continue
+		names.append(binding)
+		inputs.append(_ensure_exec_holder() if binding == "holder" else fixed[binding])
+		types[binding] = EXEC_BINDING_TYPES[binding]
+	return {"names": names, "inputs": inputs, "types": types}
 
 
 func _handle_exec_run(data: Array) -> void:
@@ -2472,7 +2550,7 @@ func _handle_exec_run(data: Array) -> void:
 
 	var ctx := _build_exec_context()
 	var script := GDScript.new()
-	script.source_code = MCPExecGuard.build_wrapper(source, ctx["names"])
+	script.source_code = MCPExecGuard.build_wrapper(source, ctx["names"], ctx["types"])
 
 	var mark := _exec_logger_mark()
 	if script.reload() != OK or not script.can_instantiate():
