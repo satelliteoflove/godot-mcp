@@ -2447,18 +2447,48 @@ func _exec_logger_delta(mark: int) -> Array:
 	return out
 
 
+const EXEC_BINDING_TYPES := {"tree": "SceneTree", "root": "Window", "holder": "Node"}
+
+
 func _build_exec_context() -> Dictionary:
-	# The step_until predicate context (autoloads by name + tree/root), plus
-	# `holder`. If a project defines an autoload literally named "holder", the
-	# autoload keeps the name (a duplicate parameter would be a parse error);
-	# the exec holder is still reachable as root.get_node("MCPExecHolder").
-	var ctx := _build_predicate_context()
-	var names: PackedStringArray = ctx["names"]
-	var inputs: Array = ctx["inputs"]
-	if not ("holder" in names):
-		names.append("holder")
-		inputs.append(_ensure_exec_holder())
-	return {"names": names, "inputs": inputs}
+	# Exec compiles real GDScript, which already sees engine singletons (Time,
+	# OS, ...) and singleton-enabled autoloads ("*res://..." in project
+	# settings) as typed globals. Passing those in as untyped parameters would
+	# shadow the globals and break `:=` inference on them (#408), so exec only
+	# binds what GDScript can't already see: autoloads registered without the
+	# singleton flag, plus typed `tree`, `root` and `holder`. This differs from
+	# the step_until predicate context on purpose: Expression sees no globals.
+	#
+	# A project autoload literally named tree/root/holder keeps the name (a
+	# duplicate parameter, or shadowing the autoload's global, would surprise
+	# more than help); the exec holder is still reachable as
+	# root.get_node("MCPExecHolder").
+	var names := PackedStringArray()
+	var inputs: Array = []
+	var taken: Array = []
+	var tree := get_tree()
+	for prop in ProjectSettings.get_property_list():
+		var key: String = prop.get("name", "")
+		if not key.begins_with("autoload/"):
+			continue
+		var autoload_name := key.substr("autoload/".length())
+		taken.append(autoload_name)
+		if str(ProjectSettings.get_setting(key, "")).begins_with("*"):
+			continue  # singleton: already a typed global in GDScript
+		var node := tree.root.get_node_or_null(NodePath(autoload_name))
+		if node == null or node == self:
+			continue
+		names.append(autoload_name)
+		inputs.append(node)
+	var fixed := {"tree": tree, "root": tree.root, "holder": null}
+	var types := {}
+	for binding in fixed:
+		if binding in taken:
+			continue
+		names.append(binding)
+		inputs.append(_ensure_exec_holder() if binding == "holder" else fixed[binding])
+		types[binding] = EXEC_BINDING_TYPES[binding]
+	return {"names": names, "inputs": inputs, "types": types}
 
 
 func _handle_exec_run(data: Array) -> void:
@@ -2472,7 +2502,7 @@ func _handle_exec_run(data: Array) -> void:
 
 	var ctx := _build_exec_context()
 	var script := GDScript.new()
-	script.source_code = MCPExecGuard.build_wrapper(source, ctx["names"])
+	script.source_code = MCPExecGuard.build_wrapper(source, ctx["names"], ctx["types"])
 
 	var mark := _exec_logger_mark()
 	if script.reload() != OK or not script.can_instantiate():

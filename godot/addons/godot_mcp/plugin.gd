@@ -14,6 +14,16 @@ const SETTING_CUSTOM_BIND_IP := "godot_mcp/custom_bind_ip"
 const SETTING_PORT_OVERRIDE_ENABLED := "godot_mcp/port_override_enabled"
 const SETTING_PORT_OVERRIDE := "godot_mcp/port_override"
 
+# Set to 1 (or true) in the editor's environment to keep the WebSocket server
+# from starting (#403). For one-shot runs such as `godot --headless --import`
+# in CI, which never serve a client and would otherwise log an "Already in use"
+# ERROR while a normal editor holds the port. Godot consumes --import,
+# --export-* and --quit before plugins can see them in OS.get_cmdline_args(),
+# so the addon can't detect those runs on its own; and headless alone is not
+# a signal, since a headless editor on a remote machine or in a container is a
+# legitimate server host.
+const DISABLE_SERVER_ENV := "GODOT_MCP_DISABLE_SERVER"
+
 var _websocket_server: WebSocketServer
 var _command_router: CommandRouter
 var _status_panel: Control
@@ -49,7 +59,12 @@ func _enter_tree() -> void:
 	_ensure_bind_settings()
 	_setup_bind_ui()
 	_setup_version_display()
-	_apply_bind_settings(true)
+	if _is_server_disabled_by_env():
+		_apply_bind_settings(false)
+		_update_status("Server disabled by %s" % DISABLE_SERVER_ENV)
+		MCPLog.info("Server not started: %s is set" % DISABLE_SERVER_ENV)
+	else:
+		_apply_bind_settings(true)
 	MCPLog.info("Plugin initialized")
 
 
@@ -227,6 +242,11 @@ func _do_restart_server() -> void:
 
 	_update_status("Waiting for connection... (bind %s:%d [%s])" % [bind, port, mode_name])
 	MCPLog.info("Server listening on %s:%d [%s]" % [bind, port, mode_name])
+
+
+func _is_server_disabled_by_env() -> bool:
+	var value := OS.get_environment(DISABLE_SERVER_ENV).strip_edges().to_lower()
+	return value == "1" or value == "true"
 
 
 func _apply_bind_settings(restart: bool) -> void:
