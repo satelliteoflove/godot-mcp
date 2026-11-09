@@ -54,7 +54,7 @@ Resource inspection tools for SpriteFrames, TileSet, Materials, etc.
 
 3D spatial information and bounding box tools
 
-- `godot_scene3d` - Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.
+- `godot_scene3d` - Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. While a game is running, both read the RUNNING game's live tree (geometry spawned or filled in at runtime included, and nodes beside the scene such as /root/MCPExecHolder/...); otherwise they read the scene open in the editor. Each result says which. Read-only: to change transforms or other properties, use godot_node_edit.
 
 ## [Documentation](docs.md)
 

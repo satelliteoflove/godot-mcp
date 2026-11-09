@@ -64,6 +64,15 @@ const Scene3DSchema = z.discriminatedUnion('action', [
 
 type Scene3DArgs = z.infer<typeof Scene3DSchema>;
 
+/** Which tree answered: the running game's live tree, or the scene open in the editor (#405). */
+type Scene3DSource = 'game' | 'editor';
+
+function describeSource(source: Scene3DSource | undefined): string {
+  if (source === 'game') return ' in the running game';
+  if (source === 'editor') return ' in the editor scene';
+  return '';
+}
+
 function formatVector3(v: Vector3): string {
   return `(${v.x.toFixed(3)}, ${v.y.toFixed(3)}, ${v.z.toFixed(3)})`;
 }
@@ -76,7 +85,7 @@ export const scene3d = defineTool({
   name: 'godot_scene3d',
   annotations: { title: '3D Scene Info', readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   description:
-    'Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. Read-only: to change transforms or other properties, use godot_node_edit.',
+    'Read engine-computed 3D spatial data that cannot be derived from .tscn text: global transforms resolved through the parent chain, mesh AABBs (VisualInstance3D, and GridMap folded from its placed cells), combined subtree bounds, and visibility. Use get_spatial_info for one Node3D or a filtered set of its children (by type or world-space region); use get_bounds for the combined AABB of a subtree. While a game is running, both read the RUNNING game\'s live tree (geometry spawned or filled in at runtime included, and nodes beside the scene such as /root/MCPExecHolder/...); otherwise they read the scene open in the editor. Each result says which. Read-only: to change transforms or other properties, use godot_node_edit.',
   schema: Scene3DSchema,
   async execute(args: Scene3DArgs, { godot }) {
     switch (args.action) {
@@ -92,6 +101,7 @@ export const scene3d = defineTool({
           count: number;
           truncated?: boolean;
           max_results?: number;
+          source?: Scene3DSource;
         }>('get_spatial_info', {
           node_path: args.node_path,
           include_children: args.include_children,
@@ -101,7 +111,7 @@ export const scene3d = defineTool({
         });
 
         if (result.count === 0) {
-          return 'No matching Node3D nodes found';
+          return `No matching Node3D nodes found${describeSource(result.source)}`;
         }
 
         const lines = result.nodes.map((n) => {
@@ -119,7 +129,7 @@ export const scene3d = defineTool({
           return line;
         });
 
-        let output = `Found ${result.count} Node3D node(s):\n\n${lines.join('\n\n')}`;
+        let output = `Found ${result.count} Node3D node(s)${describeSource(result.source)}:\n\n${lines.join('\n\n')}`;
         if (result.truncated) {
           const limitNote =
             args.max_results === undefined
@@ -135,12 +145,13 @@ export const scene3d = defineTool({
           root_path: string;
           node_count: number;
           combined_aabb: AABB;
+          source?: Scene3DSource;
         }>('get_scene_bounds', {
           root_path: args.root_path,
         });
 
         return (
-          `Scene bounds for ${result.root_path}:\n` +
+          `Scene bounds for ${result.root_path}${describeSource(result.source)}:\n` +
           `  Visual nodes: ${result.node_count}\n` +
           `  Combined AABB: ${formatAABB(result.combined_aabb)}\n` +
           `  Min: ${formatVector3(result.combined_aabb.position)}\n` +
