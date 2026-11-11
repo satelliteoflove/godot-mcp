@@ -63,6 +63,28 @@ Two different processes produce errors, and they surface in two different places
 - **Editor-side errors** — `@tool` script failures, import errors, addon errors, failures from scene/resource edits — come from `godot_editor_read` with the `get_log_messages` action. This is the "did my change break the editor?" channel.
 - **Running game console output** (including `print()` and stderr) is intentionally not duplicated here — [minimal-godot-mcp](https://github.com/ryanmazzolini/minimal-godot-mcp) provides it over DAP. Runtime *state* (positions, velocities, custom data) is `godot_runtime_state` territory.
 
+## 3D geometry is missing, but nothing errors
+
+Before changing lights or materials, check where the geometry actually is in the **running game**. Geometry that is buried under a floor, stuck at the world origin or outside the camera's view renders nothing and logs nothing.
+
+Start with `godot_scene3d`. While a game is running, `get_spatial_info` and `get_bounds` read the live tree, so geometry spawned or filled in at runtime has real bounds there. For anything they don't answer, use `godot_exec run`. Then check three things:
+
+1. **Under the floor?** Compare the node's world bounds (`global_aabb` from `get_spatial_info`, or `mesh_instance.global_transform * mesh_instance.get_aabb()`) with the surface it should rest on. Don't assume the floor is at `y = 0`. A `GridMap` floor with 2 m cells and the default `cell_center_y` has its top surface around `y = 1.05`.
+2. **At the world origin?** Props clustered at `x = 0, z = 0` while their siblings are spread out usually had a global transform read before they entered the tree. Look for `Condition "!is_inside_tree()"` in the game console (see [Where errors show up](#where-errors-show-up)).
+3. **Outside the camera?** Test the bounds against the active `Camera3D`, not just the node's origin. The bounds are out of view if all eight corners are outside the same plane from `get_frustum()`. Remember that a camera looks down −Z, and that geometry behind the camera may be out of view on purpose.
+
+Set global coordinates after the node is in the tree:
+
+```gdscript
+# parent is already inside the scene tree
+parent.add_child(prop)
+prop.global_position = desired_world_position
+```
+
+Before `add_child()`, Godot [reads `global_position` as `Vector3.ZERO`](https://docs.godotengine.org/en/4.6/classes/class_node3d.html#class-node3d-property-global-position). So `global_position.y = v` or `global_position += v` loses the x and z, and the node ends up at the origin. A plain `global_position = p` behaves differently. Measured on Godot 4.6.1, it stores `p` as the local position and resets rotation and scale. That's only right when the parent sits at the origin.
+
+[`recipes/runtime_geometry_audit.txt`](recipes/runtime_geometry_audit.txt) runs all three checks in one `godot_exec run` call. Pass the whole file as `source` while the game is running. It comes from Pilfered Parrot Global Industries' [reproduction and audit for this problem](https://github.com/PilferedParrot/godot-mcp-328-invisible-geometry) (MIT), which has the test scenes and the full list of limits. The main limits: the floor test needs colliders and skips nodes that have their own, it doesn't check `GridMap` cells, and only the root viewport's camera is checked. A `CLEAN` verdict only covers the nodes it audited.
+
 ## CLI smoke test (paste-ready JSON-RPC)
 
 To verify the server starts and can reach Godot without involving an MCP client, run it manually:

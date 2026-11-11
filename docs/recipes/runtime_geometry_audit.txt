@@ -1,0 +1,165 @@
+# Runtime geometry audit for godot_exec (see docs/troubleshooting.md, "3D geometry is missing, but nothing errors").
+#
+# Pass this whole file as the `source` of `godot_exec run` while the game is running (comment lines are ignored).
+# It returns one JSON string. It reports and never changes anything.
+#
+# From https://github.com/PilferedParrot/godot-mcp-328-invisible-geometry
+# (recipe/runtime_audit.body.txt at commit 81eb7084dcea40d07e1a42c80ae76de0185ab4eb), unmodified.
+# That repo has the test scenes, the known limits and the experiment behind it.
+#
+# MIT License
+#
+# Copyright (c) 2026 Pilfered Parrot Global Industries
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# runtime_audit: placement and visibility audit for 3D scenes (godot-mcp #328 recipe).
+# Written as a godot_exec body: `tree` and `root` are in scope, no await, returns a JSON String.
+# Reports, never fixes. Codes:
+#   BURIED / UNSUPPORTED / INSIDE_COLLIDER  (error)   no surface under the node, or it is inside one
+#   ORIGIN                                  (suspect) at world x=0,z=0 while its siblings are elsewhere
+#   SUNK / FLOATING                         (warn)    seated off the surface by more than seat_tol
+#   NOT_IN_FRUSTUM                          (info)    outside the active camera's frustum (true by design for
+#                                                     anything behind or beside you; read it against what you expect to see)
+var cfg := {"seat_tol": 0.10, "probe": 25.0, "origin_eps": 0.001, "min_placed_peers": 2, "placed_dist": 0.5}
+var scene: Node = tree.current_scene
+var findings: Array = []
+var notes: Array = []
+var v3 := func(v: Vector3) -> Array: return [snappedf(v.x, 0.01), snappedf(v.y, 0.01), snappedf(v.z, 0.01)]
+var add := func(code: String, sev: String, n: Node, wb: AABB, detail: String) -> void:
+	findings.append({"code": code, "severity": sev, "node": str(scene.get_path_to(n)),
+		"aabb_y": [snappedf(wb.position.y, 0.01), snappedf(wb.end.y, 0.01)], "detail": detail})
+
+var cam: Camera3D = root.get_camera_3d()
+var cam_info = null
+var planes: Array[Plane] = []
+if cam == null:
+	notes.append("NO_ACTIVE_CAMERA: the root viewport has no current Camera3D, frustum test skipped")
+else:
+	planes = cam.get_frustum()
+	cam_info = {"name": str(cam.name), "position": v3.call(cam.global_position),
+		"looking": v3.call(-cam.global_basis.z), "fov": cam.fov,
+		"viewport": [root.get_visible_rect().size.x, root.get_visible_rect().size.y]}
+var plane_names := ["near", "far", "left", "top", "right", "bottom"]
+var space: PhysicsDirectSpaceState3D = root.world_3d.direct_space_state
+
+var geoms: Array = []
+var hidden := 0
+var stack: Array = [scene]
+while not stack.is_empty():
+	var n: Node = stack.pop_back()
+	stack.append_array(n.get_children())
+	if n is GeometryInstance3D:
+		if n.is_visible_in_tree():
+			geoms.append(n)
+		else:
+			hidden += 1
+if hidden > 0:
+	notes.append("%d hidden GeometryInstance3D skipped (visible = false on it or an ancestor)" % hidden)
+
+var colliders_seen := 0
+var own_body := 0
+var unsupported: Array = []
+for g in geoms:
+	var wb: AABB = g.global_transform * g.get_aabb()
+	if wb.size == Vector3.ZERO or not wb.size.is_finite():
+		notes.append("DEGENERATE_AABB: %s has an empty or non-finite AABB, skipped" % scene.get_path_to(g))
+		continue
+
+	# 1. stranded at the world origin column, while its siblings are placed elsewhere
+	var gp: Vector3 = g.global_position
+	if absf(gp.x) < cfg.origin_eps and absf(gp.z) < cfg.origin_eps:
+		var peers := 0
+		for s in g.get_parent().get_children():
+			if s != g and s is Node3D and Vector2(s.global_position.x, s.global_position.z).length() > cfg.placed_dist:
+				peers += 1
+		if peers >= cfg.min_placed_peers:
+			add.call("ORIGIN", "suspect", g, wb, ("at world x=0,z=0 (%s) while %d siblings are placed elsewhere. A transform was " +
+				"probably read or written before add_child(): look for Condition \"!is_inside_tree()\" in the game console.") % [v3.call(gp), peers])
+
+	# 2. seated on a surface? Ray straight down from the AABB centre (+ straight up if nothing is below).
+	var excl: Array[RID] = []
+	var anc: Node = g
+	while anc != null and anc != scene:
+		if anc is CollisionObject3D:
+			excl.append(anc.get_rid())
+		anc = anc.get_parent()
+	for co in g.find_children("*", "CollisionObject3D", true, false):
+		excl.append(co.get_rid())
+	if not excl.is_empty():
+		own_body += 1  # carries its own collider: usually the surface itself
+	else:
+		var c: Vector3 = wb.get_center()
+		var q := PhysicsRayQueryParameters3D.create(c, c + Vector3.DOWN * cfg.probe)
+		q.hit_from_inside = true
+		var hit: Dictionary = space.intersect_ray(q)
+		if hit.is_empty():
+			var qu := PhysicsRayQueryParameters3D.create(c, c + Vector3.UP * cfg.probe)
+			qu.hit_from_inside = true
+			var up: Dictionary = space.intersect_ray(qu)
+			if up.is_empty():
+				unsupported.append({"code": "UNSUPPORTED", "severity": "error", "node": str(scene.get_path_to(g)),
+					"aabb_y": [snappedf(wb.position.y, 0.01), snappedf(wb.end.y, 0.01)],
+					"detail": "no surface within %.0f m below or above the AABB centre: no collider here, or the node floats in a void" % cfg.probe})
+			else:
+				colliders_seen += 1
+				add.call("BURIED", "error", g, wb, "no surface below the node within %.0f m, but the underside of %s is at y=%.2f against the node's y %.2f..%.2f: the node is under that surface, or only its top pokes through" %
+					[cfg.probe, up.collider.name if up.collider != null else "a collider", up.position.y, wb.position.y, wb.end.y])
+		elif hit.normal == Vector3.ZERO:
+			colliders_seen += 1
+			add.call("INSIDE_COLLIDER", "error", g, wb, "the AABB centre is inside %s" % (hit.collider.name if hit.collider != null else "a collider"))
+		else:
+			colliders_seen += 1
+			if hit.normal.y > 0.5:
+				var gap: float = wb.position.y - hit.position.y
+				if gap > cfg.seat_tol:
+					add.call("FLOATING", "warn", g, wb, "AABB bottom y=%.2f is %.2f m above the surface below (y=%.2f)" % [wb.position.y, gap, hit.position.y])
+				elif gap < -cfg.seat_tol:
+					add.call("SUNK", "warn", g, wb, "AABB bottom y=%.2f is %.2f m below the surface it stands in (y=%.2f)" % [wb.position.y, -gap, hit.position.y])
+
+	# 3. inside the active camera's frustum? (an AABB is outside if all 8 corners are outside one plane)
+	if cam != null:
+		for k in planes.size():
+			var all_out := true
+			for i in 8:
+				if planes[k].distance_to(wb.get_endpoint(i)) <= 0.0:
+					all_out = false
+					break
+			if all_out:
+				add.call("NOT_IN_FRUSTUM", "info", g, wb, "AABB is outside camera %s's %s plane (camera at %s, looking %s)" %
+					[cam.name, plane_names[k], v3.call(cam.global_position), v3.call(-cam.global_basis.z)])
+				break
+
+if colliders_seen == 0 and not unsupported.is_empty():
+	notes.append("NO_COLLIDERS: no ray hit anything, so the surface test says nothing here (UNSUPPORTED findings suppressed). " +
+		"Give the floor collision, or compare AABBs by hand with godot_scene3d get_bounds.")
+else:
+	findings.append_array(unsupported)
+if own_body > 0:
+	notes.append("%d nodes carry their own collider and were excluded from the surface test" % own_body)
+
+if geoms.is_empty():
+	notes.append("NOTHING_AUDITED: no visible GeometryInstance3D under the current scene (wrong scene, scene not loaded, or nothing spawned yet)")
+findings.sort_custom(func(a, b): return a.node < b.node)
+var counts := {}
+for f in findings:
+	counts[f.code] = int(counts.get(f.code, 0)) + 1
+return JSON.stringify({"scene": scene.scene_file_path, "audited": geoms.size(), "camera": cam_info,
+	"counts": counts, "findings": findings, "notes": notes,
+	"verdict": "NOTHING_AUDITED" if geoms.is_empty() else ("CLEAN" if findings.is_empty() else "FINDINGS")})
