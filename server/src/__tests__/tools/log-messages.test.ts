@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { compactLogMessages, MAX_OTHER_MESSAGES, type LogMessage } from '../../tools/log-messages.js';
+import { compactLogMessages, compactLogResponse, MAX_OTHER_MESSAGES, type LogMessage } from '../../tools/log-messages.js';
 
 // Captured from Godot 4.7.2: open_scene on a scene whose TileSet atlas texture
 // is missing. One load failure, then create_tile / has_alternative_tile /
@@ -80,6 +80,52 @@ describe('compactLogMessages (#315)', () => {
       entry({ seq: 4, error_type: 1 }),
     ]);
     expect(out).toHaveLength(4);
+  });
+
+  it('keeps the same engine error from different call sites apart', () => {
+    // node.cpp get_node is shared by every script that misses a node.
+    const engine = { file: 'scene/main/node.cpp', line: 1907, function: 'get_node', message: 'Node not found: "HUD"' };
+    const player = { file: 'res://player.gd', line: 10, function: '_ready' };
+    const enemy = { file: 'res://enemy.gd', line: 4, function: '_ready' };
+    const out = compactLogMessages([
+      entry({ seq: 1, ...engine, frames: [player] }),
+      entry({ seq: 2, ...engine, frames: [enemy] }),
+      entry({ seq: 3, ...engine, frames: [player] }),
+    ]);
+    expect(out.map((m) => [m.frames[0].file, m.count])).toEqual([['res://player.gd', 2], ['res://enemy.gd', undefined]]);
+  });
+
+  it('keeps entries raised by different MCP commands apart', () => {
+    const via = (fn: string) => [{ file: 'res://addons/godot_mcp/commands/scene_commands.gd', line: 1, function: fn }];
+    const out = compactLogMessages([
+      entry({ seq: 1, frames: via('open_scene') }),
+      entry({ seq: 2, frames: via('reload_scene') }),
+    ]);
+    expect(out.map((m) => m.via)).toEqual(['open_scene', 'reload_scene']);
+  });
+
+  it('counts the repeats the addon folded into an entry', () => {
+    const out = compactLogMessages([entry({ seq: 1, repeats: 4 }), entry({ seq: 2 })]);
+    expect(out).toHaveLength(1);
+    expect(out[0].count).toBe(6);
+    expect(out[0].last_seq).toBe(2);
+    expect(out[0]).not.toHaveProperty('repeats');
+
+    const [single] = compactLogMessages([entry({ seq: 1, repeats: 2 })]);
+    expect(single.count).toBe(3);
+  });
+
+  it('applies the limit to groups and recounts returned_count', () => {
+    const msgs = [
+      entry({ seq: 1, file: 'res://a.gd' }), entry({ seq: 2, file: 'res://a.gd' }),
+      entry({ seq: 3, file: 'res://b.gd' }), entry({ seq: 4, file: 'res://c.gd' }),
+    ];
+    const res = { total_count: 4, match_count: 4, returned_count: 4, cursor: 4, messages: msgs };
+    expect(compactLogResponse(res, 50)).toMatchObject({ returned_count: 4, group_count: 3 });
+    expect(compactLogResponse(res, 50)).not.toHaveProperty('omitted_groups');
+    const two = compactLogResponse(res, 2);
+    expect(two.messages.map((m) => m.file)).toEqual(['res://b.gd', 'res://c.gd']);
+    expect(two).toMatchObject({ match_count: 4, returned_count: 2, group_count: 2, omitted_groups: 1 });
   });
 
   it('caps the distinct messages it lists and says how many it left out', () => {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../core/define-tool.js';
-import { compactLogMessages, type LogMessage } from './log-messages.js';
+import { compactLogResponse, stripAddonFrames, type LogMessage } from './log-messages.js';
 import { structured } from '../core/structured.js';
 import { staleAdvisory, type ProjectStaleness } from '../utils/project-staleness.js';
 import type { AnyToolDefinition, ImageContent, Vector3 } from '../core/types.js';
@@ -58,10 +58,10 @@ const EditorReadSchema = z.discriminatedUnion('action', [
     action: z
       .literal('get_log_messages')
       .describe(
-        'Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp\'s get_console_output (game console via DAP). Filter by severity (errors-only = "did my change break the editor?") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty. Entries from the same source location are grouped (count, seq range, distinct messages), so one root cause and its repeated downstream errors read as a short list in order of first appearance; the addon\'s own stack frames are dropped and the MCP command that triggered an entry is given as `via`.'
+        'Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp\'s get_console_output (game console via DAP). Filter by severity (errors-only = "did my change break the editor?") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty. Entries raised at the same place from the same call site are grouped (count, seq range, distinct messages), so one root cause and its repeated downstream errors read as a short list in order of first appearance; the addon\'s own stack frames are dropped and the MCP command that triggered an entry is given as `via`.'
       ),
     clear: z.boolean().optional().describe('Clear the editor error buffer after reading'),
-    limit: z.number().int().positive().optional().describe('Maximum number of messages to return (default: 50)'),
+    limit: z.number().int().positive().optional().describe('Maximum number of messages to return, counted in groups unless raw (default: 50). The most recent are kept.'),
     severity: z
       .enum(['all', 'error', 'warning'])
       .optional()
@@ -77,7 +77,7 @@ const EditorReadSchema = z.discriminatedUnion('action', [
       .optional()
       .describe('Return every entry exactly as captured, ungrouped and with full stack frames (default false).'),
   }),
-  z.object({ action: z.literal('get_stack_trace').describe('Get the most recent error stack trace') }),
+  z.object({ action: z.literal('get_stack_trace').describe("Get the most recent error stack trace. The addon's own frames are dropped and the MCP command that triggered the error is given as `via`; get_log_messages with raw: true has the full frames.") }),
   z.object({
     action: z
       .literal('screenshot_game')
@@ -206,7 +206,9 @@ export const editorRead = defineTool({
           'get_log_messages',
           {
             clear: args.clear ?? false,
-            limit: args.limit ?? 50,
+            // Grouped reads fetch every match and apply the limit to groups, so
+            // a long run of echoes can't push the root cause out of the window.
+            limit: args.raw ? (args.limit ?? 50) : 0,
             severity: args.severity ?? 'all',
             since: args.since ?? 0,
           }
@@ -229,12 +231,7 @@ export const editorRead = defineTool({
         // #315: group repeats and drop the addon's own frames unless asked not to.
         // returned_count stays the number of captured entries; group_count is
         // how many the agent actually reads.
-        const shaped = args.raw
-          ? result
-          : (() => {
-              const messages = compactLogMessages(result.messages);
-              return { ...result, group_count: messages.length, messages };
-            })();
+        const shaped = args.raw ? result : compactLogResponse(result, args.limit ?? 50);
         return advisory ? structured({ ...shaped, advisory }) : structured(shaped);
       }
 
@@ -249,7 +246,9 @@ export const editorRead = defineTool({
         if (!result.error && result.frames.length === 0) {
           return 'No stack trace available';
         }
-        return structured(result);
+        // Same as get_log_messages (#315): the addon's own frames say nothing
+        // about the project; keep the triggering command as `via`.
+        return structured(stripAddonFrames(result));
       }
 
       case 'screenshot_game': {
