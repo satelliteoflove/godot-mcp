@@ -1,0 +1,428 @@
+{
+  "cursor": 10,
+  "match_count": 10,
+  "messages": [
+    {
+      "error_type": 0,
+      "file": "core/io/resource_loader.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "_load",
+      "line": 317,
+      "message": "Failed loading resource: res://assets/tiles.png.",
+      "seq": 1,
+      "timestamp": 9718,
+      "type": "Condition \"found\" is true. Returning: Ref<Resource>()"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_tile",
+      "line": 4998,
+      "message": "Cannot create tile. The tile is outside the texture or tiles are already present in the space the tile would cover.",
+      "seq": 2,
+      "timestamp": 9718,
+      "type": "Condition \"!room_for_tile\" is true."
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "has_alternative_tile",
+      "line": 5450,
+      "message": "The TileSetAtlasSource atlas has no tile at (0, 0).",
+      "seq": 3,
+      "timestamp": 9718,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: false"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_alternative_tile",
+      "line": 5398,
+      "message": "TileSetAtlasSource has no tile at (0, 0).",
+      "seq": 4,
+      "timestamp": 9718,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: TileSetSource::INVALID_TILE_ALTERNATIVE"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_tile",
+      "line": 4998,
+      "message": "Cannot create tile. The tile is outside the texture or tiles are already present in the space the tile would cover.",
+      "seq": 5,
+      "timestamp": 9718,
+      "type": "Condition \"!room_for_tile\" is true."
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "has_alternative_tile",
+      "line": 5450,
+      "message": "The TileSetAtlasSource atlas has no tile at (1, 0).",
+      "seq": 6,
+      "timestamp": 9719,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: false"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_alternative_tile",
+      "line": 5398,
+      "message": "TileSetAtlasSource has no tile at (1, 0).",
+      "seq": 7,
+      "timestamp": 9719,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: TileSetSource::INVALID_TILE_ALTERNATIVE"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_tile",
+      "line": 4998,
+      "message": "Cannot create tile. The tile is outside the texture or tiles are already present in the space the tile would cover.",
+      "seq": 8,
+      "timestamp": 9719,
+      "type": "Condition \"!room_for_tile\" is true."
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "has_alternative_tile",
+      "line": 5450,
+      "message": "The TileSetAtlasSource atlas has no tile at (2, 0).",
+      "seq": 9,
+      "timestamp": 9719,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: false"
+    },
+    {
+      "error_type": 0,
+      "file": "scene/resources/2d/tile_set.cpp",
+      "frames": [
+        {
+          "file": "res://addons/godot_mcp/commands/scene_commands.gd",
+          "function": "open_scene",
+          "line": 75
+        },
+        {
+          "file": "res://addons/godot_mcp/command_router.gd",
+          "function": "handle_command",
+          "line": 42
+        },
+        {
+          "file": "res://addons/godot_mcp/plugin.gd",
+          "function": "_on_command_received",
+          "line": 282
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_handle_packet",
+          "line": 291
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process_websocket",
+          "line": 226
+        },
+        {
+          "file": "res://addons/godot_mcp/websocket_server.gd",
+          "function": "_process",
+          "line": 43
+        }
+      ],
+      "function": "create_alternative_tile",
+      "line": 5398,
+      "message": "TileSetAtlasSource has no tile at (2, 0).",
+      "seq": 10,
+      "timestamp": 9719,
+      "type": "Condition \"!tiles.has(p_atlas_coords)\" is true. Returning: TileSetSource::INVALID_TILE_ALTERNATIVE"
+    }
+  ],
+  "returned_count": 10,
+  "total_count": 10
+}

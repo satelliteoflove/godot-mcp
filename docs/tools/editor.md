@@ -29,7 +29,7 @@ Get the currently selected nodes
 
 #### `get_log_messages`
 
-Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp's get_console_output (game console via DAP). Filter by severity (errors-only = "did my change break the editor?") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty.
+Get errors and warnings from the EDITOR process - @tool script runtime errors, import failures, addon errors, and failures from editor-side operations (scene/resource edits, reloads). This is the feedback channel for editor-side changes: run it after a mutation to confirm it did not break the editor. It does NOT include errors from the running game - for those, use minimal-godot-mcp's get_console_output (game console via DAP). Filter by severity (errors-only = "did my change break the editor?") and use `since`/`cursor` to read only what is new; every response returns the current `cursor`, even when empty. Entries from the same source location are grouped (count, seq range, distinct messages), so one root cause and its repeated downstream errors read as a short list in order of first appearance; the addon's own stack frames are dropped and the MCP command that triggered an entry is given as `via`.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -37,6 +37,7 @@ Get errors and warnings from the EDITOR process - @tool script runtime errors, i
 | `limit` | integer | No | Maximum number of messages to return (default: 50) |
 | `severity` | `all`, `error`, `warning` | No | Filter by severity: "error" drops warnings (the "did anything actually break?" check), "warning" returns only warnings, "all" (default) returns both. |
 | `since` | integer | No | Return only messages newer than this cursor. Pass back the `cursor` from a prior response to see just what is new since then - the incremental check that avoids re-reading the whole buffer (0/omitted = from the beginning). |
+| `raw` | boolean | No | Return every entry exactly as captured, ungrouped and with full stack frames (default false). |
 
 #### `get_stack_trace`
 
