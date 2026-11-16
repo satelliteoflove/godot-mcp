@@ -28,10 +28,20 @@ func _log_error(function: String, file: String, line: int, code: String,
 				"function": backtrace.get_frame_function(i),
 			})
 
+	# Engine errors arrive as a condition (`code`) plus an explanation
+	# (`rationale`). push_error, push_warning and script errors such as a failed
+	# assert arrive with only `code`, and that is their text. Keep the text in
+	# `message` either way, so a reader never gets an empty message.
+	var message := rationale
+	var type := code
+	if rationale.is_empty():
+		message = code
+		type = ""
+
 	var error_entry := {
 		"timestamp": Time.get_ticks_msec(),
-		"type": code,
-		"message": rationale,
+		"type": type,
+		"message": message,
 		"file": file,
 		"line": line,
 		"function": function,
