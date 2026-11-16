@@ -8,7 +8,8 @@ extends SceneTree
 ##   - limit: keeps the most recent N matches
 ##   - cursor / total_count / match_count / returned_count bookkeeping
 ## plus that _log_error stamps a monotonic, never-reset `seq` on each entry, and
-## counts back-to-back repeats as `repeats` instead of dropping them (#315).
+## counts back-to-back repeats as `repeats` instead of dropping them (#315), and
+## that push_error / push_warning text lands in `message`, not `type`.
 ##
 ## Not wired into CI (CI has no Godot). Run on demand against any project that has
 ## the addon copied in:
@@ -28,6 +29,7 @@ func _initialize() -> void:
 	_test_query_filters()
 	_test_seq_stamping_via_real_errors()
 	_test_repeats_are_counted()
+	_test_text_only_errors_fill_message()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -130,6 +132,22 @@ func _test_repeats_are_counted() -> void:
 		_check("repeats: loop folded two repeats", int(mine[0].get("repeats", 0)), 2)
 		_check("repeats: other call sites not folded", [mine[1].get("repeats", 0), mine[2].get("repeats", 0)], [0, 0])
 	_check("repeats: seq only advanced for stored entries", MCPLogger.get_seq(), base + 3)
+	MCPLogger.clear_errors()
+
+
+func _test_text_only_errors_fill_message() -> void:
+	# Godot hands these over with the text as the error "code" and no rationale.
+	MCPLogger.clear_errors()
+	var base := MCPLogger.get_seq()
+	push_error("mcp_log_test_text_%d" % base)
+	push_warning("mcp_log_test_warn_%d" % base)
+
+	var mine: Array = MCPLogger.query(base, "all", 0)["messages"]
+	_check("text-only: two entries", mine.size(), 2)
+	if mine.size() == 2:
+		_check("text-only: push_error text in message", mine[0]["message"], "mcp_log_test_text_%d" % base)
+		_check("text-only: push_error type empty", mine[0]["type"], "")
+		_check("text-only: push_warning text in message", mine[1]["message"], "mcp_log_test_warn_%d" % base)
 	MCPLogger.clear_errors()
 
 
