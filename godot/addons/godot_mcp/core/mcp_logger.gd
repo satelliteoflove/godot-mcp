@@ -38,7 +38,13 @@ func _log_error(function: String, file: String, line: int, code: String,
 		"error_type": error_type,
 		"frames": frames,
 	}
-	if not _is_duplicate(error_entry):
+	if _is_duplicate(error_entry):
+		# A back-to-back repeat isn't stored again, but it is counted, so a reader
+		# can tell one failure from the same failure every frame. It keeps the
+		# first entry's seq: an incremental read won't see it as new.
+		var last := _errors[-1]
+		last["repeats"] = int(last.get("repeats", 0)) + 1
+	else:
 		_seq += 1
 		error_entry["seq"] = _seq
 		_errors.append(error_entry)
@@ -51,10 +57,17 @@ static func _is_duplicate(entry: Dictionary) -> bool:
 	if _errors.is_empty():
 		return false
 	var last := _errors[-1]
+	# file/line is the C++ location for push_error and engine errors, shared by
+	# every script that hits it, so the call site (top script frame) counts too.
+	var last_frames: Array = last.get("frames", [])
+	var frames: Array = entry.get("frames", [])
+	var last_site: Variant = last_frames[0] if not last_frames.is_empty() else null
+	var site: Variant = frames[0] if not frames.is_empty() else null
 	return (last.get("file") == entry.get("file")
 		and last.get("line") == entry.get("line")
 		and last.get("message") == entry.get("message")
-		and last.get("type") == entry.get("type"))
+		and last.get("type") == entry.get("type")
+		and last_site == site)
 
 
 static func get_errors() -> Array[Dictionary]:

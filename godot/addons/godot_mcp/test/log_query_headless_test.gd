@@ -7,7 +7,8 @@ extends SceneTree
 ##   - since: returns only entries newer than a cursor (the incremental read)
 ##   - limit: keeps the most recent N matches
 ##   - cursor / total_count / match_count / returned_count bookkeeping
-## plus that _log_error stamps a monotonic, never-reset `seq` on each entry.
+## plus that _log_error stamps a monotonic, never-reset `seq` on each entry, and
+## counts back-to-back repeats as `repeats` instead of dropping them (#315).
 ##
 ## Not wired into CI (CI has no Godot). Run on demand against any project that has
 ## the addon copied in:
@@ -26,6 +27,7 @@ var _failures := 0
 func _initialize() -> void:
 	_test_query_filters()
 	_test_seq_stamping_via_real_errors()
+	_test_repeats_are_counted()
 
 	print("1..%d" % _count)
 	if _failures == 0:
@@ -109,6 +111,26 @@ func _test_seq_stamping_via_real_errors() -> void:
 	var before_clear := MCPLogger.get_seq()
 	MCPLogger.clear_errors()
 	_check("seq: clear_errors does not rewind the cursor", MCPLogger.get_seq() >= before_clear, true)
+
+
+func _test_repeats_are_counted() -> void:
+	# Same file, line, message and type back to back: stored once, counted.
+	MCPLogger.clear_errors()
+	var base := MCPLogger.get_seq()
+	for i in 3:
+		push_error("mcp_log_test_repeat_%d" % base)
+	# Same message from two script lines: push_error's file/line is the engine's,
+	# so only the call site tells them apart. These must stay two entries.
+	push_error("mcp_log_test_site_%d" % base)
+	push_error("mcp_log_test_site_%d" % base)
+
+	var mine: Array = MCPLogger.query(base, "all", 0)["messages"]
+	_check("repeats: three entries stored", mine.size(), 3)
+	if mine.size() == 3:
+		_check("repeats: loop folded two repeats", int(mine[0].get("repeats", 0)), 2)
+		_check("repeats: other call sites not folded", [mine[1].get("repeats", 0), mine[2].get("repeats", 0)], [0, 0])
+	_check("repeats: seq only advanced for stored entries", MCPLogger.get_seq(), base + 3)
+	MCPLogger.clear_errors()
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────

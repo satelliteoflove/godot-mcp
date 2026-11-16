@@ -74,14 +74,31 @@ describe('editorRead tool', () => {
       };
       mock.mockResponse(responseData);
       const result = await editorRead.execute({ action: 'get_log_messages' }, ctx);
-      expect(structuredOf(result)).toEqual(responseData);
+      expect(structuredOf(result)).toEqual({ ...responseData, group_count: 2 });
     });
 
-    it('passes limit param to Godot', async () => {
+    it('fetches every match when grouping and passes limit through on raw', async () => {
       const ctx = createToolContext(mock);
       mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
       await editorRead.execute({ action: 'get_log_messages', limit: 10 }, ctx);
-      expect(mock.calls[0].params.limit).toBe(10);
+      expect(mock.calls[0].params.limit).toBe(0);
+
+      mock.mockResponse({ total_count: 0, returned_count: 0, messages: [] });
+      await editorRead.execute({ action: 'get_log_messages', limit: 10, raw: true }, ctx);
+      expect(mock.calls[1].params.limit).toBe(10);
+    });
+
+    it('applies limit to groups, keeping the most recent', async () => {
+      const ctx = createToolContext(mock);
+      const at = (seq: number, file: string) =>
+        ({ seq, timestamp: seq, type: 'Error', message: file, file, line: 1, error_type: 0, frames: [] });
+      mock.mockResponse({
+        total_count: 4, match_count: 4, returned_count: 4, cursor: 4,
+        messages: [at(1, 'res://a.gd'), at(2, 'res://b.gd'), at(3, 'res://a.gd'), at(4, 'res://c.gd')],
+      });
+      const out = structuredOf(await editorRead.execute({ action: 'get_log_messages', limit: 2 }, ctx));
+      expect(out.messages.map((m: { file: string }) => m.file)).toEqual(['res://b.gd', 'res://c.gd']);
+      expect(out).toMatchObject({ match_count: 4, returned_count: 2, group_count: 2, omitted_groups: 1 });
     });
 
     it('defaults severity to "all" and since to 0', async () => {
@@ -114,7 +131,35 @@ describe('editorRead tool', () => {
       };
       mock.mockResponse(responseData);
       const result = await editorRead.execute({ action: 'get_log_messages', severity: 'error' }, ctx);
-      expect(structuredOf(result)).toEqual(responseData);
+      expect(structuredOf(result)).toEqual({ ...responseData, group_count: 2 });
+    });
+
+    it('groups repeats and drops addon frames by default, and passes raw entries through on raw: true (#315)', async () => {
+      const ctx = createToolContext(mock);
+      const addonFrames = [
+        { file: 'res://addons/godot_mcp/commands/scene_commands.gd', line: 75, function: 'open_scene' },
+        { file: 'res://addons/godot_mcp/command_router.gd', line: 42, function: 'handle_command' },
+      ];
+      const responseData = {
+        total_count: 3, match_count: 3, returned_count: 3, cursor: 3,
+        messages: [
+          { seq: 1, timestamp: 1, type: 'Error', message: 'no tile at (0, 0)', file: 'tile_set.cpp', line: 5450, function: 'has_alternative_tile', error_type: 0, frames: addonFrames },
+          { seq: 2, timestamp: 2, type: 'Error', message: 'no tile at (1, 0)', file: 'tile_set.cpp', line: 5450, function: 'has_alternative_tile', error_type: 0, frames: addonFrames },
+          { seq: 3, timestamp: 3, type: 'Error', message: 'no tile at (1, 0)', file: 'tile_set.cpp', line: 5450, function: 'has_alternative_tile', error_type: 0, frames: addonFrames },
+        ],
+      };
+      mock.mockResponse(responseData);
+      const grouped = structuredOf(await editorRead.execute({ action: 'get_log_messages' }, ctx));
+      expect(grouped.returned_count).toBe(3);
+      expect(grouped.group_count).toBe(1);
+      expect(grouped.messages).toEqual([{
+        ...responseData.messages[0], frames: [], via: 'open_scene', count: 3, last_seq: 3, other_messages: ['no tile at (1, 0)'],
+      }]);
+
+      mock.mockResponse(responseData);
+      const raw = structuredOf(await editorRead.execute({ action: 'get_log_messages', raw: true }, ctx));
+      expect(raw).toEqual(responseData);
+      expect(mock.calls[1].params).not.toHaveProperty('raw');
     });
 
     it('reports "no new messages" with the cursor when reading incrementally and nothing matched', async () => {
@@ -188,6 +233,22 @@ describe('editorRead tool', () => {
       mock.mockResponse(stackData);
       const result = await editorRead.execute({ action: 'get_stack_trace' }, ctx);
       expect(structuredOf(result)).toEqual(stackData);
+    });
+
+    it("drops the addon's own frames and names the triggering command as via (#315)", async () => {
+      const ctx = createToolContext(mock);
+      const userFrame = { file: 'res://level.gd', line: 7, function: '_ready' };
+      mock.mockResponse({
+        error: 'Node not found', error_type: 'Error', file: 'scene/main/node.cpp', line: 1907,
+        frames: [
+          userFrame,
+          { file: 'res://addons/godot_mcp/commands/scene_commands.gd', line: 75, function: 'open_scene' },
+          { file: 'res://addons/godot_mcp/command_router.gd', line: 42, function: 'handle_command' },
+        ],
+      });
+      const out = structuredOf(await editorRead.execute({ action: 'get_stack_trace' }, ctx));
+      expect(out.frames).toEqual([userFrame]);
+      expect(out.via).toBe('open_scene');
     });
   });
 
