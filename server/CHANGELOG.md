@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.3.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.2.0...godot-mcp-v4.3.0) (2026-11-16)
+
+
+### Features
+
+* group repeated log entries and drop addon frames in get_log_messages ([#414](https://github.com/satelliteoflove/godot-mcp/issues/414)) ([d30f90d](https://github.com/satelliteoflove/godot-mcp/commit/d30f90d4b55ea1a800a0f1eb2d8b77646ef0c410))
+
+
+### Bug Fixes
+
+* put push_error, push_warning and script error text in message ([#417](https://github.com/satelliteoflove/godot-mcp/issues/417)) ([5a3afaf](https://github.com/satelliteoflove/godot-mcp/commit/5a3afafb9a5736c5b7a4f3f081f84dd0a2dc1a02))
+
 ## [4.2.0](https://github.com/satelliteoflove/godot-mcp/compare/godot-mcp-v4.1.11...godot-mcp-v4.2.0) (2026-11-09)
 
 
