@@ -33,6 +33,9 @@ var _restart_timer: Timer
 var _current_bind_address := MCPConstants.LOCALHOST_BIND_ADDRESS
 var _current_bind_mode: MCPEnums.BindMode = MCPEnums.BindMode.LOCALHOST
 
+var _launch_port := 0
+var _launch_port_source := ""
+
 
 func _enter_tree() -> void:
 	_command_router = CommandRouter.new()
@@ -57,6 +60,7 @@ func _enter_tree() -> void:
 
 	_ensure_game_bridge_autoload()
 	_ensure_bind_settings()
+	_read_launch_port()
 	_setup_bind_ui()
 	_setup_version_display()
 	if _is_server_disabled_by_env():
@@ -134,7 +138,20 @@ func _get_port_override() -> int:
 
 
 func _get_listen_port() -> int:
+	if _launch_port > 0:
+		return _launch_port
 	return _get_port_override() if _get_port_override_enabled() else WebSocketServer.DEFAULT_PORT
+
+
+# The launch arguments and environment can't change while the editor runs,
+# so the launch port is read once.
+func _read_launch_port() -> void:
+	var launch := MCPUtils.parse_launch_port(
+		OS.get_cmdline_user_args(), OS.get_environment(MCPUtils.LAUNCH_PORT_ENV))
+	if not launch.error.is_empty():
+		MCPLog.warn(launch.error)
+	_launch_port = launch.port
+	_launch_port_source = launch.source
 
 
 func _resolve_bind_address() -> String:
@@ -242,6 +259,8 @@ func _do_restart_server() -> void:
 
 	_update_status("Waiting for connection... (bind %s:%d [%s])" % [bind, port, mode_name])
 	MCPLog.info("Server listening on %s:%d [%s]" % [bind, port, mode_name])
+	if _launch_port > 0:
+		MCPLog.info("Port %d comes from %s and overrides the panel's Port override" % [port, _launch_port_source])
 
 
 func _is_server_disabled_by_env() -> bool:

@@ -31,6 +31,8 @@ If port `6550` is taken on your machine (or you run multiple Godot projects side
 
 The panel persists its settings to `project.godot`, so the override sticks per-project.
 
+To run several editors on the same project, choose each editor's port at launch with `-- --mcp-port=N` or the `GODOT_MCP_PORT` environment variable instead. Either one overrides the panel setting for that editor session only (see [WSL Support](../INSTALL.md#wsl-support)).
+
 ## WSL
 
 Running the MCP server inside WSL2 while Godot runs on Windows works, but localhost won't cross that boundary by itself:

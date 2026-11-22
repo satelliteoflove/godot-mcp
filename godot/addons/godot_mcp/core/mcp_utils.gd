@@ -2,6 +2,31 @@
 class_name MCPUtils
 extends RefCounted
 
+const LAUNCH_PORT_ARG := "--mcp-port="
+const LAUNCH_PORT_ENV := "GODOT_MCP_PORT"
+
+
+# Parses the WebSocket port chosen when the editor starts. It wins over the
+# saved Port override, so several editors can share one project.godot on
+# different ports without rewriting it. A non-empty `--mcp-port=N` user
+# argument (after `--`) wins over `env_value` (GODOT_MCP_PORT); the last such
+# argument counts. Returns {port, source, error}: port is 0 when neither is set
+# or the chosen value is not a valid port, and error is set in the second case.
+static func parse_launch_port(user_args: PackedStringArray, env_value: String) -> Dictionary:
+	var source := LAUNCH_PORT_ENV
+	var raw := env_value.strip_edges()
+	for arg in user_args:
+		if arg.begins_with(LAUNCH_PORT_ARG):
+			var value := arg.substr(LAUNCH_PORT_ARG.length()).strip_edges()
+			if not value.is_empty():
+				source = "--mcp-port"
+				raw = value
+	if raw.is_empty():
+		return {"port": 0, "source": "", "error": ""}
+	if not raw.is_valid_int() or int(raw) < MCPConstants.PORT_MIN or int(raw) > MCPConstants.PORT_MAX:
+		return {"port": 0, "source": source, "error": "Invalid port '%s' from %s; ignoring it" % [raw, source]}
+	return {"port": int(raw), "source": source, "error": ""}
+
 
 static func success(result: Dictionary) -> Dictionary:
 	return {

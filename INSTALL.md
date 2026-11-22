@@ -151,6 +151,15 @@ In the Godot Editor bottom panel (**MCP**), you can configure what the addon lis
 
 If you enable **Port override**, set `GODOT_PORT` on the server to match.
 
+To choose the addon's port when you start the editor, without changing `project.godot`, set `GODOT_MCP_PORT` in the editor's environment or pass a `--mcp-port` user argument after `--`:
+
+```bash
+godot --editor --path my-project -- --mcp-port=6551
+GODOT_MCP_PORT=6551 godot --editor --path my-project
+```
+
+The argument wins over the environment variable, and both win over **Port override**. The panel still shows the saved setting; the status line and the editor log show the port in use. Set `GODOT_PORT` on the server to match. From WSL, a Windows editor sees a Linux environment variable only when `WSLENV` lists it (`WSLENV=GODOT_MCP_PORT`).
+
 ## Don't see your client?
 
 We only list configs that someone has actually tested. If you've got godot-mcp working with a client not listed here, open a [PR](https://github.com/satelliteoflove/godot-mcp/pulls) or [issue](https://github.com/satelliteoflove/godot-mcp/issues) with your verified setup instructions and we'll add it.
